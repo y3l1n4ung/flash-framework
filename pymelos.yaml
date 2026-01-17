@@ -1,0 +1,48 @@
+# pymelos workspace configuration
+name: flash-web-framework
+
+packages:
+  - packages/*
+
+scripts:
+  test:
+    run: PYTHONPATH=src pytest tests/ -v
+    description: Run tests
+
+  lint:
+    run: ruff check .
+    description: Run linting
+
+  format:
+    run: ruff format .
+    description: Format code
+
+  typecheck:
+    run: ty check src/
+    description: Run type checking
+
+command_defaults:
+  concurrency: 4
+  fail_fast: false
+  topological: true
+
+clean:
+  patterns:
+    - "__pycache__"
+    - "*.pyc"
+    - ".pytest_cache"
+    - ".mypy_cache"
+    - ".ruff_cache"
+    - "*.egg-info"
+    - "dist"
+    - "build"
+  protected:
+    - ".venv"
+    - ".git"
+
+versioning:
+  commit_format: conventional
+  tag_format: "{name}@{version}"
+  changelog:
+    enabled: true
+    filename: CHANGELOG.md
