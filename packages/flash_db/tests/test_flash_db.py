@@ -1,11 +1,10 @@
-from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError
 from typing import Sequence
 import pytest
 from .models import Article, Comment
 from flash_db import db
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import patch, AsyncMock
 
 pytestmark = pytest.mark.asyncio
 
@@ -26,7 +25,7 @@ async def test_require_session_factory_raises_runtime_error():
             db._require_session_factory()
 
 
-def test_init_db_sqlite_executes_fk_path():
+async def test_init_db_sqlite_executes_fk_path():
     """
     Covers SQLite-specific branch including FK pool listener.
     """

@@ -3,7 +3,6 @@ import pytest
 import asyncio
 from flash_db import db as db_module
 from flash_db.models import Model
-from sqlalchemy import event
 
 DATABASE_URL = "sqlite+aiosqlite:///:memory:"  # in-memory DB for tests
 

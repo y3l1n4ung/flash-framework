@@ -6,7 +6,7 @@ packages:
 
 scripts:
   test:
-    run: PYTHONPATH=src pytest tests/ -v
+    run: pytest -v
     description: Run tests
 
   lint:
@@ -17,7 +17,7 @@ scripts:
     run: ruff format .
     description: Format code
 
-  typecheck:
+  ty:
     run: ty check src/
     description: Run type checking
 

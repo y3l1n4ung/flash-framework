@@ -153,7 +153,7 @@ class ModelManager(Generic[T]):
             result = await db.execute(stmt)
             await db.commit()
             # Extract rowcount immediately after commit
-            count = result.rowcount if hasattr(result, "rowcount") else 0
+            count = getattr(result, "rowcount", 0)
         except SQLAlchemyError as e:
             await db.rollback()
             raise RuntimeError(
