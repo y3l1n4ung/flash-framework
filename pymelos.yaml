@@ -6,9 +6,13 @@ packages:
 
 scripts:
   test:
-    run: pytest -v
     description: Run tests
-
+    run: |
+      if [ -d tests ] && [ "$(ls -A tests)" ]; then
+        pytest tests/ -v --tb=short --cov=src --cov-report=term-missing
+      else
+        echo "No tests found"
+      fi
   lint:
     run: ruff check .
     description: Run linting

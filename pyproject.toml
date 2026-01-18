@@ -11,3 +11,5 @@ workspace = { members = ["packages/*"] }
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 
+[tool.coverage.run]
+omit = ["tests/*", "*/tests/*",]
