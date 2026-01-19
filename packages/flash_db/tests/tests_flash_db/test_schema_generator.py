@@ -1,5 +1,4 @@
 from sqlalchemy import Column, Integer, DateTime, String
-from sqlalchemy.types import UserDefinedType
 from pydantic import ValidationError
 import datetime
 from typing import Union, Any

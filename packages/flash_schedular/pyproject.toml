@@ -12,3 +12,12 @@ dependencies = []
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+addopts = "--cov=flash_schedular"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+]

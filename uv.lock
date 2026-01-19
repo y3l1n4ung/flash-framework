@@ -176,7 +176,7 @@ source = { editable = "packages/flash_cli" }
 
 [[package]]
 name = "flash-core"
-version = "0.1.1a1"
+version = "0.1.2a1"
 source = { editable = "packages/flash_core" }
 dependencies = [
     { name = "fastapi" },
@@ -201,7 +201,7 @@ dev = [{ name = "pytest", specifier = ">=9.0.2" }]
 
 [[package]]
 name = "flash-db"
-version = "0.3.0"
+version = "0.3.1a1"
 source = { editable = "packages/flash_db" }
 dependencies = [
     { name = "sqlalchemy", extra = ["asyncio"] },
@@ -235,6 +235,16 @@ source = { editable = "packages/flash_rest_framework" }
 name = "flash-schedular"
 version = "0.1.1a1"
 source = { editable = "packages/flash_schedular" }
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+]
+
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=9.0.2" }]
 
 [[package]]
 name = "flash-web-framework"
