@@ -1,5 +1,5 @@
 [project]
-name = "flash-schedular"
+name = "flash-scheduler"
 version = "0.1.1-alpha.1"
 description = "Add your description here"
 readme = "README.md"
@@ -15,7 +15,7 @@ build-backend = "hatchling.build"
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
-addopts = "--cov=flash_schedular"
+addopts = "--cov=flash_scheduler"
 
 [dependency-groups]
 dev = [

@@ -1,9 +1,11 @@
+from flash_scheduler.schemas import CalendarIntervalTriggerConfig
+from pydantic import ValidationError
 import pytest
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 # Update this import path to match your actual package structure
-from flash_schedular.triggers import CalendarIntervalTrigger, Trigger
+from flash_scheduler.triggers import CalendarIntervalTrigger, Trigger
 
 
 # --- Fixtures ---
@@ -62,18 +64,20 @@ def jan_1_2024(utc):
     return datetime(2024, 1, 1, 0, 0, 0, tzinfo=utc)
 
 
-# --- Test Cases ---
-
-
 def test_validation_error_on_empty_args():
     """Should raise error if no interval is provided."""
-    with pytest.raises(ValueError, match="Must specify at least one interval"):
-        CalendarIntervalTrigger(hour=9)
+    with pytest.raises(
+        ValidationError,
+        match="At least one of years, months, weeks, or days must be specified",
+    ):
+        config = CalendarIntervalTriggerConfig(hour=9)
+        CalendarIntervalTrigger(config=config)
 
 
 def test_simple_month_interval(jan_1_2024):
     """Basic Case: 1 month interval from Jan 1st should be Feb 1st."""
-    trigger = CalendarIntervalTrigger(months=1)
+    config = CalendarIntervalTriggerConfig(months=1)
+    trigger = CalendarIntervalTrigger(config=config)
 
     # 1. First run
     next_run = trigger.next_fire_time(None, jan_1_2024)
@@ -87,7 +91,9 @@ def test_simple_month_interval(jan_1_2024):
 
 def test_month_end_clipping_logic(utc):
     """Edge Case: Jan 31 + 1 month should be Feb 29 (Leap Year) or Feb 28."""
-    trigger = CalendarIntervalTrigger(months=1)
+    config = CalendarIntervalTriggerConfig(months=1)
+
+    trigger = CalendarIntervalTrigger(config)
 
     # Case A: Leap Year (2024)
     jan_31 = datetime(2024, 1, 31, 12, 0, tzinfo=utc)
@@ -106,8 +112,8 @@ def test_month_end_clipping_logic(utc):
 
 def test_specific_time_execution(jan_1_2024):
     """Should respect hour, minute, second arguments."""
-    trigger = CalendarIntervalTrigger(days=1, hour=14, minute=30)
-
+    config = CalendarIntervalTriggerConfig(days=1, hour=14, minute=30)
+    trigger = CalendarIntervalTrigger(config=config)
     # "Now" is 10:00 AM. Next run should be today at 14:30.
     now = jan_1_2024.replace(hour=10)
     next_run = trigger.next_fire_time(None, now)
@@ -118,7 +124,8 @@ def test_specific_time_execution(jan_1_2024):
 def test_start_time_constraint(utc):
     """Should not fire before start_time."""
     start_date = datetime(2025, 1, 1, tzinfo=utc)
-    trigger = CalendarIntervalTrigger(days=1, start_time=start_date)
+    config = CalendarIntervalTriggerConfig(days=1, start_time=start_date)
+    trigger = CalendarIntervalTrigger(config=config)
 
     # Current time is 2024
     now = datetime(2024, 1, 1, tzinfo=utc)
@@ -130,7 +137,8 @@ def test_start_time_constraint(utc):
 def test_end_time_constraint(utc):
     """Should return None if next fire time is past end_time."""
     end_date = datetime(2024, 1, 5, tzinfo=utc)
-    trigger = CalendarIntervalTrigger(days=1, end_time=end_date)
+    config = CalendarIntervalTriggerConfig(days=1, end_time=end_date)
+    trigger = CalendarIntervalTrigger(config=config)
 
     now = datetime(2024, 1, 4, tzinfo=utc)
     prev_run = datetime(2024, 1, 4, tzinfo=utc)
@@ -150,7 +158,8 @@ def test_timezone_conversion(utc):
     tz_plus_5 = timezone(timedelta(hours=5))
 
     # Trigger set for 10:00 AM local time (UTC+5)
-    trigger = CalendarIntervalTrigger(days=1, hour=10, tz=tz_plus_5)
+    config = CalendarIntervalTriggerConfig(days=1, hour=10, tz=tz_plus_5)
+    trigger = CalendarIntervalTrigger(config=config)
 
     now = datetime(2024, 1, 1, 0, 0, tzinfo=utc)
     next_run = trigger.next_fire_time(None, now)
@@ -163,7 +172,8 @@ def test_timezone_conversion(utc):
 
 def test_catchup_logic(jan_1_2024):
     """Should skip missed intervals if system was down."""
-    trigger = CalendarIntervalTrigger(months=1)
+    config = CalendarIntervalTriggerConfig(months=1)
+    trigger = CalendarIntervalTrigger(config=config)
     last_run = jan_1_2024
 
     # System wakes up in April
@@ -181,7 +191,8 @@ def test_jitter_application(mock_random, jan_1_2024):
     # Force random to return 30.5 seconds
     mock_random.return_value = 30.5
 
-    trigger = CalendarIntervalTrigger(days=1, jitter=60)
+    config = CalendarIntervalTriggerConfig(days=1, jitter=60)
+    trigger = CalendarIntervalTrigger(config=config)
 
     next_run = trigger.next_fire_time(None, jan_1_2024)
 
@@ -194,7 +205,9 @@ def test_jitter_application(mock_random, jan_1_2024):
 
 def test_repr_method():
     """Ensure string representation works."""
-    trigger = CalendarIntervalTrigger(years=1, months=2, jitter=60)
+    config = CalendarIntervalTriggerConfig(years=1, months=2, jitter=60)
+    trigger = CalendarIntervalTrigger(config=config)
+
     repr_str = repr(trigger)
 
     # Verify key parts are in the string
@@ -207,7 +220,8 @@ def test_repr_method():
 def test_now_is_past_end_time(utc):
     """Early exit when current time is already past end_time."""
     end_date = datetime(2023, 1, 1, tzinfo=utc)
-    trigger = CalendarIntervalTrigger(days=1, end_time=end_date)
+    config = CalendarIntervalTriggerConfig(days=1, end_time=end_date)
+    trigger = CalendarIntervalTrigger(config=config)
 
     # "Now" is in 2024 (way past the end date)
     now = datetime(2024, 1, 1, tzinfo=utc)
@@ -219,15 +233,20 @@ def test_now_is_past_end_time(utc):
 
 def test_init_raises_error_if_empty():
     """Ensure initialization fails if no interval is given."""
-    with pytest.raises(ValueError, match="Must specify at least one interval"):
+    with pytest.raises(
+        ValueError,
+        match="At least one of years, months, weeks, or days must be specified",
+    ):
         # No args provided
-        CalendarIntervalTrigger()
+        config = CalendarIntervalTriggerConfig()
+        CalendarIntervalTrigger(config=config)
 
 
 def test_next_fire_time_first_run(jan_1_2024):
     """Lines 79-90: Test the first execution calculation."""
     # Run every month
-    trigger = CalendarIntervalTrigger(months=1, hour=9)
+    config = CalendarIntervalTriggerConfig(months=1, hour=9)
+    trigger = CalendarIntervalTrigger(config=config)
 
     # 'now' is Jan 1st 00:00. Trigger wants 9:00.
     # Logic: 9:00 is in the future relative to 'now', so it should just return Jan 1st 09:00.
@@ -238,7 +257,8 @@ def test_next_fire_time_first_run(jan_1_2024):
 
 def test_next_fire_time_subsequent_run(jan_1_2024):
     """Lines 91-98: Test calculating the next interval from a previous one."""
-    trigger = CalendarIntervalTrigger(months=1)
+    config = CalendarIntervalTriggerConfig(months=1)
+    trigger = CalendarIntervalTrigger(config=config)
 
     # Previous run was Jan 1st
     prev_run = jan_1_2024

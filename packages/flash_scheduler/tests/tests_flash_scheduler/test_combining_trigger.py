@@ -1,9 +1,10 @@
-from flash_schedular.triggers.date import DateTrigger
+from flash_scheduler.schemas import CronTriggerConfig, IntervalTriggerConfig
+from flash_scheduler.triggers.date import DateTrigger
 import pytest
 from datetime import datetime, timezone, timedelta
-from flash_schedular.triggers.combining import AndTrigger, OrTrigger
-from flash_schedular.triggers.cron import CronTrigger
-from flash_schedular.triggers.interval import IntervalTrigger
+from flash_scheduler.triggers.combining import AndTrigger, OrTrigger
+from flash_scheduler.triggers.cron import CronTrigger
+from flash_scheduler.triggers.interval import IntervalTrigger
 
 
 @pytest.fixture
@@ -26,8 +27,10 @@ def test_and_trigger_basic_overlap(jan_1_2026):
     Context: Jan 1, 2026 is a Thursday.
     Logic: The scheduler must wait for the first Monday (Jan 5).
     """
-    t1 = CronTrigger(day_of_week="MON")  # Mondays
-    t2 = CronTrigger(hour="10", minute="0")  # 10:00 AM
+    t1_config = CronTriggerConfig(day_of_week="MON")  # Mondays
+    t1 = CronTrigger(config=t1_config)  # Mondays
+    t2_config = CronTriggerConfig(hour="10", minute="0")  # 10:00 AM
+    t2 = CronTrigger(config=t2_config)  # 10:00 AM
 
     and_trigger = AndTrigger([t1, t2])
 
@@ -54,8 +57,10 @@ def test_and_trigger_impossible(jan_1_2026):
     Scenario: 'Every Monday' AND 'Every Tuesday'.
     Logic: Impossible to be both days at once. Should return None.
     """
-    t1 = CronTrigger(day_of_week="MON")
-    t2 = CronTrigger(day_of_week="TUE")
+    t1_config = CronTriggerConfig(day_of_week="MON")
+    t1 = CronTrigger(config=t1_config)
+    t2_config = CronTriggerConfig(day_of_week="TUE")
+    t2 = CronTrigger(config=t2_config)
 
     and_trigger = AndTrigger([t1, t2])
 
@@ -66,7 +71,7 @@ def test_and_trigger_impossible(jan_1_2026):
 def test_and_trigger_validation():
     """Requires at least 2 triggers."""
     with pytest.raises(ValueError, match="requires at least 2 triggers"):
-        AndTrigger([CronTrigger(minute="*")])
+        AndTrigger([CronTrigger(CronTriggerConfig(minute="*"))])
 
 
 def test_or_trigger_earliest_wins(jan_1_2026):
@@ -74,8 +79,10 @@ def test_or_trigger_earliest_wins(jan_1_2026):
     Scenario: 'Every 10 mins' OR 'Every 1 hour'.
     Logic: Should return 10 mins because it occurs sooner than 1 hour.
     """
-    t1 = IntervalTrigger(minutes=10)
-    t2 = IntervalTrigger(hours=1)
+    t1_config = IntervalTriggerConfig(minutes=10)
+    t1 = IntervalTrigger(config=t1_config)
+    t2_config = IntervalTriggerConfig(hours=1)
+    t2 = IntervalTrigger(config=t2_config)
 
     or_trigger = OrTrigger([t1, t2])
 
@@ -90,8 +97,10 @@ def test_or_trigger_interleaved(jan_1_2026):
     Scenario: 'At min 5' OR 'At min 10'.
     Logic: Should fire at 00:05, then 00:10.
     """
-    t1 = CronTrigger(minute="5")
-    t2 = CronTrigger(minute="10")
+    t1_config = CronTriggerConfig(minute="5")
+    t1 = CronTrigger(config=t1_config)
+    t2_config = CronTriggerConfig(minute="10")
+    t2 = CronTrigger(config=t2_config)
 
     or_trigger = OrTrigger([t1, t2])
 
@@ -119,11 +128,11 @@ def test_and_trigger_finishes_when_one_child_finishes(utc):
     """
     # Valid trigger (Future)
     future_date = datetime(3000, 1, 1, tzinfo=utc)
-    t1 = DateTrigger(run_time=future_date)
+    t1 = DateTrigger(run_at=future_date)
 
     # Finished trigger (Past)
     past_date = datetime(2000, 1, 1, tzinfo=utc)
-    t2 = DateTrigger(run_time=past_date)
+    t2 = DateTrigger(run_at=past_date)
 
     and_trigger = AndTrigger([t1, t2])
 
@@ -142,8 +151,8 @@ def test_or_trigger_finishes_when_all_children_finish(utc):
     past_date = datetime(2000, 1, 1, tzinfo=utc)
 
     # Both triggers are done
-    t1 = DateTrigger(run_time=past_date)
-    t2 = DateTrigger(run_time=past_date)
+    t1 = DateTrigger(run_at=past_date)
+    t2 = DateTrigger(run_at=past_date)
 
     or_trigger = OrTrigger([t1, t2])
 

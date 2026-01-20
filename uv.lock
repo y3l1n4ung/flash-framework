@@ -10,7 +10,7 @@ members = [
     "flash-core",
     "flash-db",
     "flash-rest-framework",
-    "flash-schedular",
+    "flash-scheduler",
     "flash-web-framework",
     "flash-websocket",
 ]
@@ -232,9 +232,9 @@ version = "0.1.1a1"
 source = { editable = "packages/flash_rest_framework" }
 
 [[package]]
-name = "flash-schedular"
+name = "flash-scheduler"
 version = "0.1.1a1"
-source = { editable = "packages/flash_schedular" }
+source = { editable = "packages/flash_scheduler" }
 
 [package.dev-dependencies]
 dev = [

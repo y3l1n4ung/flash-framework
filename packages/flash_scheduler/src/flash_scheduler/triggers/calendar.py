@@ -7,66 +7,45 @@ import random
 from datetime import datetime, timedelta, timezone
 
 from .base import Trigger
+from ..schemas import CalendarIntervalTriggerConfig
 
 
 class CalendarIntervalTrigger(Trigger):
     """
     Trigger that fires at intervals respecting calendar boundaries.
 
-    Unlike standard intervals, this handles variable month lengths and leap years
-    correctly (e.g., "every month" on Jan 31st -> Feb 28th/29th).
-
     Examples:
-        >>> # Run on the 1st of every month at 9:00 AM UTC
-        >>> trigger = CalendarIntervalTrigger(months=1, hour=9, minute=0)
+        >>> # Monthly execution on a specific time
+        >>> config = CalendarIntervalTriggerConfig(months=1, hour=9, minute=0)
+        >>> trigger = CalendarIntervalTrigger(config)
 
-        >>> # Run yearly with a random delay (jitter) to prevent load spikes
-        >>> trigger = CalendarIntervalTrigger(years=1, jitter=60)
+        >>> # Weekly execution
+        >>> config = CalendarIntervalTriggerConfig(weeks=1, hour=12)
+        >>> trigger = CalendarIntervalTrigger(config)
+
+        >>> # Complex calendar interval (every 3 months and 2 days)
+        >>> config = CalendarIntervalTriggerConfig(months=3, days=2, hour=0)
+        >>> trigger = CalendarIntervalTrigger(config)
 
     Args:
-        years: Interval in years.
-        months: Interval in months.
-        weeks: Interval in weeks.
-        days: Interval in days.
-        hour: Hour to fire on (0-23).
-        minute: Minute to fire on (0-59).
-        second: Second to fire on (0-59).
-        start_time: Earliest possible fire time.
-        end_time: Latest possible fire time.
-        tz: Timezone to use for calculations.
-        jitter: Max random delay in seconds to avoid load spikes.
+        config: CalendarIntervalTriggerConfig,
     """
 
     def __init__(
         self,
-        years: int = 0,
-        months: int = 0,
-        weeks: int = 0,
-        days: int = 0,
-        hour: int = 0,
-        minute: int = 0,
-        second: int = 0,
-        start_time: datetime | None = None,
-        end_time: datetime | None = None,
-        tz: timezone | None = None,
-        jitter: int | None = None,
+        config: CalendarIntervalTriggerConfig,
     ):
-        if not any((years, months, weeks, days)):
-            raise ValueError(
-                "Must specify at least one interval (years, months, weeks, or days)."
-            )
-
-        self.years = years
-        self.months = months
-        self.weeks = weeks
-        self.days = days
-        self.hour = hour
-        self.minute = minute
-        self.second = second
-        self.start_time = start_time
-        self.end_time = end_time
-        self.tz = tz or timezone.utc
-        self.jitter = jitter
+        self.years = config.years
+        self.months = config.months
+        self.weeks = config.weeks
+        self.days = config.days
+        self.hour = config.hour
+        self.minute = config.minute
+        self.second = config.second
+        self.start_time = config.start_time
+        self.end_time = config.end_time
+        self.tz = config.tz or timezone.utc
+        self.jitter = config.jitter
 
     def next_fire_time(
         self, prev_fire_time: datetime | None, now: datetime

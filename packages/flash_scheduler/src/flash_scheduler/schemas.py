@@ -1,9 +1,39 @@
 """Pydantic schemas/data contracts for the scheduler."""
 
-from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
+
+import zoneinfo
+
+from datetime import datetime, timedelta, timezone
 from enum import Enum, auto
-from typing import Any, Literal
-from pydantic import BaseModel, Field, field_validator, model_validator
+from typing import Any, Literal, Annotated
+from pydantic import (
+    BaseModel,
+    Field,
+    field_validator,
+    model_validator,
+    BeforeValidator,
+    field_serializer,
+)
+
+
+def validate_timezone(v: Any) -> Any:
+    """Ensure the value is a valid timezone or ZoneInfo object."""
+    if isinstance(v, (timezone, zoneinfo.ZoneInfo)):
+        return v
+    if isinstance(v, str):
+        try:
+            return zoneinfo.ZoneInfo(v)
+        except zoneinfo.ZoneInfoNotFoundError:
+            raise ValueError(f"Invalid timezone name: {v}")
+    raise ValueError(f"Invalid timezone type: {type(v).__name__}")
+
+
+# Annotated type to handle timezone validation explicitly.
+# We use Any here because Pydantic V2 cannot generate a core schema for the
+# datetime.timezone class specifically. The BeforeValidator handles the actual
+# type enforcement and conversion.
+TzType = Annotated[Any, BeforeValidator(validate_timezone)]
 
 
 class MisfirePolicy(Enum):
@@ -36,6 +66,7 @@ class IntervalTriggerConfig(BaseModel):
     start_time: datetime | None = None
     end_time: datetime | None = None
     jitter: int | None = None
+    interval: timedelta | None = None
 
     @model_validator(mode="after")
     def validate_interval(self) -> "IntervalTriggerConfig":
@@ -73,21 +104,32 @@ class CronTriggerConfig(BaseModel):
     day: str = "*"
     month: str = "*"
     day_of_week: str = "*"
-    timezone: str = "UTC"
+    tz: TzType | None = ZoneInfo("UTC")
     jitter: int | None = None
+
+    @field_serializer("tz")
+    def serialize_timezone(self, v: Any) -> str | None:
+        """Convert ZoneInfo or timezone object to string for JSON serialization."""
+        if isinstance(v, zoneinfo.ZoneInfo):
+            return v.key
+        if isinstance(v, timezone):
+            return str(v)
+        if v is None:
+            return None
+        raise ValueError(f"Expected str, ZoneInfo, or timezone, got {type(v).__name__}")
 
 
 class DateTriggerConfig(BaseModel):
     """Configuration for one-time date triggers."""
 
     trigger_type: Literal["date"] = "date"
-    run_time: datetime
+    run_at: datetime
 
-    @field_validator("run_time")
+    @field_validator("run_at")
     @classmethod
     def validate_timezone(cls, v: datetime) -> datetime:
         if v.tzinfo is None:
-            raise ValueError("run_time must be timezone-aware")
+            raise ValueError("run_at must be timezone-aware")
         return v
 
 
@@ -113,8 +155,20 @@ class CalendarIntervalTriggerConfig(BaseModel):
     second: int = 0
     start_time: datetime | None = None
     end_time: datetime | None = None
-    timezone: str = "UTC"
+    tz: TzType | None = None
     jitter: int | None = None
+
+    @field_serializer("tz")
+    def serialize_timezone(self, v: Any) -> str | None:
+        """Convert ZoneInfo or timezone object to string for JSON serialization."""
+        if isinstance(v, zoneinfo.ZoneInfo):
+            return v.key
+        if isinstance(v, timezone):
+            # Handles fixed offset timezones like UTC
+            return str(v)
+        if v is None:
+            return None
+        raise ValueError(f"Expected str, ZoneInfo, or timezone, got {type(v).__name__}")
 
     @model_validator(mode="after")
     def validate_interval(self) -> "CalendarIntervalTriggerConfig":

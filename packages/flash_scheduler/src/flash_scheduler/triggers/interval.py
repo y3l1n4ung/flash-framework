@@ -5,6 +5,8 @@ from __future__ import annotations
 import random
 from datetime import datetime, timedelta
 
+from flash_scheduler.schemas import IntervalTriggerConfig
+
 from .base import Trigger
 
 
@@ -39,31 +41,21 @@ class IntervalTrigger(Trigger):
         jitter: Max random delay in seconds to avoid load spikes.
     """
 
-    def __init__(
-        self,
-        weeks: int = 0,
-        days: int = 0,
-        hours: int = 0,
-        minutes: int = 0,
-        seconds: int = 0,
-        interval: timedelta | None = None,
-        start_time: datetime | None = None,
-        end_time: datetime | None = None,
-        jitter: int | None = None,
-    ):
-        if interval:
-            self.interval = interval
+    def __init__(self, config: IntervalTriggerConfig):
+        if config.interval:
+            self.interval = config.interval
         else:
             self.interval = timedelta(
-                weeks=weeks, days=days, hours=hours, minutes=minutes, seconds=seconds
+                weeks=config.weeks,
+                days=config.days,
+                hours=config.hours,
+                minutes=config.minutes,
+                seconds=config.seconds,
             )
 
-        if self.interval.total_seconds() <= 0:
-            raise ValueError("Interval must be positive")
-
-        self.start_time = start_time
-        self.end_time = end_time
-        self.jitter = jitter
+        self.start_time = config.start_time
+        self.end_time = config.end_time
+        self.jitter = config.jitter
 
     def next_fire_time(
         self, prev_fire_time: datetime | None, now: datetime

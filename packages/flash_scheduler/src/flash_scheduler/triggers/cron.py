@@ -7,6 +7,8 @@ import random
 import zoneinfo
 from datetime import datetime, timedelta, timezone
 
+from flash_scheduler.schemas import CronTriggerConfig
+
 from .base import Trigger
 
 
@@ -124,33 +126,23 @@ class CronTrigger(Trigger):
         "DEC": 12,
     }
 
-    def __init__(
-        self,
-        second: str = "0",
-        minute: str = "*",
-        hour: str = "*",
-        day: str = "*",
-        month: str = "*",
-        day_of_week: str = "*",
-        tz: timezone | zoneinfo.ZoneInfo | None = None,
-        jitter: int | None = None,
-    ):
-        self.second = second
-        self.minute = minute
-        self.hour = hour
-        self.day = day
-        self.month = month
-        self.day_of_week = day_of_week
-        self.tz = tz if tz else timezone.utc
-        self.jitter = jitter
+    def __init__(self, config: CronTriggerConfig):
+        self.second = config.second
+        self.minute = config.minute
+        self.hour = config.hour
+        self.day = config.day
+        self.month = config.month
+        self.day_of_week = config.day_of_week
+        self.tz = config.tz if config.tz else timezone.utc
+        self.jitter = config.jitter
 
         # Compile fields immediately
-        self._second = CronField(second, 0, 59)
-        self._minute = CronField(minute, 0, 59)
-        self._hour = CronField(hour, 0, 23)
-        self._day = CronField(day, 1, 31)
-        self._month = CronField(month, 1, 12, self.MONTH_ALIASES)
-        self._day_of_week = CronField(day_of_week, 0, 6, self.DAY_ALIASES)
+        self._second = CronField(self.second, 0, 59)
+        self._minute = CronField(self.minute, 0, 59)
+        self._hour = CronField(self.hour, 0, 23)
+        self._day = CronField(self.day, 1, 31)
+        self._month = CronField(self.month, 1, 12, self.MONTH_ALIASES)
+        self._day_of_week = CronField(self.day_of_week, 0, 6, self.DAY_ALIASES)
 
     @classmethod
     def from_string(
@@ -178,27 +170,30 @@ class CronTrigger(Trigger):
             # Standard: min hour day month dow (seconds default to 0)
             minute, hour, day, month, dow = parts
             return cls(
-                second="0",
-                minute=minute,
-                hour=hour,
-                day=day,
-                month=month,
-                day_of_week=dow,
-                tz=tz,
-                jitter=jitter,
+                config=CronTriggerConfig(
+                    minute=minute,
+                    hour=hour,
+                    day=day,
+                    month=month,
+                    day_of_week=dow,
+                    tz=tz,
+                    jitter=jitter,
+                )
             )
         elif num_parts == 6:
             # Extended: sec min hour day month dow
             second, minute, hour, day, month, dow = parts
             return cls(
-                second=second,
-                minute=minute,
-                hour=hour,
-                day=day,
-                month=month,
-                day_of_week=dow,
-                tz=tz,
-                jitter=jitter,
+                config=CronTriggerConfig(
+                    second=second,
+                    minute=minute,
+                    hour=hour,
+                    day=day,
+                    month=month,
+                    day_of_week=dow,
+                    tz=tz,
+                    jitter=jitter,
+                )
             )
         else:
             raise ValueError(

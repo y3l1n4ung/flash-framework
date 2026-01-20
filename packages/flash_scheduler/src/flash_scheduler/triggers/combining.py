@@ -16,7 +16,7 @@ class AndTrigger(base.Trigger):
 
     Examples:
         >>> # Fire only on Mondays that are ALSO the 1st of the month
-        >>> from flash_schedular.triggers.cron import CronTrigger
+        >>> from flash_scheduler.triggers.cron import CronTrigger
         >>> trigger = AndTrigger([
         ...     CronTrigger(day_of_week="MON"),
         ...     CronTrigger(day="1"),
@@ -80,7 +80,7 @@ class OrTrigger(base.Trigger):
 
     Examples:
         >>> # Fire on Mondays OR on the 1st of the month
-        >>> from flash_schedular.triggers.cron import CronTrigger
+        >>> from flash_scheduler.triggers.cron import CronTrigger
         >>> trigger = OrTrigger([
         ...     CronTrigger(day_of_week="MON"),
         ...     CronTrigger(day="1"),

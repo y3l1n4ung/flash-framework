@@ -1,7 +1,8 @@
+from flash_scheduler.schemas import IntervalTriggerConfig
 import pytest
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
-from flash_schedular.triggers.interval import IntervalTrigger
+from flash_scheduler.triggers.interval import IntervalTrigger
 
 
 @pytest.fixture
@@ -20,8 +21,8 @@ def now_utc(utc):
 
 def test_validation_error():
     """Ensure the trigger raises an error if the interval is 0 or negative."""
-    with pytest.raises(ValueError, match="Interval must be positive"):
-        IntervalTrigger(seconds=0)
+    with pytest.raises(ValueError, match="interval must be positive"):
+        IntervalTrigger(IntervalTriggerConfig(seconds=0))
 
 
 def test_first_run_calculation(now_utc):
@@ -29,7 +30,7 @@ def test_first_run_calculation(now_utc):
     Test the very first execution of a job.
     Logic: If never run before, next fire time should be NOW + INTERVAL.
     """
-    trigger = IntervalTrigger(minutes=10)
+    trigger = IntervalTrigger(IntervalTriggerConfig(minutes=10))
 
     # Passing None as 'previous_fire_time' simulates the first run
     next_run = trigger.next_fire_time(None, now_utc)
@@ -45,7 +46,7 @@ def test_first_run_with_start_time(now_utc):
     """
     # Set start time to 13:00 (1 hour in the future)
     start = now_utc + timedelta(hours=1)
-    trigger = IntervalTrigger(minutes=10, start_time=start)
+    trigger = IntervalTrigger(IntervalTriggerConfig(minutes=10, start_time=start))
 
     next_run = trigger.next_fire_time(None, now_utc)
 
@@ -58,7 +59,7 @@ def test_subsequent_run_normal(now_utc):
     Test standard recurring execution.
     Logic: Next run = Previous run + Interval.
     """
-    trigger = IntervalTrigger(minutes=10)
+    trigger = IntervalTrigger(IntervalTriggerConfig(minutes=10))
     prev_run = now_utc  # 12:00
 
     # Simulating the scheduler checking at 12:05
@@ -77,7 +78,7 @@ def test_catchup_logic(now_utc):
     We missed the 12:10, 12:20, and 12:30 runs.
     Logic: Skip the missed runs and schedule for the next valid slot (12:40).
     """
-    trigger = IntervalTrigger(minutes=10)
+    trigger = IntervalTrigger(IntervalTriggerConfig(minutes=10))
     prev_run = now_utc  # 12:00
 
     # Current time is 12:35
@@ -97,7 +98,7 @@ def test_end_time_constraint(now_utc):
     Logic: Since 12:10 > 12:05, return None (stop scheduling).
     """
     end = now_utc + timedelta(minutes=5)  # Ends at 12:05
-    trigger = IntervalTrigger(minutes=10, end_time=end)
+    trigger = IntervalTrigger(IntervalTriggerConfig(minutes=10, end_time=end))
 
     next_run = trigger.next_fire_time(None, now_utc)
 
@@ -112,7 +113,7 @@ def test_now_past_end_time(now_utc):
     Logic: Return None immediately.
     """
     end = now_utc - timedelta(minutes=1)  # Ended 1 min ago
-    trigger = IntervalTrigger(minutes=10, end_time=end)
+    trigger = IntervalTrigger(IntervalTriggerConfig(minutes=10, end_time=end))
 
     assert trigger.next_fire_time(None, now_utc) is None
 
@@ -127,7 +128,7 @@ def test_jitter(mock_random, now_utc):
     # Force random.uniform to return exactly 5.0 seconds
     mock_random.return_value = 5.0
 
-    trigger = IntervalTrigger(minutes=10, jitter=10)
+    trigger = IntervalTrigger(IntervalTriggerConfig(minutes=10, jitter=10))
 
     next_run = trigger.next_fire_time(None, now_utc)
 
@@ -141,7 +142,7 @@ def test_repr():
     Verify the string representation (used for debugging logs).
     We check if the correct class name and timedelta are present.
     """
-    t = IntervalTrigger(weeks=1)
+    t = IntervalTrigger(IntervalTriggerConfig(weeks=1))
 
     # 'weeks=1' becomes 'days=7' in python timedelta
     assert "IntervalTrigger" in repr(t)
@@ -156,8 +157,15 @@ def test_init_with_direct_interval_object():
     direct_interval = timedelta(hours=2)
 
     # Pass it to the trigger, also passing 'minutes=30' to ensure it gets ignored
-    trigger = IntervalTrigger(minutes=30, interval=direct_interval)
+    trigger = IntervalTrigger(
+        IntervalTriggerConfig(minutes=30, interval=direct_interval)
+    )
 
     # The trigger should use the direct object (2 hours), NOT the minutes (30 mins)
     assert trigger.interval == direct_interval
     assert trigger.interval.total_seconds() == 7200  # 2 hours * 3600
+
+
+def test_interval_positive():
+    with pytest.raises(ValueError):
+        IntervalTrigger(IntervalTriggerConfig(interval=timedelta(0)))
