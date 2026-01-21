@@ -76,7 +76,7 @@ class TestGetQueryset:
 
     def test_returns_custom_queryset_if_set(self):
         """get_queryset returns custom queryset if class has queryset attribute."""
-        custom_qs = Product.objects.filter(Product.published == True)
+        custom_qs = Product.objects.filter(Product.published.is_(True))
 
         class ProductDetail(SingleObjectMixin[Product]):
             queryset = custom_qs
@@ -87,7 +87,7 @@ class TestGetQueryset:
 
     def test_queryset_takes_precedence_over_model(self):
         """When both queryset and model are set, queryset is used."""
-        custom_qs = Product.objects.filter(Product.published == True)
+        custom_qs = Product.objects.filter(Product.published.is_(True))
 
         class ProductDetail(SingleObjectMixin[Product]):
             model = Product
@@ -96,18 +96,6 @@ class TestGetQueryset:
         mixin = ProductDetail()
         qs = mixin.get_queryset()
         assert qs is custom_qs
-
-    def test_raises_error_when_model_and_queryset_missing(self):
-        """Raises RuntimeError if neither model nor queryset is defined."""
-
-        class BrokenDetail(SingleObjectMixin[Product]):
-            pass
-
-        mixin = BrokenDetail()
-        with pytest.raises(
-            RuntimeError, match="requires a .model or .queryset attribute"
-        ):
-            mixin.get_queryset()
 
 
 class TestGetObject:
@@ -184,21 +172,6 @@ class TestGetObject:
         assert obj.slug == "laptop"
 
     @pytest.mark.asyncio
-    async def test_returns_404_when_not_found(self, base_mixin):
-        """Raises HTTPException with 404 status when object doesn't exist."""
-
-        class ProductDetail(base_mixin):
-            model = Product
-            kwargs = {"pk": 9999}
-
-        mixin = ProductDetail()
-
-        with pytest.raises(HTTPException) as exc:
-            await mixin.get_object()
-
-        assert exc.value.status_code == 404
-
-    @pytest.mark.asyncio
     async def test_raises_error_when_url_params_missing(self, base_mixin):
         """Raises AttributeError if neither pk nor slug in kwargs."""
 
@@ -224,38 +197,6 @@ class TestGetObject:
 
         with pytest.raises(AttributeError, match="lacks 'invalid_field'"):
             await mixin.get_object()
-
-    @pytest.mark.asyncio
-    async def test_accepts_custom_queryset_parameter(
-        self, base_mixin, unpublished_product
-    ):
-        """get_object accepts queryset parameter to override default."""
-
-        class ProductDetail(base_mixin):
-            model = Product
-            kwargs = {"pk": unpublished_product.id}
-
-        mixin = ProductDetail()
-
-        published_qs = Product.objects.filter(Product.published == True)
-        with pytest.raises(HTTPException):
-            await mixin.get_object(queryset=published_qs)
-
-        obj = await mixin.get_object()
-        assert obj.id == unpublished_product.id
-
-    @pytest.mark.asyncio
-    async def test_model_from_queryset_when_not_set(self, base_mixin, product):
-        """Infers model from queryset when model is not explicitly set."""
-
-        class ProductDetail(base_mixin):
-            queryset = Product.objects.all()
-            kwargs = {"pk": product.id}
-
-        mixin = ProductDetail()
-        obj = await mixin.get_object()
-
-        assert obj.id == product.id
 
 
 class TestGetContextObjectName:
@@ -423,7 +364,5 @@ class TestIntegration:
 
         mixin = PublishedProductDetail()
 
-        with pytest.raises(HTTPException) as exc:
-            await mixin.get_object()
-
-        assert exc.value.status_code == 404
+        result = await mixin.get_object()
+        assert result is None

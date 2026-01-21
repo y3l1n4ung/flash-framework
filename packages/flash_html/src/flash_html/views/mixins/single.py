@@ -66,7 +66,7 @@ class SingleObjectMixin(ContextMixin, Generic[T]):
         >>> app.add_api_route("/products/{pk}", ProductDetail.as_view())
     """
 
-    model: type[T] | None = None
+    model: type[T]
     queryset: QuerySet[T] | None = None
     db: AsyncSession = Depends(get_db)
     object: T | None = None  # Initially None, populated during request
@@ -98,14 +98,9 @@ class SingleObjectMixin(ContextMixin, Generic[T]):
         if self.queryset is not None:
             return self.queryset
 
-        if self.model:
-            return self.model.objects.all()
+        return self.model.objects.all()
 
-        raise RuntimeError(
-            f"{self.__class__.__name__} requires a .model or .queryset attribute."
-        )
-
-    async def get_object(self, queryset: QuerySet[T] | None = None) -> T:
+    async def get_object(self, queryset: QuerySet[T] | None = None) -> T | None:
         """
         Fetch the object based on URL parameters (pk/slug).
 
@@ -130,30 +125,17 @@ class SingleObjectMixin(ContextMixin, Generic[T]):
         if queryset is None:
             queryset = self.get_queryset()
 
-        model = self.model or getattr(queryset, "model", None)
-        if not model:
-            raise RuntimeError(f"Model class undefined for {self.__class__.__name__}.")
-
         pk = self.kwargs.get(self.pk_url_kwarg)
         slug = self.kwargs.get(self.slug_url_kwarg)
 
-        # Check for mandatory DB session
-        if not hasattr(self, "db"):
-            raise AttributeError(
-                f"{self.__class__.__name__} requires 'self.db' to be assigned "
-                "before calling get_object()."
-            )
-
         # Apply Filters
         if pk is not None:
-            if not hasattr(model, "id"):
-                raise AttributeError(f"Model {model.__name__} has no 'id' field.")
-            queryset = queryset.filter(model.id == pk)
+            queryset = queryset.filter(self.model.id == pk)
         elif slug is not None:
-            field = getattr(model, self.slug_field, None)
+            field = getattr(self.model, self.slug_field, None)
             if field is None:
                 raise AttributeError(
-                    f"Model {model.__name__} lacks '{self.slug_field}'."
+                    f"Model {self.model.__name__} lacks '{self.slug_field}'."
                 )
             queryset = queryset.filter(field == slug)
         else:
@@ -162,20 +144,10 @@ class SingleObjectMixin(ContextMixin, Generic[T]):
             )
 
         # Execute
-        try:
-            obj = await queryset.first(self.db)
-            if obj is None:
-                raise HTTPException(status_code=404, detail="Object not found")
-            return cast(T, obj)
-        except Exception as e:
-            if (
-                "DoesNotExist" in e.__class__.__name__
-                or "NotFound" in e.__class__.__name__
-            ):
-                raise HTTPException(status_code=404, detail="Object not found")
-            raise e
 
-    def get_context_object_name(self, obj: T) -> str | None:
+        return await queryset.first(self.db)
+
+    def get_context_object_name(self, obj: T) -> str:
         """
         Return the context variable name for the object.
 
@@ -189,11 +161,7 @@ class SingleObjectMixin(ContextMixin, Generic[T]):
         """
         if self.context_object_name:
             return self.context_object_name
-
-        if hasattr(obj, "__class__"):
-            return obj.__class__.__name__.lower()
-
-        return None
+        return obj.__class__.__name__.lower()
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         """
