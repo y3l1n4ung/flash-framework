@@ -18,17 +18,6 @@ class TestTemplateView:
 
         return TemplateManager(project_root=tmp_path)
 
-    @pytest.fixture
-    def app(self, manager):
-        """Creates a FastAPI app with the manager attached to state."""
-        app = FastAPI()
-        app.state.template_manager = manager
-        return app
-
-    @pytest.fixture
-    def client(self, app):
-        return TestClient(app)
-
     def test_basic_rendering(self, app, client):
         """
         Requirement: TemplateView renders HTML using the app state engine.

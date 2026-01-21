@@ -9,7 +9,11 @@ authors = [
 requires-python = ">=3.12"
 dependencies = [
     "jinja2>=3.1.6",
+    "flash_db"
 ]
+[tool.uv.sources]
+flash-db = { workspace = true}
+
 
 [build-system]
 requires = ["hatchling"]

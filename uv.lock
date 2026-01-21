@@ -247,6 +247,7 @@ name = "flash-html"
 version = "0.1.0"
 source = { editable = "packages/flash_html" }
 dependencies = [
+    { name = "flash-db" },
     { name = "jinja2" },
 ]
 
@@ -256,7 +257,10 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "jinja2", specifier = ">=3.1.6" }]
+requires-dist = [
+    { name = "flash-db", editable = "packages/flash_db" },
+    { name = "jinja2", specifier = ">=3.1.6" },
+]
 
 [package.metadata.requires-dev]
 dev = [{ name = "httpx", specifier = ">=0.28.1" }]
