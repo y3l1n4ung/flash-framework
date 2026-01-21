@@ -1,5 +1,5 @@
 [project]
-name = "flash-web-framework"
+name = "flash-framework"
 version = "0.0.0"
 description = "Python monorepo"
 requires-python = ">=3.12"

@@ -1,5 +1,5 @@
 # pymelos workspace configuration
-name: flash-web-framework
+name: flash-framework
 
 packages:
   - packages/*
