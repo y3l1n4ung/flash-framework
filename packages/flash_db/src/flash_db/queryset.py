@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from typing import Generic, TypeVar, Type, Sequence, Any, cast
-from sqlalchemy import delete, update, func, select
-from sqlalchemy.orm import joinedload
-from sqlalchemy.sql import Select, ColumnElement
-from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Any, Generic, Sequence, Type, TypeVar
+
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
+from sqlalchemy.sql import ColumnElement, Select
 
 from .models import Model
 

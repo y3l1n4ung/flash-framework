@@ -1,11 +1,12 @@
-from flash_scheduler.schemas import CalendarIntervalTriggerConfig
-from pydantic import ValidationError
-import pytest
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
+import pytest
+from flash_scheduler.schemas import CalendarIntervalTriggerConfig
+
 # Update this import path to match your actual package structure
 from flash_scheduler.triggers import CalendarIntervalTrigger, Trigger
+from pydantic import ValidationError
 
 
 # --- Fixtures ---

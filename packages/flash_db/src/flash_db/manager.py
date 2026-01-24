@@ -1,12 +1,12 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast
 from uuid import UUID
-from typing import Generic, TypeVar, Any, cast, TYPE_CHECKING
 
-from sqlalchemy import select, delete, update
-from sqlalchemy.sql import ColumnElement
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import delete, select, update
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql import ColumnElement
 
 from .models import Model
 from .queryset import QuerySet

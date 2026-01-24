@@ -1,19 +1,18 @@
 """Pydantic schemas/data contracts for the scheduler."""
 
-from zoneinfo import ZoneInfo
-
 import zoneinfo
-
 from datetime import datetime, timedelta, timezone
 from enum import Enum, auto
-from typing import Any, Literal, Annotated
+from typing import Annotated, Any, Literal
+from zoneinfo import ZoneInfo
+
 from pydantic import (
     BaseModel,
+    BeforeValidator,
     Field,
+    field_serializer,
     field_validator,
     model_validator,
-    BeforeValidator,
-    field_serializer,
 )
 
 

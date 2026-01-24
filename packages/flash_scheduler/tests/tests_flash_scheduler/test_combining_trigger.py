@@ -1,9 +1,10 @@
-from flash_scheduler.schemas import CronTriggerConfig, IntervalTriggerConfig
-from flash_scheduler.triggers.date import DateTrigger
+from datetime import datetime, timedelta, timezone
+
 import pytest
-from datetime import datetime, timezone, timedelta
+from flash_scheduler.schemas import CronTriggerConfig, IntervalTriggerConfig
 from flash_scheduler.triggers.combining import AndTrigger, OrTrigger
 from flash_scheduler.triggers.cron import CronTrigger
+from flash_scheduler.triggers.date import DateTrigger
 from flash_scheduler.triggers.interval import IntervalTrigger
 
 

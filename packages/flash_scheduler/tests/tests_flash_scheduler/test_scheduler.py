@@ -1,14 +1,14 @@
-from unittest.mock import AsyncMock, MagicMock, patch
+import asyncio
 from datetime import datetime, timezone
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
 import pytest_asyncio
-import asyncio
-
-from flash_scheduler.scheduler import FlashScheduler, create_trigger
-from flash_scheduler.events import EventListener, Event, SchedulerEvent
-from flash_scheduler.schemas import JobDefinition, IntervalTriggerConfig
-from flash_scheduler.stores.memory import MemoryJobStore
+from flash_scheduler.events import Event, EventListener, SchedulerEvent
 from flash_scheduler.executors.async_executor import AsyncExecutor
+from flash_scheduler.scheduler import FlashScheduler, create_trigger
+from flash_scheduler.schemas import IntervalTriggerConfig, JobDefinition
+from flash_scheduler.stores.memory import MemoryJobStore
 
 pytestmark = pytest.mark.asyncio
 

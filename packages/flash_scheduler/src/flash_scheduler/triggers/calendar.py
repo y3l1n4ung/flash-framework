@@ -6,8 +6,8 @@ import calendar
 import random
 from datetime import datetime, timedelta, timezone
 
-from .base import Trigger
 from ..schemas import CalendarIntervalTriggerConfig
+from .base import Trigger
 
 
 class CalendarIntervalTrigger(Trigger):

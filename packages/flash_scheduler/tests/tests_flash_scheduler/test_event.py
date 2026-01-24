@@ -1,10 +1,11 @@
-import pytest
 from datetime import datetime, timedelta
-from flash_scheduler.events import Event, EventManager, EventListener, SchedulerEvent
+
+import pytest
+from flash_scheduler.events import Event, EventListener, EventManager, SchedulerEvent
 from flash_scheduler.schemas import (
-    JobDefinition,
     ExecutionResult,
     IntervalTriggerConfig,
+    JobDefinition,
 )
 
 # Apply asyncio marker to all tests in this module
@@ -107,15 +108,15 @@ async def test_event_manager_dispatch_to_multiple_listeners():
     """Verify that dispatch sends the event to all registered listeners concurrently."""
     manager = EventManager()
     listeners = [MockListener() for _ in range(3)]
-    for l in listeners:
-        manager.add_listener(l)
+    for listener in listeners:
+        manager.add_listener(listener)
 
     event = Event(type=SchedulerEvent.JOB_ADDED, timestamp=datetime.now())
     await manager.dispatch(event)
 
-    for l in listeners:
-        assert l.call_count == 1
-        assert l.received_events[0] == event
+    for listener in listeners:
+        assert listener.call_count == 1
+        assert listener.received_events[0] == event
 
 
 async def test_event_manager_error_isolation(caplog):

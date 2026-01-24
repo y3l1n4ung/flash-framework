@@ -1,7 +1,8 @@
-import pytest
 from datetime import datetime, timezone
+
+import pytest
+from flash_scheduler.schemas import IntervalTriggerConfig, JobDefinition
 from flash_scheduler.stores.memory import MemoryJobStore
-from flash_scheduler.schemas import JobDefinition, IntervalTriggerConfig
 
 
 @pytest.fixture

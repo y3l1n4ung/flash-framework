@@ -1,10 +1,12 @@
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.exc import SQLAlchemyError
 from typing import Sequence
+from unittest.mock import AsyncMock, patch
+
 import pytest
-from .models import Article, Comment
 from flash_db import db
-from unittest.mock import patch, AsyncMock
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from .models import Article, Comment
 
 pytestmark = pytest.mark.asyncio
 

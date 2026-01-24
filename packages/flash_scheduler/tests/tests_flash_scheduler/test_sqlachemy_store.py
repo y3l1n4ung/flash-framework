@@ -1,15 +1,16 @@
+from datetime import datetime, timedelta, timezone
+
 import pytest
-from datetime import datetime, timezone, timedelta
 import pytest_asyncio
-from sqlalchemy.ext.asyncio import create_async_engine
-from flash_scheduler.stores.sql_alchemy import SQLAlchemyJobStore, ScheduledJob
 from flash_scheduler.schemas import (
-    JobDefinition,
-    IntervalTriggerConfig,
+    CalendarIntervalTriggerConfig,
     CronTriggerConfig,
     DateTriggerConfig,
-    CalendarIntervalTriggerConfig,
+    IntervalTriggerConfig,
+    JobDefinition,
 )
+from flash_scheduler.stores.sql_alchemy import ScheduledJob, SQLAlchemyJobStore
+from sqlalchemy.ext.asyncio import create_async_engine
 
 # Apply asyncio marker to all tests in this module
 pytestmark = pytest.mark.asyncio

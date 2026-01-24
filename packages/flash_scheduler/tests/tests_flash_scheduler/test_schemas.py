@@ -1,16 +1,17 @@
-from zoneinfo import ZoneInfo
-import pytest
 from datetime import datetime, timedelta, timezone
-from pydantic import ValidationError
+from zoneinfo import ZoneInfo
+
+import pytest
 from flash_scheduler.schemas import (
-    IntervalTriggerConfig,
-    DateTriggerConfig,
     CalendarIntervalTriggerConfig,
-    JobDefinition,
-    ExecutionResult,
     CronTriggerConfig,
+    DateTriggerConfig,
+    ExecutionResult,
+    IntervalTriggerConfig,
+    JobDefinition,
     MisfirePolicy,
 )
+from pydantic import ValidationError
 
 
 def test_interval_config_valid():

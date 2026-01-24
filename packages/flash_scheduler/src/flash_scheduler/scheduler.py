@@ -16,22 +16,22 @@ from .events import Event, EventManager, SchedulerEvent
 from .executors.async_executor import AsyncExecutor
 from .executors.base import BaseExecutor
 from .schemas import (
-    IntervalTriggerConfig,
+    CalendarIntervalTriggerConfig,
     CronTriggerConfig,
     DateTriggerConfig,
-    CalendarIntervalTriggerConfig,
-    TriggerConfig,
-    JobDefinition,
     ExecutionResult,
+    IntervalTriggerConfig,
+    JobDefinition,
+    TriggerConfig,
 )
 from .stores.base import JobStore
 from .stores.memory import MemoryJobStore
 from .triggers import (
-    Trigger,
-    IntervalTrigger,
+    CalendarIntervalTrigger,
     CronTrigger,
     DateTrigger,
-    CalendarIntervalTrigger,
+    IntervalTrigger,
+    Trigger,
 )
 
 logger = logging.getLogger(__name__)

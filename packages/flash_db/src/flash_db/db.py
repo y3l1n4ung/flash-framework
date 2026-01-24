@@ -1,5 +1,5 @@
 from collections.abc import AsyncGenerator
-from typing import Optional, Any
+from typing import Any, Optional
 
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import (

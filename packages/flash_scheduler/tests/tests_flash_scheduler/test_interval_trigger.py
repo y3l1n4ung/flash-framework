@@ -1,7 +1,8 @@
-from flash_scheduler.schemas import IntervalTriggerConfig
-import pytest
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
+
+import pytest
+from flash_scheduler.schemas import IntervalTriggerConfig
 from flash_scheduler.triggers.interval import IntervalTrigger
 
 

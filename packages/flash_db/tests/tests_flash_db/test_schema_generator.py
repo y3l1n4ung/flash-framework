@@ -1,9 +1,11 @@
-from sqlalchemy import Column, Integer, DateTime, String
-from pydantic import ValidationError
 import datetime
-from typing import Union, Any
-from flash_db.schema_generator import SchemaGenerator, SchemaConfig
+from typing import Any, Union
+
 import pytest
+from flash_db.schema_generator import SchemaConfig, SchemaGenerator
+from pydantic import ValidationError
+from sqlalchemy import Column, DateTime, Integer, String
+
 from .models import Article, Profile
 
 

@@ -1,6 +1,7 @@
-import pytest_asyncio
-import pytest
 import asyncio
+
+import pytest
+import pytest_asyncio
 from flash_db import db as db_module
 from flash_db.models import Model
 

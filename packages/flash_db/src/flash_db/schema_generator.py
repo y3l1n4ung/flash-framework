@@ -1,10 +1,12 @@
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import date, datetime, time
-from typing import Any, Generic, TypeAlias, TypeVar, cast, Dict, Union
+from typing import Any, Dict, Generic, TypeAlias, TypeVar, Union, cast
 
 from pydantic import BaseModel, ConfigDict, Field, create_model
 from sqlalchemy import (
+    ARRAY,
+    JSON,
     Boolean,
     Column,
     Date,
@@ -16,8 +18,6 @@ from sqlalchemy import (
     Text,
     Time,
     inspect,
-    JSON,
-    ARRAY,
 )
 from sqlalchemy.orm import ColumnProperty, DeclarativeBase
 

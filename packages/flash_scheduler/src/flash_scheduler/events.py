@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from .schemas import ExecutionResult, JobDefinition
@@ -94,7 +94,7 @@ class EventManager:
         if not self._listeners:
             return
 
-        tasks = [self._safe_notify(l, event) for l in self._listeners]
+        tasks = [self._safe_notify(listener, event) for listener in self._listeners]
         await asyncio.gather(*tasks, return_exceptions=True)
 
     async def _safe_notify(self, listener: EventListener, event: Event) -> None:

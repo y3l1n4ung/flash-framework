@@ -1,10 +1,11 @@
-import pytest
 import asyncio
 import sys
-from unittest.mock import patch
 from datetime import timedelta
+from unittest.mock import patch
+
+import pytest
 from flash_scheduler.executors.async_executor import AsyncExecutor
-from flash_scheduler.schemas import JobDefinition, IntervalTriggerConfig
+from flash_scheduler.schemas import IntervalTriggerConfig, JobDefinition
 
 # Apply asyncio marker to all tests in this module
 pytestmark = pytest.mark.asyncio

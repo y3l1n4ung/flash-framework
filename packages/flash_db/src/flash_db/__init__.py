@@ -1,5 +1,5 @@
-from .db import init_db, get_db, close_db
-from .models import Model, TimestampMixin, SoftDeleteMixin
+from .db import close_db, get_db, init_db
+from .models import Model, SoftDeleteMixin, TimestampMixin
 
 __all__ = [
     "init_db",

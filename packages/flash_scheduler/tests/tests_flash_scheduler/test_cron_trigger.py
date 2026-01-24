@@ -1,7 +1,8 @@
-from flash_scheduler.schemas import CronTriggerConfig
-import pytest
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
+
+import pytest
+from flash_scheduler.schemas import CronTriggerConfig
 from flash_scheduler.triggers.cron import CronTrigger
 
 

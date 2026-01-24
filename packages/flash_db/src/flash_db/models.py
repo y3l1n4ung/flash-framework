@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, ClassVar
-from sqlalchemy import DateTime, func
 from datetime import datetime
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from typing import TYPE_CHECKING, ClassVar
+
+from sqlalchemy import DateTime, func
 from sqlalchemy.ext.asyncio import AsyncAttrs
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 if TYPE_CHECKING:
     from .manager import ModelManager

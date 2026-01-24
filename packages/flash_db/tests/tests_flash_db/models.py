@@ -1,8 +1,9 @@
-from sqlalchemy.sql.type_api import UserDefinedType
-from typing import Optional, Any
-from sqlalchemy import String, ForeignKey, Numeric, Text, Boolean, JSON
+from typing import Any, Optional
+
 from flash_db.models import Model, TimestampMixin
+from sqlalchemy import JSON, Boolean, ForeignKey, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.sql.type_api import UserDefinedType
 
 
 class UnsupportedSQLType(UserDefinedType):
