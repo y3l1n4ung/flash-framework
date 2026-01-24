@@ -1,6 +1,9 @@
 import os
 from pathlib import Path
+from typing import cast
+
 from flash_html.template_manager import TemplateManager
+from jinja2 import FileSystemLoader
 
 
 class TestTemplateManager:
@@ -11,7 +14,8 @@ class TestTemplateManager:
         manager = TemplateManager()
         assert manager.templates is not None
         # Should contain at least the internal templates path
-        assert len(manager.templates.env.loader.searchpath) > 0
+        loader = cast(FileSystemLoader, manager.templates.env.loader)
+        assert len(loader.searchpath) > 0
 
     def test_internal_template_loading(self):
         """
@@ -20,8 +24,8 @@ class TestTemplateManager:
         manager = TemplateManager()
 
         expected_suffix = os.path.join("flash_html", "templates")
-
-        loader_paths = manager.templates.env.loader.searchpath
+        loader = cast(FileSystemLoader, manager.templates.env.loader)
+        loader_paths = loader.searchpath
         assert any(str(p).endswith(expected_suffix) for p in loader_paths)
 
     def test_global_injection(self):
@@ -56,7 +60,8 @@ class TestTemplateManager:
 
         # --- Run ---
         manager = TemplateManager(project_root=tmp_path)
-        loader_paths = manager.templates.env.loader.searchpath
+        loader = cast(FileSystemLoader, manager.templates.env.loader)
+        loader_paths = loader.searchpath
 
         # --- Assertions ---
         # Convert all to strings for comparison
@@ -81,7 +86,8 @@ class TestTemplateManager:
         nested.mkdir(parents=True)
 
         manager = TemplateManager(project_root=tmp_path)
-        loader_paths = manager.templates.env.loader.searchpath
+        loader = cast(FileSystemLoader, manager.templates.env.loader)
+        loader_paths = loader.searchpath
 
         assert str(nested.resolve()) in loader_paths
 
@@ -105,14 +111,12 @@ class TestTemplateManager:
         valid_tpl.mkdir(parents=True)
 
         manager = TemplateManager(project_root=tmp_path)
-        loader_paths = manager.templates.env.loader.searchpath
+        loader = cast(FileSystemLoader, manager.templates.env.loader)
+        loader_paths = loader.searchpath
 
         # Should contain valid
         assert str(valid_tpl.resolve()) in loader_paths
 
-        # Should NOT contain ignored
-        # Note: We iterate because resolve() might behave differently depending on OS existence
-        # but these dirs exist in tmp_path.
         assert str(venv_tpl.resolve()) not in loader_paths
         assert str(node_tpl.resolve()) not in loader_paths
 
@@ -131,8 +135,9 @@ class TestTemplateManager:
             project_root=tmp_path,
             extra_directories=[root_tpl],  # Pass Path object directly
         )
+        loader = cast(FileSystemLoader, manager.templates.env.loader)
 
-        loader_paths = manager.templates.env.loader.searchpath
+        loader_paths = loader.searchpath
 
         # Count occurrences of the root template path
         resolved_path = str(root_tpl.resolve())
@@ -157,7 +162,8 @@ class TestTemplateManager:
 
         # Should still contain the internal templates path
         expected_suffix = os.path.join("flash_html", "templates")
-        loader_paths = manager.templates.env.loader.searchpath
+        loader = cast(FileSystemLoader, manager.templates.env.loader)
+        loader_paths = loader.searchpath
         assert any(str(p).endswith(expected_suffix) for p in loader_paths)
 
     def test_rendering_functional(self, tmp_path):
@@ -190,7 +196,9 @@ class TestTemplateManager:
         bad_file.touch()
 
         manager = TemplateManager(project_root=tmp_path)
-        loader_paths = manager.templates.env.loader.searchpath
+        assert manager.templates.env
+        loader = cast(FileSystemLoader, manager.templates.env.loader)
+        loader_paths = loader.searchpath
 
         # Verify the file path is NOT in the loader paths
         # We verify that the 'app/templates' path was skipped

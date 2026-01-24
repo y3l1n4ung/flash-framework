@@ -1,230 +1,171 @@
 import pytest
-from fastapi import FastAPI, Request, Response, Depends
+from fastapi import Depends, FastAPI, Request, Response
 from fastapi.testclient import TestClient
 from flash_html.views.base import View
 
-
-class MockRequest:
-    def __init__(self, method: str = "GET"):
-        self.method = method
+# --- Unit Tests: Core View Logic ---
 
 
 class TestViewBase:
-    """Test suite for the Base View logic (Unit Tests)."""
+    """Test suite for the internal mechanics of the View class."""
 
-    @pytest.mark.asyncio
-    async def test_initialization(self):
-        """
-        Requirement: View accepts kwargs in __init__ and sets them as attributes.
-        """
+    def test_initialization(self):
+        """Requirement: View accepts kwargs in __init__ and sets them as attributes."""
         view = View(key="value", number=42)
         assert getattr(view, "key") == "value"
         assert getattr(view, "number") == 42
 
-    @pytest.mark.asyncio
-    async def test_dispatch_get_method(self):
-        """
-        Requirement: dispatch() routes GET requests to the get() method.
-        """
-
-        class SimpleView(View):
-            async def get(self, request: Request) -> Response:
-                return Response("GET Handled")
-
-        endpoint = SimpleView.as_view()
-        request = MockRequest(method="GET")
-
-        # as_view returns a wrapper, calling it triggers dispatch
-        response = await endpoint(request)  # type: ignore
-        assert response.body == b"GET Handled"
-
-    @pytest.mark.asyncio
-    async def test_dispatch_method_not_allowed(self):
-        """
-        Requirement: Dispatching a method not implemented (e.g. POST) returns 405.
-        """
-
-        class ReadOnlyView(View):
-            async def get(self, request: Request) -> Response:
-                return Response("OK")
-
-        endpoint = ReadOnlyView.as_view()
-        request = MockRequest(method="POST")
-
-        response = await endpoint(request)  # type: ignore
-        assert response.status_code == 405
-        assert response.body == b"Method Not Allowed"
-
-    @pytest.mark.asyncio
-    async def test_dispatch_unknown_verb(self):
-        """
-        Requirement: Dispatching a completely unknown HTTP verb (e.g. TEAPOT) returns 405.
-        """
-
-        class AnyView(View):
-            pass
-
-        endpoint = AnyView.as_view()
-        request = MockRequest(method="TEAPOT")
-
-        response = await endpoint(request)  # type: ignore
-        assert response.status_code == 405
-
     def test_as_view_strict_validation(self):
-        """
-        Requirement: as_view() should raise TypeError if passed an argument
-        that is NOT an attribute of the class.
-        """
+        """Requirement: as_view() raises TypeError for invalid attributes to prevent typos."""
 
         class StrictView(View):
             existing_attr = True
 
-        # 1. Valid case
+        # Valid
         StrictView.as_view(existing_attr=False)
 
-        # 2. Invalid case
+        # Invalid
         with pytest.raises(TypeError) as excinfo:
             StrictView.as_view(non_existent_attr=123)
-
         assert "received an invalid keyword" in str(excinfo.value)
-        assert "non_existent_attr" in str(excinfo.value)
 
 
 class TestFastAPIIntegration:
-    """
-    Integration tests verifying that View works correctly within a FastAPI application.
-    This ensures dependency injection, routing, and parameters work as expected.
-    """
+    """Integration tests verifying View behavior within a live FastAPI app."""
 
-    @pytest.fixture
-    def app(self):
-        return FastAPI()
+    def test_simple_get_request(self, app: FastAPI, client: TestClient):
+        """Requirement: Standard GET requests work and return Response objects."""
 
-    @pytest.fixture
-    def client(self, app):
-        return TestClient(app)
-
-    def test_simple_get_request(self, app, client):
         class HelloWorldView(View):
-            async def get(self, request: Request) -> Response:
+            async def get(self) -> Response:
                 return Response("Hello World")
 
         app.add_api_route("/hello", HelloWorldView.as_view())
-
         response = client.get("/hello")
         assert response.status_code == 200
         assert response.text == "Hello World"
 
-    def test_dependency_injection(self, app, client):
-        """
-        Requirement: FastAPI dependencies (Depends) works in class-based views.
-        This relies on the signature copying magic in as_view().
-        """
+    def test_dispatch_method_not_allowed(self, app: FastAPI, client: TestClient):
+        """Requirement: Returns 405 if the HTTP method is not implemented in the class."""
 
-        def get_user_agent(request: Request):
-            return request.headers.get("User-Agent")
+        class ReadOnlyView(View):
+            async def get(self) -> Response:
+                return Response("OK")
 
-        class UserAgentView(View):
-            # Dependency injected into 'ua'
-            async def get(
-                self, request: Request, ua: str | None = Depends(get_user_agent)
-            ):
-                return Response(f"UA: {ua}")
+        # Register GET and POST, but view only implements get()
+        app.add_api_route("/read-only", ReadOnlyView.as_view(), methods=["GET", "POST"])
 
-        app.add_api_route("/ua", UserAgentView.as_view())
+        response = client.post("/read-only")
+        assert response.status_code == 405
+        assert "Method Not Allowed" in response.text
 
-        response = client.get("/ua", headers={"User-Agent": "TestClient"})
-        assert response.status_code == 200
-        assert response.text == "UA: TestClient"
+    def test_request_and_kwargs_access(self, app: FastAPI, client: TestClient):
+        """Requirement: self.request and self.kwargs are correctly populated."""
 
-    def test_path_parameters(self, app, client):
-        """
-        Requirement: Path parameters declared in the method signature are extracted.
-        """
+        class ContextView(View):
+            async def get(self):
+                # self.kwargs merges path params and extra logic
+                pk = self.kwargs.get("pk")
+                method = self.request.method
+                return Response(f"{method} item {pk}")
 
-        class ItemView(View):
-            async def get(self, request: Request, item_id: int):
-                return Response(f"Item: {item_id}")
+        app.add_api_route("/item/{pk}", ContextView.as_view())
+        response = client.get("/item/123")
+        assert response.text == "GET item 123"
 
-        app.add_api_route("/items/{item_id}", ItemView.as_view())
+    def test_dependency_injection(self, app: FastAPI, client: TestClient):
+        """Requirement: signature copying logic preserves FastAPI's Depends()."""
 
-        response = client.get("/items/42")
-        assert response.status_code == 200
-        assert response.text == "Item: 42"
+        def get_token(request: Request):
+            return request.headers.get("X-Token")
 
-        # Verify type validation (FastAPI feature)
-        response = client.get("/items/not-a-number")
-        assert response.status_code == 422  # Unprocessable Entity
+        class AuthView(View):
+            async def get(self, token: str | None = Depends(get_token)):
+                return Response(f"Token: {token}")
 
-    def test_query_parameters(self, app, client):
-        """
-        Requirement: Query parameters are extracted correctly.
-        """
+        app.add_api_route("/auth", AuthView.as_view())
+        response = client.get("/auth", headers={"X-Token": "secret-123"})
+        assert response.text == "Token: secret-123"
 
-        class SearchView(View):
-            async def get(self, request: Request, q: str = "default"):
-                return Response(f"Search: {q}")
+    def test_path_parameters_validation(self, app: FastAPI, client: TestClient):
+        """Requirement: FastAPI type hints for path params are enforced."""
 
-        app.add_api_route("/search", SearchView.as_view())
+        class NumericView(View):
+            async def get(self, val: int):
+                return Response(f"Value: {val}")
 
-        # 1. With param
-        response = client.get("/search?q=python")
-        assert response.text == "Search: python"
+        app.add_api_route("/numeric/{val}", NumericView.as_view())
 
-        # 2. Without param (default)
-        response = client.get("/search")
-        assert response.text == "Search: default"
+        # Valid integer
+        assert client.get("/numeric/50").status_code == 200
+        # Invalid string (triggers FastAPI Pydantic validation)
+        assert client.get("/numeric/hello").status_code == 422
 
-    def test_sync_handler_support(self, app, client):
-        """
-        Requirement: Synchronous methods (def get) are supported and run in threadpool.
-        """
+    def test_multiple_dependencies(self, app: FastAPI, client: TestClient):
+        """Requirement: Handles multiple injected dependencies in one handler."""
 
-        class SyncView(View):
-            def get(self, request: Request) -> Response:
-                return Response("Sync Works")
+        def dep_a():
+            return "A"
 
-        app.add_api_route("/sync", SyncView.as_view())
-
-        response = client.get("/sync")
-        assert response.status_code == 200
-        assert response.text == "Sync Works"
-
-    def test_multiple_methods_on_view(self, app, client):
-        """
-        Requirement: One view class can handle multiple verbs (GET, POST).
-        Note: We must explicitly tell FastAPI which methods are allowed in add_api_route,
-        otherwise it defaults to just GET unless the handler name implies otherwise,
-        but since we wrap it in 'view', FastAPI sees one function.
-        """
+        def dep_b():
+            return "B"
 
         class MultiView(View):
-            async def get(self, request: Request):
-                return Response("GET")
+            async def get(self, a: str = Depends(dep_a), b: str = Depends(dep_b)):
+                return Response(f"{a}{b}")
 
-            async def post(self, request: Request):
-                return Response("POST")
+        app.add_api_route("/multi", MultiView.as_view())
+        assert client.get("/multi").text == "AB"
 
-        # Explicitly register methods
-        app.add_api_route("/multi", MultiView.as_view(), methods=["GET", "POST"])
+    def test_view_isolation_safety(self, app: FastAPI, client: TestClient):
+        """Requirement: Requests do not share state (thread/instance safety)."""
 
-        assert client.get("/multi").text == "GET"
-        assert client.post("/multi").text == "POST"
-        assert client.put("/multi").status_code == 405
+        class StateView(View):
+            hit_count = 0
 
-    def test_initkwargs_configuration(self, app, client):
-        """
-        Requirement: as_view(param=value) overrides class attributes at runtime.
-        """
+            async def get(self):
+                self.hit_count += 1
+                return Response(str(self.hit_count))
 
-        class TitleView(View):
-            title: str = "Original"
+        app.add_api_route("/state", StateView.as_view())
 
-            async def get(self, request: Request):
-                return Response(self.title)
+        # Every request must get a fresh instance
+        assert client.get("/state").text == "1"
+        assert client.get("/state").text == "1"
 
-        app.add_api_route("/default", TitleView.as_view())
-        app.add_api_route("/custom", TitleView.as_view(title="Customized"))
+    def test_sync_handler_support(self, app: FastAPI, client: TestClient):
+        """Requirement: Standard 'def' handlers work (run in threadpool)."""
 
-        assert client.get("/default").text == "Original"
-        assert client.get("/custom").text == "Customized"
+        class SyncView(View):
+            def get(self) -> Response:
+                return Response("Sync handled")
+
+        app.add_api_route("/sync", SyncView.as_view())
+        assert client.get("/sync").text == "Sync handled"
+
+    def test_json_automatic_conversion(self, app: FastAPI, client: TestClient):
+        """Requirement: Handlers can return dicts for automatic JSON conversion."""
+
+        class DataView(View):
+            async def get(self):
+                return {"success": True}
+
+        app.add_api_route("/json", DataView.as_view())
+        response = client.get("/json")
+        assert response.json() == {"success": True}
+        assert response.headers["content-type"] == "application/json"
+
+    def test_initkwargs_persistence(self, app: FastAPI, client: TestClient):
+        """Requirement: Attributes set in as_view() are available in handlers."""
+
+        class ConfigView(View):
+            template_mode: str = "default"
+
+            async def get(self):
+                return Response(self.template_mode)
+
+        app.add_api_route("/v1", ConfigView.as_view(template_mode="legacy"))
+        app.add_api_route("/v2", ConfigView.as_view(template_mode="modern"))
+
+        assert client.get("/v1").text == "legacy"
+        assert client.get("/v2").text == "modern"

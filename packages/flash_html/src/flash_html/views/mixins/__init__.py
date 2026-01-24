@@ -1,4 +1,5 @@
-from .template_response import TemplateResponseMixin
 from .context import ContextMixin
+from .single import SingleObjectMixin
+from .template_response import TemplateResponseMixin
 
-__all__ = ["TemplateResponseMixin", "ContextMixin"]
+__all__ = ["TemplateResponseMixin", "ContextMixin", "SingleObjectMixin"]

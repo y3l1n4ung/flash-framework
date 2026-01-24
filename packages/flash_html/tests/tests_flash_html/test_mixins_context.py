@@ -1,6 +1,6 @@
 import pytest
-from pydantic import BaseModel
 from flash_html.views.mixins.context import ContextMixin
+from pydantic import BaseModel
 
 
 class TestContextMixin:

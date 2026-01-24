@@ -1,9 +1,9 @@
 from typing import Any
 
-from fastapi import Request, Response
+from fastapi import Response
 
 from flash_html.views.base import View
-from flash_html.views.mixins import TemplateResponseMixin, ContextMixin
+from flash_html.views.mixins import ContextMixin, TemplateResponseMixin
 
 
 class TemplateView(TemplateResponseMixin, ContextMixin, View):
@@ -25,14 +25,13 @@ class TemplateView(TemplateResponseMixin, ContextMixin, View):
         >>> app.add_api_route("/", TemplateView.as_view(template_name="index.html"))
     """
 
-    async def get(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+    async def get(self, **kwargs: Any) -> Response:
         """
         Handle GET requests: render the template with context.
 
         Args:
             request: The current FastAPI request.
-            *args: Arbitrary positional arguments (captured query/path params).
-            **kwargs: Arbitrary keyword arguments (captured query/path params).
+            **kwargs: Arbitrary keyword arguments
 
         Returns:
             Response: The rendered HTML response.

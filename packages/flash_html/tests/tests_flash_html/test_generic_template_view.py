@@ -1,9 +1,8 @@
-import pytest
-from fastapi import FastAPI, Request
-from fastapi.testclient import TestClient
+from typing import Any
 
-from flash_html.views.generic.base import TemplateView
+import pytest
 from flash_html.template_manager import TemplateManager
+from flash_html.views.generic.base import TemplateView
 
 
 class TestTemplateView:
@@ -81,7 +80,7 @@ class TestTemplateView:
         class ItemView(TemplateView):
             template_name = "hello.html"
 
-            async def get(self, request: Request, item_id: int):
+            async def get(self, item_id: int):  # type: ignore
                 # Pass param to context to verify it was received
                 context = self.get_context_data(name=f"Item {item_id}")
                 return self.render_to_response(context)
@@ -104,7 +103,7 @@ class TestTemplateView:
         class SearchView(TemplateView):
             template_name = "hello.html"
 
-            async def get(self, request: Request, q: str = "Default"):
+            async def get(self, q: str = "Default", **kwargs: Any):
                 context = self.get_context_data(name=q)
                 return self.render_to_response(context)
 
@@ -166,7 +165,7 @@ class TestTemplateView:
         class KwargsView(TemplateView):
             template_name = "hello.html"
 
-            async def get(self, request: Request, **kwargs):
+            async def get(self, **kwargs):
                 # Even if we define **kwargs, as_view filters it from FastAPI signature.
                 # So kwargs will be empty unless passed by dispatch middleware (none here).
                 name = "Empty" if not kwargs else "Full"

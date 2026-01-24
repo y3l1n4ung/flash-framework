@@ -2,6 +2,7 @@
 from typing import Any, cast
 
 from fastapi import Request, Response
+
 from flash_html.template_manager import TemplateManager
 
 
@@ -68,7 +69,6 @@ class TemplateResponseMixin:
 
         if not engine:
             # Try to get from request state (Standard FastAPI dependency injection pattern)
-            # We assume self.request exists because View sets it.
             if hasattr(self, "request"):
                 req = cast(Request, getattr(self, "request"))
                 if hasattr(req.app.state, "template_manager"):

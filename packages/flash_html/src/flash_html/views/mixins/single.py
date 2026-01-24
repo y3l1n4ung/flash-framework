@@ -1,11 +1,10 @@
-from typing import Any, Generic, TypeVar, cast
+from typing import Any, Generic, TypeVar
 
-from fastapi import Depends, HTTPException, Request
-from flash_db.db import get_db
-from sqlalchemy.ext.asyncio import AsyncSession
-
+from fastapi import HTTPException, Request
 from flash_db.models import Model
 from flash_db.queryset import QuerySet
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from flash_html.views.mixins.context import ContextMixin
 
 T = TypeVar("T", bound=Model)
@@ -46,29 +45,11 @@ class SingleObjectMixin(ContextMixin, Generic[T]):
         ...     async def get(self, request):
         ...         return await super().get(request)
 
-        >>> from fastapi import FastAPI, Depends
-        >>> from flash_db.models import Model
-        >>> from flash_html.views.generic.detail import DetailView
-        >>>
-        >>> class Product(Model):
-        ...     name: Mapped[str] = mapped_column()
-        ...
-        >>> class ProductDetail(DetailView[Product]):
-        ...     model = Product
-        ...     template_name = "product.html"
-        ...     context_object_name = "item"
-        ...     db: AsyncSession = Depends(get_db)
-        ...
-        ...     async def get(self, request):
-        ...         return await super().get(request)
-        ...
-        >>> app = FastAPI()
-        >>> app.add_api_route("/products/{pk}", ProductDetail.as_view())
     """
 
     model: type[T]
     queryset: QuerySet[T] | None = None
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession | None = None
     object: T | None = None  # Initially None, populated during request
     slug_field: str = "slug"
     context_object_name: str | None = None
@@ -78,6 +59,18 @@ class SingleObjectMixin(ContextMixin, Generic[T]):
     # Runtime attributes provided by the Base View
     kwargs: dict[str, Any]
     request: Request
+
+    def __init_subclass__(cls) -> None:
+        model = getattr(cls, "model", None)
+        base_classes = ("DetailView", "CreateView", "UpdateView", "DeleteView")
+
+        if model is None and cls.__name__ not in base_classes:
+            raise TypeError(
+                f"The '{cls.__name__}' is missing the required 'model' attribute. "
+                f"Usage: class {cls.__name__}:"
+                "   model = MyModelClass"
+            )
+        return super().__init_subclass__()
 
     def get_queryset(self) -> QuerySet[T]:
         """
@@ -100,12 +93,16 @@ class SingleObjectMixin(ContextMixin, Generic[T]):
 
         return self.model.objects.all()
 
-    async def get_object(self, queryset: QuerySet[T] | None = None) -> T | None:
+    async def get_object(
+        self, queryset: QuerySet[T] | None = None, auto_error: bool = True
+    ) -> T | None:
         """
         Fetch the object based on URL parameters (pk/slug).
+        If auto_error is True, it returns a 404 instead of None.
 
         Args:
             queryset: Optional queryset override.
+            auto_error: Where throw error when object is not found.
 
         Returns:
             T: The fetched model instance.
@@ -122,6 +119,8 @@ class SingleObjectMixin(ContextMixin, Generic[T]):
             >>> qs = self.model.objects.filter(Post.status == "published")
             >>> obj = await self.get_object(queryset=qs)
         """
+        if self.db is None:
+            raise RuntimeError("Database session is required!")
         if queryset is None:
             queryset = self.get_queryset()
 
@@ -145,7 +144,13 @@ class SingleObjectMixin(ContextMixin, Generic[T]):
 
         # Execute
 
-        return await queryset.first(self.db)
+        obj = await queryset.first(self.db)
+
+        if not obj and auto_error:
+            raise HTTPException(
+                status_code=404, detail=f"{self.model.__name__} not found."
+            )
+        return obj
 
     def get_context_object_name(self, obj: T) -> str:
         """
@@ -176,7 +181,7 @@ class SingleObjectMixin(ContextMixin, Generic[T]):
             >>> assert "object" in ctx
             >>> assert ctx["object"] == self.object
         """
-        context = {}
+        context = super().get_context_data(**kwargs)
         # Clean check instead of hasattr
         if self.object is not None:
             context["object"] = self.object
@@ -185,4 +190,4 @@ class SingleObjectMixin(ContextMixin, Generic[T]):
                 context[name] = self.object
 
         context.update(kwargs)
-        return super().get_context_data(**context)
+        return context

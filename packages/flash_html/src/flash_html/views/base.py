@@ -1,8 +1,10 @@
 import inspect
 from typing import Any, Callable, ClassVar, Coroutine, cast
 
-from fastapi import Request, Response
+from fastapi import Depends, Request, Response
 from fastapi.responses import PlainTextResponse
+from flash_db.db import get_db
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class View:
@@ -12,6 +14,13 @@ class View:
     This class serves as the foundation for all views. It handles HTTP method
     dispatching and integrates seamlessly with FastAPI by preserving method
     signatures for dependency injection.
+
+    Example:
+        >>> class MyView(View):
+        ...     async def get(self, request: Request, name: str = "World"):
+        ...         return Response(f"Hello, {name}")
+        >>>
+        >>> app.add_api_route("/hello/{name}", MyView.as_view())
     """
 
     http_method_names: ClassVar[list[str]] = [
@@ -25,18 +34,12 @@ class View:
         "trace",
     ]
 
-    # Instance attributes populated during request handling
     request: Request
-    args: tuple[Any, ...]
     kwargs: dict[str, Any]
 
     def __init__(self, **kwargs: Any) -> None:
         """
-        Initialize the view instance.
-
-        Args:
-            **kwargs: Instance attributes set during request handling.
-                      Mapped from `as_view(**initkwargs)`.
+        Initialize the view instance with configuration overrides.
         """
         for key, value in kwargs.items():
             setattr(self, key, value)
@@ -46,42 +49,16 @@ class View:
         """
         Create a FastAPI-compatible endpoint callable.
 
-        This method allows you to override class attributes on a per-route basis
-        using `**initkwargs`. This enables reusing a single View class for multiple
-        routes with different configurations.
-
-        Strictness:
-            This method validates that keys passed in `**initkwargs` must already
-            exist as attributes on the class. This prevents typos.
+        This method validates attributes and reconstructs the function signature
+        to support FastAPI's dependency injection system.
 
         Args:
             **initkwargs: Attributes to override on the view instance.
-                Common use cases: `template_name`, `page_title`, `paginate_by`.
 
         Returns:
-            Callable: An async function accepting a Request and returning a Response.
-
-        Example:
-            >>> from fastapi import FastAPI, Response
-            >>> app = FastAPI()
-            >>>
-            >>> # 1. Define a configurable view
-            >>> class PageView(View):
-            ...     page_title: str = "Default Title"  # Default value
-            ...
-            ...     async def get(self, request):
-            ...         return Response(f"Title: {self.page_title}")
-            >>>
-            >>> # 2. Reuse for "About" page
-            >>> app.add_api_route("/about", PageView.as_view(page_title="About Us"))
-            >>>
-            >>> # 3. Reuse for "Contact" page
-            >>> app.add_api_route("/contact", PageView.as_view(page_title="Contact"))
-            >>>
-            >>> # 4. Error Case: Passing a non-existent attribute raises TypeError
-            >>> # PageView.as_view(typo_field="Fail")  # <--- raises TypeError
+            Callable: An async function used as the FastAPI route handler.
         """
-        # Strict Validation: Ensure passed arguments match existing class attributes.
+        # 1. Validate initkwargs against class attributes
         for key in initkwargs:
             if not hasattr(cls, key):
                 raise TypeError(
@@ -90,74 +67,97 @@ class View:
                     f"of the class."
                 )
 
-        async def view(request: Request, *args: Any, **kwargs: Any) -> Response:
-            # Inject the kwargs into the instance
+        async def view(request: Request, **kwargs: Any) -> Response:
             self = cls(**initkwargs)
             self.request = request
-            self.args = args
-            self.kwargs = kwargs
-            return await self.dispatch(request, *args, **kwargs)
+
+            # Extract database session if provided by FastAPI injection
+            db = kwargs.pop("db", None)
+            if db is not None:
+                setattr(self, "db", db)
+
+            # Merge path parameters and additional kwargs
+            self.kwargs = {**request.path_params, **kwargs}
+
+            return await self.dispatch(**kwargs)
 
         view.__doc__ = cls.__doc__
         view.__module__ = cls.__module__
         view.__name__ = cls.__name__
 
-        # Inspect the class to find the primary handler (e.g., 'get' or 'post').
-        # This ensures that if you define dependencies in 'get(self, db: Session = Depends(get_db))',
-        # FastAPI sees them in the 'view' wrapper.
+        handler = None
         for method_name in cls.http_method_names:
             if hasattr(cls, method_name):
-                handler = getattr(cls, method_name)
-                # Only copy signature from actual methods, not the default 'http_method_not_allowed'
-                if handler.__name__ != "http_method_not_allowed":
-                    sig = inspect.signature(handler)
-                    # Filter out 'self' from parameters so the wrapper matches.
-                    # We keep 'request' and other params for FastAPI injection.
-                    new_params = [
-                        p
-                        for p in sig.parameters.values()
-                        if p.name != "self"
-                        and p.kind != inspect.Parameter.VAR_KEYWORD
-                        and p.kind != inspect.Parameter.VAR_POSITIONAL
-                    ]
-                    # Cast to Any to allow setting __signature__ which is dynamically typed
-                    cast(Any, view).__signature__ = sig.replace(parameters=new_params)
+                potential_handler = getattr(cls, method_name)
+                if potential_handler.__name__ != "http_method_not_allowed":
+                    handler = potential_handler
                     break
+
+        if handler:
+            sig = inspect.signature(handler)
+            # Exclude 'self', '*args', and '**kwargs' from the FastAPI signature
+            new_params = [
+                p
+                for p in sig.parameters.values()
+                if p.name != "self"
+                and p.kind
+                not in (inspect.Parameter.VAR_KEYWORD, inspect.Parameter.VAR_POSITIONAL)
+            ]
+
+            param_names = [p.name for p in new_params]
+
+            # Ensure 'request' is present for FastAPI
+            if "request" not in param_names:
+                new_params.insert(
+                    0,
+                    inspect.Parameter(
+                        name="request",
+                        kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                        annotation=Request,
+                    ),
+                )
+
+            # Auto-inject DB session if the view defines a 'model' (DB-bound views)
+            if "db" not in param_names and hasattr(cls, "model"):
+                new_params.insert(
+                    0,
+                    inspect.Parameter(
+                        name="db",
+                        kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                        annotation=AsyncSession,
+                        default=Depends(get_db),
+                    ),
+                )
+
+            # Sort parameters: non-default values must come before default values
+            new_params.sort(
+                key=lambda p: (
+                    p.kind.value,
+                    p.default is not inspect.Parameter.empty,
+                )
+            )
+            cast(Any, view).__signature__ = sig.replace(parameters=new_params)
 
         return view
 
-    async def dispatch(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+    async def dispatch(self, **kwargs: Any) -> Response:
         """
         Route the request to the appropriate handler method.
-
-        Args:
-            request: The incoming FastAPI request.
-
-        Returns:
-            Response: The HTTP response generated by the handler.
         """
-        method = request.method.lower()
-        if method in self.http_method_names:
-            handler = getattr(self, method, self.http_method_not_allowed)
-        else:
-            handler = self.http_method_not_allowed
+        method = self.request.method.lower()
+        handler = (
+            getattr(self, method, self.http_method_not_allowed)
+            if method in self.http_method_names
+            else self.http_method_not_allowed
+        )
 
-        # Support both async and sync handlers
         if inspect.iscoroutinefunction(handler):
-            return await handler(request, *args, **kwargs)
+            return await handler(**kwargs)
 
-        # Explicitly cast to Response for strict type checkers
-        return cast(Response, handler(request, *args, **kwargs))
+        return handler(**kwargs)
 
-    def http_method_not_allowed(
-        self, request: Request, *args: Any, **kwargs: Any
-    ) -> Response:
+    def http_method_not_allowed(self, **kwargs: Any) -> Response:
         """
-        Handle requests for unsupported HTTP methods.
-
-        Note: This is synchronous as it returns a static response.
-
-        Returns:
-            Response: 405 Method Not Allowed.
+        Return a 405 Method Not Allowed response.
         """
         return PlainTextResponse("Method Not Allowed", status_code=405)

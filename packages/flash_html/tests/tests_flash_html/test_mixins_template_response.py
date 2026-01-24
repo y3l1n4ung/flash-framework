@@ -1,7 +1,7 @@
 import pytest
-from fastapi import Request, FastAPI, Response
-from flash_html.views.mixins.template_response import TemplateResponseMixin
+from fastapi import FastAPI, Request, Response
 from flash_html.template_manager import TemplateManager
+from flash_html.views.mixins.template_response import TemplateResponseMixin
 
 
 class TestTemplateResponseMixin:
