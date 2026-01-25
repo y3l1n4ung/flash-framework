@@ -156,7 +156,7 @@ class TestTemplateView:
 
     def test_args_kwargs_in_subclass_override(self, app, client):
         """
-        Requirement: If a subclass explicitly defines *args or **kwargs in its get()
+        If a subclass explicitly defines *args or **kwargs in its get()
         method, it should still work without crashing, though FastAPI won't fill them
         automatically unless configured to. This test primarily ensures as_view logic
         doesn't break when seeing these in a subclass.
@@ -166,8 +166,6 @@ class TestTemplateView:
             template_name = "hello.html"
 
             async def get(self, **kwargs):
-                # Even if we define **kwargs, as_view filters it from FastAPI signature.
-                # So kwargs will be empty unless passed by dispatch middleware (none here).
                 name = "Empty" if not kwargs else "Full"
                 context = self.get_context_data(name=name)
                 return self.render_to_response(context)
@@ -176,6 +174,4 @@ class TestTemplateView:
 
         response = client.get("/kwargs?something=1")
         assert response.status_code == 200
-        # Expect "Empty" because FastAPI won't inject into **kwargs
-        # if the signature exposed by as_view hides it.
         assert "Hello Empty" in response.text

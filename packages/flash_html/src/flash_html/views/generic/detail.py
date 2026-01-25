@@ -51,3 +51,9 @@ class DetailView(SingleObjectMixin[T], TemplateView, Generic[T]):
         """
         self.object = await self.get_object()
         return await super().get(**kwargs)
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        context = super().get_context_data(**kwargs)
+        name = self.context_object_name or self.model.__name__.lower()
+        context[name] = self.object
+        return context
