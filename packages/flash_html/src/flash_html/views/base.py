@@ -152,7 +152,7 @@ class View:
         )
 
         if inspect.iscoroutinefunction(handler):
-            return await handler(**kwargs)
+            return await handler(**kwargs)  # ty:ignore[invalid-await]
 
         return handler(**kwargs)
 

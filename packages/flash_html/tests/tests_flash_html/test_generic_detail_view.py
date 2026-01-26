@@ -195,7 +195,7 @@ class TestDetailView:
             model = Product
             template_name = "product_detail.html"
 
-            async def get(self, *, category: str, **kwargs):
+            async def get(self, *, category: str, **kwargs):  # ty:ignore[invalid-method-override]
                 # We expect 'category' to be in kwargs when super().get is called
                 response = await super().get(category=category, **kwargs)
                 return response

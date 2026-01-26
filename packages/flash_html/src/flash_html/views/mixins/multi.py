@@ -4,12 +4,12 @@ from typing import Any, Generic, List, Literal, Tuple, TypeVar
 from fastapi import HTTPException
 from flash_db.models import Model
 from flash_db.queryset import QuerySet
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import (
     DatabaseError,
     IntegrityError,
     OperationalError,
 )
+from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
 

@@ -1,11 +1,10 @@
 import pytest
 import pytest_asyncio
 from fastapi import HTTPException
-from sqlalchemy import insert
-from sqlalchemy.exc import DatabaseError, IntegrityError, OperationalError
-
 from flash_html.views.mixins.multi import MultipleObjectMixin
 from models import Product
+from sqlalchemy import insert
+from sqlalchemy.exc import DatabaseError, IntegrityError, OperationalError
 
 
 @pytest_asyncio.fixture
