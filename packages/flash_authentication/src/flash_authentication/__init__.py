@@ -1,13 +1,18 @@
-from .interface import BaseAuthenticator, BaseLoginBackend, BaseUser
+from .backend import AuthenticationBackend
 from .models import AbstractBaseUser, User
-from .schemas import BaseUserSchema, UserCreateSchema
+from .schemas import (
+    AnonymousUser,
+    AuthenticationResult,
+    BaseUserSchema,
+    UserCreateSchema,
+)
 
 __all__ = [
-    "BaseUser",
-    "BaseAuthenticator",
-    "BaseLoginBackend",
+    "AuthenticationBackend",
     "AbstractBaseUser",
     "User",
+    "AnonymousUser",
     "BaseUserSchema",
     "UserCreateSchema",
+    "AuthenticationResult",
 ]

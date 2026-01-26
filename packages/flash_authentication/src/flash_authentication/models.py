@@ -6,14 +6,9 @@ from sqlalchemy import Boolean, DateTime, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .hasher import hash_password, verify_password
-from .interface import BaseUser
 
 
-class AuthUserMeta(type(Model), type(BaseUser)):
-    pass
-
-
-class AbstractBaseUser(Model, BaseUser, TimestampMixin, metaclass=AuthUserMeta):
+class AbstractBaseUser(Model, TimestampMixin):
     __abstract__ = True
 
     username: Mapped[str] = mapped_column(
@@ -53,40 +48,8 @@ class AbstractBaseUser(Model, BaseUser, TimestampMixin, metaclass=AuthUserMeta):
         return f"<{self.__class__.__name__}(id={self.id}, username='{self.username}')>"
 
 
+USER_TABLE_NAME = "flash_authentication_users"
+
+
 class User(AbstractBaseUser):
-    __tablename__ = "flash_authentication_users"
-
-
-class AnonymousUser(BaseUser):
-    """Implementation of BaseUser for unauthenticated visitors."""
-
-    id: None = None
-    username: str = ""
-    email: None = None
-    is_staff: bool = False
-    is_superuser: bool = False
-
-    @property
-    def is_authenticated(self) -> bool:
-        """Anonymous users are never authenticated."""
-        return False
-
-    @property
-    def is_active(self) -> bool:
-        """Anonymous users are not active."""
-        return False
-
-    @property
-    def display_name(self) -> str:
-        """Return display name for anonymous user."""
-        return "Anonymous"
-
-    def __str__(self) -> str:
-        return "AnonymousUser"
-
-    def __repr__(self) -> str:
-        return "<AnonymousUser>"
-
-    def __bool__(self) -> bool:
-        """AnonymousUser is falsy."""
-        return False
+    __tablename__ = USER_TABLE_NAME

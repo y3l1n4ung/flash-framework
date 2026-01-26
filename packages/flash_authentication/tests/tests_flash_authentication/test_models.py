@@ -1,5 +1,5 @@
 import pytest
-from flash_authentication.models import AnonymousUser, User
+from flash_authentication.models import User
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
@@ -111,21 +111,3 @@ class TestUserPersistence:
         assert fetched_user is not None
         assert fetched_user.id == user.id
         assert fetched_user.email == "fetch@test.com"
-
-
-class TestAnonymousUser:
-    """Tests for the AnonymousUser implementation."""
-
-    def test_default_values(self):
-        anon = AnonymousUser()
-        assert anon.id is None
-        assert not anon.is_authenticated
-        assert anon.display_name == "Anonymous"
-        assert not anon.email
-        assert not anon.is_staff
-        assert not anon.is_superuser
-        assert str(anon) == "AnonymousUser"
-        assert repr(anon) == "<AnonymousUser>"
-
-        assert not anon.is_active
-        assert bool(anon) is False
