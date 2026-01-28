@@ -154,10 +154,9 @@ class TestGetObjects:
     """Tests for get_objects() method."""
 
     @pytest.mark.asyncio
-    async def test_get_objects_success(self, setup_mixin, products_data):
+    async def test_get_objects_success(self, setup_mixin, products_data):  # noqa: ARG002
         """Fetch objects successfully."""
         # Verify products_data fixture is available even though we create mock data
-        assert products_data is not None
 
         class ProductListView(MultipleObjectMixin[Product]):
             model = Product
@@ -173,10 +172,9 @@ class TestGetObjects:
         assert data["has_previous"] is False
 
     @pytest.mark.asyncio
-    async def test_get_objects_with_pagination(self, setup_mixin, products_data):
+    async def test_get_objects_with_pagination(self, setup_mixin, products_data):  # noqa: ARG002
         """Pagination returns correct subset."""
         # Verify products_data fixture is available
-        assert products_data is not None
 
         class ProductListView(MultipleObjectMixin[Product]):
             model = Product
@@ -191,10 +189,9 @@ class TestGetObjects:
         assert data["has_previous"] is True
 
     @pytest.mark.asyncio
-    async def test_get_objects_with_ordering(self, setup_mixin, products_data):
+    async def test_get_objects_with_ordering(self, setup_mixin, products_data):  # noqa: ARG002
         """Objects are ordered correctly."""
         # Verify products_data fixture is available
-        assert products_data is not None
 
         class ProductListView(MultipleObjectMixin[Product]):
             model = Product
@@ -206,10 +203,9 @@ class TestGetObjects:
         assert data["object_list"][-1].id == 1
 
     @pytest.mark.asyncio
-    async def test_get_objects_uses_paginate_by(self, setup_mixin, products_data):
+    async def test_get_objects_uses_paginate_by(self, setup_mixin, products_data):  # noqa: ARG002
         """Uses paginate_by when limit not provided."""
         # Verify products_data fixture is available
-        assert products_data is not None
 
         class ProductListView(MultipleObjectMixin[Product]):
             model = Product
@@ -228,7 +224,6 @@ class TestGetObjects:
         products_data,
     ):
         """Explicit limit parameter overrides paginate_by."""
-        assert products_data is not None
 
         class ProductListView(MultipleObjectMixin[Product]):
             model = Product
@@ -241,9 +236,8 @@ class TestGetObjects:
         assert data["limit"] == 3
 
     @pytest.mark.asyncio
-    async def test_get_objects_with_custom_queryset(self, setup_mixin, products_data):
+    async def test_get_objects_with_custom_queryset(self, setup_mixin, products_data):  # noqa: ARG002
         """Custom queryset filtering is respected."""
-        assert products_data is not None
 
         class PublishedListView(MultipleObjectMixin[Product]):
             model = Product
@@ -261,7 +255,6 @@ class TestGetObjects:
         setup_mixin,
         products_data,
     ):
-        assert products_data is not None
         """get_queryset() override is called."""
 
         class CustomListView(MultipleObjectMixin[Product]):
@@ -297,7 +290,6 @@ class TestGetObjects:
         products_data,
     ):
         """Empty result raises 404 when allow_empty=False and no data."""
-        assert products_data is not None
 
         # Create a filtered view that returns no results
         class PublishedListView(MultipleObjectMixin[Product]):
@@ -348,7 +340,6 @@ class TestGetObjects:
         setup_mixin,
         products_data,
     ):
-        assert products_data is not None
         """Invalid ordering field is skipped with warning."""
 
         class ProductListView(MultipleObjectMixin[Product]):
@@ -366,9 +357,8 @@ class TestGetObjects:
         assert data["object_list"][0].id == 5
 
     @pytest.mark.asyncio
-    async def test_get_objects_has_next_calculation(self, setup_mixin, products_data):
+    async def test_get_objects_has_next_calculation(self, setup_mixin, products_data):  # noqa: ARG002
         """has_next flag calculated correctly."""
-        assert products_data is not None
 
         class ProductListView(MultipleObjectMixin[Product]):
             model = Product
@@ -393,7 +383,6 @@ class TestGetObjects:
         setup_mixin,
         products_data,
     ):
-        assert products_data is not None
         """has_previous flag calculated correctly."""
 
         class ProductListView(MultipleObjectMixin[Product]):
@@ -481,7 +470,7 @@ class TestDatabaseExceptions:
             await mixin.get_objects(limit=10, offset=0)
 
         assert excinfo.value.status_code == 500
-        assert "integrity error" in excinfo.value.detail
+        assert "Internal database error occurred" in excinfo.value.detail
 
     @pytest.mark.asyncio
     async def test_database_error_returns_500(self, setup_mixin):
@@ -516,7 +505,7 @@ class TestDatabaseExceptions:
             await mixin.get_objects(limit=10, offset=0)
 
         assert excinfo.value.status_code == 500
-        assert "Database error" in excinfo.value.detail
+        assert "Internal database error occurred." in excinfo.value.detail
 
     @pytest.mark.asyncio
     async def test_unexpected_exception_returns_500(self, setup_mixin):

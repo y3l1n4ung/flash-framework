@@ -93,6 +93,8 @@ class SingleObjectMixin(Generic[T]):
 
         try:
             obj = await queryset.first(self.db)
+        except (AttributeError, TypeError):
+            raise
         except OperationalError as e:
             logger.exception("Database connection error")
             raise HTTPException(

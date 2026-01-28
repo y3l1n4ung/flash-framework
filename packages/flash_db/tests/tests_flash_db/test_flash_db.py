@@ -154,9 +154,9 @@ class TestQuerySet:
 
         assert await Article.objects.all().count(db_session) == 1
 
-    async def test_queryset_load_related_applies_joinedload(self, _db_session):
+    async def test_queryset_load_related_applies_joinedload(self, db_session):
         """Verify load_related adds relationship loading to the statement."""
-        # This hits line 59 (the loop for fields)
+        assert db_session
         qs = Article.objects.all().load_related("comments")
         assert "JOIN" in str(qs._stmt)
 

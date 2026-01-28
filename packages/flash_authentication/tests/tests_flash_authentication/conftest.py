@@ -36,9 +36,8 @@ async def init_test_db():
 
 
 @pytest_asyncio.fixture()
-async def db_session(init_test_db):
+async def db_session(init_test_db):  # noqa: ARG001
     """Provide a database session for tests."""
-    assert init_test_db
 
     async for session in db_module.get_db():
         yield session

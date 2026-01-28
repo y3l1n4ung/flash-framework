@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime  # noqa: TC003
 from typing import TYPE_CHECKING, ClassVar
 
 from sqlalchemy import DateTime, func
@@ -7,8 +8,6 @@ from sqlalchemy.ext.asyncio import AsyncAttrs
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 if TYPE_CHECKING:
-    from datetime import datetime
-
     from .manager import ModelManager
 
 try:

@@ -140,6 +140,7 @@ class ModelManager(Generic[T]):
             raise
         if instance is None:
             msg = f"{self._model.__name__} with id {pk} not found"
+            raise ValueError(msg)
         return cast("T", instance)
 
     async def delete_by_pk(

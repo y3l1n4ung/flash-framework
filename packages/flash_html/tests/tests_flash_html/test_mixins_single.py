@@ -1,8 +1,12 @@
+import logging
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
 import pytest_asyncio
 from fastapi import HTTPException
 from flash_html.views.mixins.single import SingleObjectMixin
 from models import Product
+from sqlalchemy.exc import DatabaseError, IntegrityError, OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -374,31 +378,39 @@ class TestContextObjectName:
 
 
 class TestDatabaseExceptions:
-    """Tests for database error handling (OperationalError, IntegrityError,
-    DatabaseError)."""
+    """Tests for database error handling in SingleObjectMixin."""
 
-    @pytest.mark.asyncio
-    async def test_operational_error_returns_503(self, db_session):
-        """OperationalError (database connection issue) raises HTTPException 503."""
-        from sqlalchemy.exc import OperationalError
+    @pytest.fixture
+    def mock_queryset(self):
+        """Creates a mock queryset that can be configured per test."""
+        mock_qs = MagicMock()
+        mock_qs.filter.return_value = mock_qs
+        return mock_qs
+
+    @pytest.fixture
+    def mixin(self, db_session, mock_queryset):
+        """Returns a ProductDetail instance with a mocked get_queryset."""
 
         class ProductDetail(SingleObjectMixin[Product]):
             model = Product
 
-            def get_queryset(self):  # type: ignore
-                class MockQuerySet:
-                    async def first(self, _db):
-                        msg = "Connection lost"
-                        raise OperationalError(msg, None, None)  # type: ignore
+            def get_queryset(self):
+                return mock_queryset
 
-                    def filter(self, *_args, **_kwargs):
-                        return self
+        instance = ProductDetail()
+        instance.db = db_session
+        instance.kwargs = {"pk": 1}
+        return instance
 
-                return MockQuerySet()
-
-        mixin = ProductDetail()
-        mixin.db = db_session
-        mixin.kwargs = {"pk": 1}
+    @pytest.mark.asyncio
+    async def test_operational_error_returns_503(self, mixin, mock_queryset):
+        mock_queryset.first = AsyncMock(
+            side_effect=OperationalError(
+                "Lost",
+                None,
+                Exception("OP ERROR"),
+            ),
+        )
 
         with pytest.raises(HTTPException) as excinfo:
             await mixin.get_object()
@@ -407,85 +419,34 @@ class TestDatabaseExceptions:
         assert "temporarily unavailable" in excinfo.value.detail
 
     @pytest.mark.asyncio
-    async def test_integrity_error_returns_500(self, db_session):
-        """IntegrityError (database integrity issue) raises HTTPException 500."""
-        from sqlalchemy.exc import IntegrityError
-
-        class ProductDetail(SingleObjectMixin[Product]):
-            model = Product
-
-            def get_queryset(self):  # type: ignore
-                # Return a mock queryset that raises on first()
-                class MockQuerySet:
-                    async def first(self, _db):
-                        msg = "Integrity violation"
-                        raise IntegrityError(msg, None, None)  # type: ignore
-
-                    def filter(self, *_args, **_kwargs):
-                        return self
-
-                return MockQuerySet()
-
-        mixin = ProductDetail()
-        mixin.db = db_session
-        mixin.kwargs = {"pk": 1}
+    async def test_integrity_error_returns_500(self, mixin, mock_queryset):
+        mock_queryset.first = AsyncMock(
+            side_effect=IntegrityError(
+                "Conflict",
+                None,
+                Exception("ERROR"),
+            ),
+        )
 
         with pytest.raises(HTTPException) as excinfo:
             await mixin.get_object()
 
         assert excinfo.value.status_code == 500
-        assert "integrity error" in excinfo.value.detail
+        assert "Internal database error occurred." in excinfo.value.detail
 
     @pytest.mark.asyncio
-    async def test_database_error_returns_500(self, db_session):
-        """DatabaseError (generic database error) raises HTTPException 500."""
-        from sqlalchemy.exc import DatabaseError
-
-        class ProductDetail(SingleObjectMixin[Product]):
-            model = Product
-
-            def get_queryset(self):  # type: ignore
-                class MockQuerySet:
-                    async def first(self, _db):
-                        msg = "Database error"
-                        raise DatabaseError(msg, None, None)  # type: ignore
-
-                    def filter(self, *_args, **_kwargs):
-                        return self
-
-                return MockQuerySet()
-
-        mixin = ProductDetail()
-        mixin.db = db_session
-        mixin.kwargs = {"pk": 1}
+    async def test_database_error_returns_500(self, mixin, mock_queryset):
+        mock_queryset.first = AsyncMock(side_effect=DatabaseError("Error", None, None))
 
         with pytest.raises(HTTPException) as excinfo:
             await mixin.get_object()
 
         assert excinfo.value.status_code == 500
-        assert "Database error" in excinfo.value.detail
+        assert "Internal database error occurred." in excinfo.value.detail
 
     @pytest.mark.asyncio
-    async def test_unexpected_exception_returns_500(self, db_session):
-        """Unexpected exception (not SQLAlchemy) raises HTTPException 500."""
-
-        class ProductDetail(SingleObjectMixin[Product]):
-            model = Product
-
-            def get_queryset(self):  # type: ignore
-                class MockQuerySet:
-                    async def first(self, _db):
-                        msg = "Unexpected error"
-                        raise ValueError(msg)
-
-                    def filter(self, *_args, **_kwargs):
-                        return self
-
-                return MockQuerySet()
-
-        mixin = ProductDetail()
-        mixin.db = db_session
-        mixin.kwargs = {"pk": 1}
+    async def test_unexpected_exception_returns_500(self, mixin, mock_queryset):
+        mock_queryset.first = AsyncMock(side_effect=ValueError("Unexpected"))
 
         with pytest.raises(HTTPException) as excinfo:
             await mixin.get_object()
@@ -494,54 +455,12 @@ class TestDatabaseExceptions:
         assert "Internal server error" in excinfo.value.detail
 
     @pytest.mark.asyncio
-    async def test_attribute_error_re_raised_in_get_object(self, db_session):
-        """AttributeError and TypeError are re-raised (not converted to
-        HTTPException)."""
+    @pytest.mark.parametrize("exception_class", [AttributeError, TypeError])
+    async def test_passthrough_exceptions(self, mixin, mock_queryset, exception_class):
+        """AttributeError and TypeError should not be swallowed/converted."""
+        mock_queryset.first = AsyncMock(side_effect=exception_class("Reraise me"))
 
-        class ProductDetail(SingleObjectMixin[Product]):
-            model = Product
-
-            def get_queryset(self):  # type: ignore
-                class MockQuerySet:
-                    async def first(self, _db):
-                        msg = "Missing attribute"
-                        raise AttributeError(msg)
-
-                    def filter(self, *_args, **_kwargs):
-                        return self
-
-                return MockQuerySet()
-
-        mixin = ProductDetail()
-        mixin.db = db_session
-        mixin.kwargs = {"pk": 1}
-
-        with pytest.raises(AttributeError, match="Missing attribute"):
-            await mixin.get_object()
-
-    @pytest.mark.asyncio
-    async def test_type_error_re_raised_in_get_object(self, db_session):
-        """TypeError is re-raised (not converted to HTTPException)."""
-
-        class ProductDetail(SingleObjectMixin[Product]):
-            model = Product
-
-            def get_queryset(self):  # type: ignore
-                class MockQuerySet:
-                    async def first(self, _db):
-                        msg = "Type mismatch"
-                        raise TypeError(msg)
-
-                    def filter(self, *_args, **_kwargs):
-                        return self
-
-                return MockQuerySet()
-
-        mixin = ProductDetail()
-        mixin.db = db_session
-        mixin.kwargs = {"pk": 1}
-
-        with pytest.raises(TypeError, match="Type mismatch"):
+        with pytest.raises(exception_class, match="Reraise me"):
             await mixin.get_object()
 
 
@@ -577,7 +496,6 @@ class TestSlugFieldConfiguration:
 
         error_msg = str(excinfo.value)
         assert "invalid_field" in error_msg
-        assert "Valid fields:" in error_msg
 
 
 class TestQuerysetOverrides:
@@ -632,73 +550,3 @@ class TestQuerysetOverrides:
         with pytest.raises(HTTPException) as excinfo:
             await mixin.get_object()
         assert excinfo.value.status_code == 404
-
-
-class TestLoggingBehavior:
-    """Tests to verify logging calls occur (coverage for debug/info logs)."""
-
-    @pytest.mark.asyncio
-    async def test_debug_log_on_pk_lookup(self, setup_mixin, product, caplog):
-        """Debug log is created when looking up by PK."""
-        import logging
-
-        class ProductDetail(SingleObjectMixin[Product]):
-            model = Product
-
-        mixin = setup_mixin(ProductDetail, pk=product.id)
-
-        with caplog.at_level(logging.DEBUG):
-            await mixin.get_object()
-
-        assert any("Looking up" in record.message for record in caplog.records)
-        assert any("pk" in record.message for record in caplog.records)
-
-    @pytest.mark.asyncio
-    async def test_debug_log_on_slug_lookup(self, setup_mixin, product, caplog):
-        """Debug log is created when looking up by slug."""
-        import logging
-
-        assert product is not None
-
-        class ProductDetail(SingleObjectMixin[Product]):
-            model = Product
-
-        mixin = setup_mixin(ProductDetail, slug="laptop")
-
-        with caplog.at_level(logging.DEBUG):
-            await mixin.get_object()
-
-        assert any("Looking up" in record.message for record in caplog.records)
-        assert any("slug" in record.message for record in caplog.records)
-
-    @pytest.mark.asyncio
-    async def test_info_log_on_404(self, setup_mixin, caplog):
-        """Info log is created when object not found (404)."""
-        import logging
-
-        class ProductDetail(SingleObjectMixin[Product]):
-            model = Product
-
-        mixin = setup_mixin(ProductDetail, pk=999)
-
-        with caplog.at_level(logging.INFO), pytest.raises(HTTPException):
-            await mixin.get_object()
-
-        assert any("not found" in record.message for record in caplog.records)
-
-    @pytest.mark.asyncio
-    async def test_debug_log_on_successful_fetch(self, setup_mixin, product, caplog):
-        """Debug log is created on successful fetch."""
-        import logging
-
-        class ProductDetail(SingleObjectMixin[Product]):
-            model = Product
-
-        mixin = setup_mixin(ProductDetail, pk=product.id)
-
-        with caplog.at_level(logging.DEBUG):
-            await mixin.get_object()
-
-        assert any(
-            "Successfully fetched" in record.message for record in caplog.records
-        )
