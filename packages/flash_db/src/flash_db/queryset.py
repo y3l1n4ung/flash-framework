@@ -1,14 +1,16 @@
 from __future__ import annotations
 
-from typing import Any, Generic, Sequence, Type, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, Sequence, Type, TypeVar
 
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
-from sqlalchemy.sql import ColumnElement, Select
 
 from .models import Model
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
+    from sqlalchemy.sql import ColumnElement, Select
 
 T = TypeVar("T", bound=Model)
 
@@ -93,7 +95,8 @@ class QuerySet(Generic[T]):
         """
         where_clause = self._stmt._where_criteria
         if not where_clause:
-            raise ValueError("Refusing to update without filters")
+            msg = "Refusing to update without filters"
+            raise ValueError(msg)
 
         stmt = update(self.model).where(*where_clause).values(**values)
         try:
@@ -102,7 +105,8 @@ class QuerySet(Generic[T]):
             return getattr(result, "rowcount", 0)
         except SQLAlchemyError as e:
             await db.rollback()
-            raise RuntimeError(f"Database error during bulk update: {e}")
+            msg = f"Database error during bulk update: {e}"
+            raise RuntimeError(msg) from e
 
     async def delete(self, db: AsyncSession) -> int:
         """
@@ -110,7 +114,8 @@ class QuerySet(Generic[T]):
         """
         where_clause = self._stmt._where_criteria
         if not where_clause:
-            raise ValueError("Refusing to delete without filters")
+            msg = "Refusing to delete without filters"
+            raise ValueError(msg)
 
         stmt = delete(self.model).where(*where_clause)
         try:
@@ -119,4 +124,5 @@ class QuerySet(Generic[T]):
             return getattr(result, "rowcount", 0)
         except SQLAlchemyError as e:
             await db.rollback()
-            raise RuntimeError(f"Database error during bulk delete: {e}")
+            msg = f"Database error during bulk delete: {e}"
+            raise RuntimeError(msg) from e

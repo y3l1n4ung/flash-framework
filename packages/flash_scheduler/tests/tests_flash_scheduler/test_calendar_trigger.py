@@ -21,14 +21,14 @@ class SimpleTrigger(Trigger):
     def __init__(self, interval: int):
         self.interval = interval
 
-    def next_fire_time(self, prev_fire_time, now):
+    def next_fire_time(self, prev_fire_time, now):  # noqa: ARG002
         return None
 
 
 class OtherTrigger(Trigger):
     """A different implementation to test type mismatch."""
 
-    def next_fire_time(self, prev_fire_time, now):
+    def next_fire_time(self, prev_fire_time, now):  # noqa: ARG002
         return None
 
 
@@ -250,7 +250,8 @@ def test_next_fire_time_first_run(jan_1_2024):
     trigger = CalendarIntervalTrigger(config=config)
 
     # 'now' is Jan 1st 00:00. Trigger wants 9:00.
-    # Logic: 9:00 is in the future relative to 'now', so it should just return Jan 1st 09:00.
+    # Logic: 9:00 is in the future relative to 'now', so it should just
+    # return Jan 1st 09:00.
     next_run = trigger.next_fire_time(None, jan_1_2024)
 
     assert next_run == jan_1_2024.replace(hour=9)

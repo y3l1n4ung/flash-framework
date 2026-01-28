@@ -8,11 +8,11 @@ from .schemas import (
 )
 
 __all__ = [
-    "AuthenticationBackend",
     "AbstractBaseUser",
-    "User",
     "AnonymousUser",
-    "BaseUserSchema",
-    "UserCreateSchema",
+    "AuthenticationBackend",
     "AuthenticationResult",
+    "BaseUserSchema",
+    "User",
+    "UserCreateSchema",
 ]

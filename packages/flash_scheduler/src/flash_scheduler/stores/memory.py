@@ -1,9 +1,13 @@
 from __future__ import annotations
 
-from datetime import datetime
+from typing import TYPE_CHECKING
 
-from ..schemas import JobDefinition
 from .base import JobStore
+
+if TYPE_CHECKING:
+    from datetime import datetime
+
+    from flash_scheduler.schemas import JobDefinition
 
 
 class MemoryJobStore(JobStore):
@@ -37,7 +41,8 @@ class MemoryJobStore(JobStore):
             ValueError: If a job with the same job_id already exists.
         """
         if job.job_id in self._jobs:
-            raise ValueError(f"Job '{job.job_id}' already exists")
+            msg = f"Job '{job.job_id}' already exists"
+            raise ValueError(msg)
         self._jobs[job.job_id] = job
         self._next_run_times[job.job_id] = None
 
@@ -90,7 +95,8 @@ class MemoryJobStore(JobStore):
             ValueError: If the job_id does not exist in the store.
         """
         if job.job_id not in self._jobs:
-            raise ValueError(f"Job '{job.job_id}' not found")
+            msg = f"Job '{job.job_id}' not found"
+            raise ValueError(msg)
         self._jobs[job.job_id] = job
 
     async def remove_job(self, job_id: str) -> bool:
@@ -131,7 +137,8 @@ class MemoryJobStore(JobStore):
             ValueError: If the job_id does not exist.
         """
         if job_id not in self._jobs:
-            raise ValueError(f"Job '{job_id}' not found")
+            msg = f"Job '{job_id}' not found"
+            raise ValueError(msg)
         self._next_run_times[job_id] = next_run
 
     async def get_next_run_time(self, job_id: str) -> datetime | None:
@@ -198,7 +205,8 @@ class MemoryJobStore(JobStore):
         if job:
             self._jobs[job_id] = job.model_copy(update={"enabled": False})
         else:
-            raise ValueError(f"Job '{job_id}' not found")
+            msg = f"Job '{job_id}' not found"
+            raise ValueError(msg)
 
     async def resume_job(self, job_id: str) -> None:
         """
@@ -212,5 +220,6 @@ class MemoryJobStore(JobStore):
         """
         job = self._jobs.get(job_id)
         if not job:
-            raise ValueError(f"Job '{job_id}' not found")
+            msg = f"Job '{job_id}' not found"
+            raise ValueError(msg)
         self._jobs[job_id] = job.model_copy(update={"enabled": True})

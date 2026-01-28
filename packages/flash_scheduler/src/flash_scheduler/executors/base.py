@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from ..schemas import JobDefinition
+if TYPE_CHECKING:
+    from flash_scheduler.schemas import JobDefinition
 
 
 class BaseExecutor(ABC):
@@ -32,7 +33,7 @@ class BaseExecutor(ABC):
         ...
 
     @abstractmethod
-    async def shutdown(self, wait: bool = True) -> None:
+    async def shutdown(self, *, wait: bool = True) -> None:
         """
         Shutdown the executor.
 

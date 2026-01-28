@@ -29,7 +29,12 @@ class TestUserCreateSchema:
         ids=["mismatch", "no_number", "no_upper", "too_short", "regex_fail"],
     )
     def test_creation_validation_errors(
-        self, username, email, password, password_confirm, expected_error
+        self,
+        username,
+        email,
+        password,
+        password_confirm,
+        expected_error,
     ):
         """Standardized validation testing using parametrized failure cases."""
         payload = {
@@ -101,7 +106,9 @@ class TestAuthenticationResult:
         mock_db_user = MagicMock(spec=Model)
 
         result = AuthenticationResult(
-            success=True, user=mock_db_user, message="Authenticated via DB"
+            success=True,
+            user=mock_db_user,
+            message="Authenticated via DB",
         )
 
         assert result.success is True
@@ -111,7 +118,10 @@ class TestAuthenticationResult:
         """Test a successful authentication result container."""
         user = AnonymousUser()
         result = AuthenticationResult(
-            success=True, user=user, message="Login successful", extra={"token": "abc"}
+            success=True,
+            user=user,
+            message="Login successful",
+            extra={"token": "abc"},
         )
         assert result.success is True
         assert result.user == user

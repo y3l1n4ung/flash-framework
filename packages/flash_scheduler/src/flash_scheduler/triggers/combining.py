@@ -11,7 +11,8 @@ class AndTrigger(base.Trigger):
     """
     Trigger that fires only when ALL child triggers coincide.
 
-    The next fire time is the earliest time when all child triggers agree to fire simultaneously.
+    The next fire time is the earliest time when all child triggers
+        agree to fire simultaneously.
     This uses a "leapfrog" search algorithm to find the intersection of schedules.
 
     Examples:
@@ -28,17 +29,21 @@ class AndTrigger(base.Trigger):
 
     def __init__(self, triggers: list[base.Trigger]):
         if len(triggers) < 2:
-            raise ValueError("AndTrigger requires at least 2 triggers")
+            msg = "AndTrigger requires at least 2 triggers"
+            raise ValueError(msg)
         self.triggers = triggers
 
     def next_fire_time(
-        self, prev_fire_time: datetime | None, now: datetime
+        self,
+        prev_fire_time: datetime | None,  # noqa: ARG002
+        now: datetime,
     ) -> datetime | None:
         """Finds the next time where all triggers overlap."""
         # Start searching from 'now'
         candidate = now
 
-        # We subtract a tiny amount when advancing the search baseline to ensure inclusive checks.
+        # We subtract a tiny amount when advancing the search baseline to ensure
+        # inclusive checks.
         epsilon = timedelta(microseconds=1)
         max_iterations = 1000
 
@@ -48,11 +53,15 @@ class AndTrigger(base.Trigger):
             # 1. Ask every trigger for its next fire time relative to the candidate
             for trigger in self.triggers:
                 # CRITICAL FIX: We pass None here.
-                # We are searching for a hypothetical future time based on 'candidate'.
-                # The child trigger should not calculate based on when the parent AndTrigger last fired.
+                # We are searching for a hypothetical future time based on
+                # 'candidate'.
+                # The child trigger should not calculate based on when the parent
+                # AndTrigger last fired.
                 t = trigger.next_fire_time(None, candidate)
                 if t is None:
-                    # If any trigger finishes its schedule, the AND condition can never be met again.
+                    # If any trigger finishes its schedule, the AND condition
+                    # can never be
+                    # met again.
                     return None
                 next_times.append(t)
 
@@ -92,11 +101,14 @@ class OrTrigger(base.Trigger):
 
     def __init__(self, triggers: list[base.Trigger]):
         if len(triggers) < 2:
-            raise ValueError("OrTrigger requires at least 2 triggers")
+            msg = "OrTrigger requires at least 2 triggers"
+            raise ValueError(msg)
         self.triggers = triggers
 
     def next_fire_time(
-        self, prev_fire_time: datetime | None, now: datetime
+        self,
+        prev_fire_time: datetime | None,  # noqa: ARG002
+        now: datetime,
     ) -> datetime | None:
         """Returns the earliest next fire time from the list."""
         potential_times = []

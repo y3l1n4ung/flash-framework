@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import random
 from datetime import datetime, timedelta
-
-from flash_scheduler.schemas import IntervalTriggerConfig
+from typing import TYPE_CHECKING
 
 from .base import Trigger
+
+if TYPE_CHECKING:
+    from flash_scheduler.schemas import IntervalTriggerConfig
 
 
 class IntervalTrigger(Trigger):
@@ -35,7 +37,8 @@ class IntervalTrigger(Trigger):
         hours: Number of hours to wait.
         minutes: Number of minutes to wait.
         seconds: Number of seconds to wait.
-        interval: Direct timedelta object (optional). If provided, overrides unit arguments.
+        interval: Direct timedelta object (optional). If provided, overrides
+                unit arguments.
         start_time: Earliest possible fire time.
         end_time: Latest possible fire time.
         jitter: Max random delay in seconds to avoid load spikes.
@@ -58,7 +61,9 @@ class IntervalTrigger(Trigger):
         self.jitter = config.jitter
 
     def next_fire_time(
-        self, prev_fire_time: datetime | None, now: datetime
+        self,
+        prev_fire_time: datetime | None,
+        now: datetime,
     ) -> datetime | None:
         """Calculates the next scheduled time."""
         if self.end_time and now >= self.end_time:

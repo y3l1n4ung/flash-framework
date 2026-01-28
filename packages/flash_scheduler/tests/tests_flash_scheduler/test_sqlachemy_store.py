@@ -263,7 +263,7 @@ async def test_update_job_not_found(store, job):
 
 async def test_set_next_run_at_not_found(store):
     with pytest.raises(ValueError, match="not found"):
-        await store.set_next_run_time("missing", datetime.now())
+        await store.set_next_run_time("missing", datetime.now(timezone.utc))
 
 
 async def test_pause_resume_not_found(store):
@@ -296,7 +296,9 @@ async def test_get_next_run_at_naive_handling(store, job):
     await store.add_job(job)
 
     # Force a naive datetime into the store (simulating driver behavior)
-    naive_dt = datetime(2026, 1, 1, 12, 0)
+    # Create a naive datetime by removing timezone from an aware datetime
+    aware_dt = datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc)
+    naive_dt = aware_dt.replace(tzinfo=None)
     await store.set_next_run_time("sql_job_1", naive_dt)
 
     retrieved = await store.get_next_run_time("sql_job_1")

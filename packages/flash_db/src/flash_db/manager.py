@@ -5,14 +5,13 @@ from uuid import UUID
 
 from sqlalchemy import delete, select, update
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.sql import ColumnElement
 
 from .models import Model
 from .queryset import QuerySet
 
 if TYPE_CHECKING:
-    pass
+    from sqlalchemy.ext.asyncio import AsyncSession
+    from sqlalchemy.sql import ColumnElement
 
 T = TypeVar("T", bound=Model)
 PrimaryKey = int | str | UUID
@@ -59,13 +58,18 @@ class ModelManager(Generic[T]):
         """
         stmt = select(self._model).where(*conditions).limit(2)
         result = await db.execute(stmt)
-        objs = cast(list[T], result.scalars().all())
+        objs = cast("list[T]", result.scalars().all())
 
         if not objs:
-            raise ValueError(f"{self._model.__name__} matching query does not exist")
+            msg = f"{self._model.__name__} matching query does not exist"
+            raise ValueError(msg)
         if len(objs) > 1:
+            msg = (
+                f"get() returned more than one {self._model.__name__} "
+                f"-- it returned {len(objs)}!"
+            )
             raise ValueError(
-                f"get() returned more than one {self._model.__name__} -- it returned {len(objs)}!"
+                msg,
             )
 
         return objs[0]
@@ -91,12 +95,15 @@ class ModelManager(Generic[T]):
             db.add(instance)
             await db.commit()
             await db.refresh(instance)
-            return instance
+
         except SQLAlchemyError as e:
             await db.rollback()
+            msg = f"Database error while creating {self._model.__name__}: {e}"
             raise RuntimeError(
-                f"Database error while creating {self._model.__name__}: {e}"
-            )
+                msg,
+            ) from e
+        else:
+            return instance
 
     async def update(self, db: AsyncSession, pk: Any, **fields: Any) -> T:
         """
@@ -108,7 +115,7 @@ class ModelManager(Generic[T]):
         """
         try:
             # Use getattr to allow for different PK column names if needed in future
-            pk_col = getattr(self._model, "id")
+            pk_col = self._model.id
             stmt = (
                 update(self._model)
                 .where(pk_col == pk)
@@ -119,21 +126,22 @@ class ModelManager(Generic[T]):
             result = await db.execute(stmt)
             instance = result.scalar_one_or_none()
 
-            if instance is None:
-                # We raise before commit to avoid unnecessary DB cycles
-                raise ValueError(f"{self._model.__name__} with id {pk} not found")
-
-            await db.commit()
-            return cast(T, instance)
+            if instance is not None:
+                await db.commit()
 
         except SQLAlchemyError as e:
             await db.rollback()
+            msg = f"Database error while updating {self._model.__name__}"
             raise RuntimeError(
-                f"Database error while updating {self._model.__name__}"
+                msg,
             ) from e
         except Exception:
             await db.rollback()
             raise
+        if instance is None:
+            msg = f"{self._model.__name__} with id {pk} not found"
+            raise ValueError(msg)
+        return cast("T", instance)
 
     async def delete_by_pk(
         self,
@@ -156,14 +164,16 @@ class ModelManager(Generic[T]):
             count = getattr(result, "rowcount", 0)
         except SQLAlchemyError as e:
             await db.rollback()
+            msg = f"Database error while deleting {self._model.__name__}"
             raise RuntimeError(
-                f"Database error while deleting {self._model.__name__}"
+                msg,
             ) from e
         except Exception:
             await db.rollback()
             raise
 
         if raise_if_missing and count == 0:
-            raise ValueError(f"{self._model.__name__} with id {pk} not found")
+            msg = f"{self._model.__name__} with id {pk} not found"
+            raise ValueError(msg)
 
         return count

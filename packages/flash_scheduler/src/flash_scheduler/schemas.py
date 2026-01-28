@@ -23,9 +23,11 @@ def validate_timezone(v: Any) -> Any:
     if isinstance(v, str):
         try:
             return zoneinfo.ZoneInfo(v)
-        except zoneinfo.ZoneInfoNotFoundError:
-            raise ValueError(f"Invalid timezone name: {v}")
-    raise ValueError(f"Invalid timezone type: {type(v).__name__}")
+        except zoneinfo.ZoneInfoNotFoundError as z:
+            msg = f"Invalid timezone name: {v}"
+            raise ValueError(msg) from z
+    msg = f"Invalid timezone type: {type(v).__name__}"
+    raise ValueError(msg)
 
 
 # Annotated type to handle timezone validation explicitly.
@@ -77,7 +79,8 @@ class IntervalTriggerConfig(BaseModel):
             seconds=self.seconds,
         )
         if total <= timedelta(0):
-            raise ValueError("interval must be positive")
+            msg = "interval must be positive"
+            raise ValueError(msg)
         return self
 
 
@@ -115,7 +118,8 @@ class CronTriggerConfig(BaseModel):
             return str(v)
         if v is None:
             return None
-        raise ValueError(f"Expected str, ZoneInfo, or timezone, got {type(v).__name__}")
+        msg = f"Expected str, ZoneInfo, or timezone, got {type(v).__name__}"
+        raise ValueError(msg)
 
 
 class DateTriggerConfig(BaseModel):
@@ -128,7 +132,8 @@ class DateTriggerConfig(BaseModel):
     @classmethod
     def validate_timezone(cls, v: datetime) -> datetime:
         if v.tzinfo is None:
-            raise ValueError("run_at must be timezone-aware")
+            msg = "run_at must be timezone-aware"
+            raise ValueError(msg)
         return v
 
 
@@ -167,13 +172,15 @@ class CalendarIntervalTriggerConfig(BaseModel):
             return str(v)
         if v is None:
             return None
-        raise ValueError(f"Expected str, ZoneInfo, or timezone, got {type(v).__name__}")
+        msg = f"Expected str, ZoneInfo, or timezone, got {type(v).__name__}"
+        raise ValueError(msg)
 
     @model_validator(mode="after")
     def validate_interval(self) -> "CalendarIntervalTriggerConfig":
         if self.years == 0 and self.months == 0 and self.weeks == 0 and self.days == 0:
+            msg = "At least one of years, months, weeks, or days must be specified"
             raise ValueError(
-                "At least one of years, months, weeks, or days must be specified"
+                msg,
             )
         return self
 
@@ -207,7 +214,8 @@ class JobDefinition(BaseModel):
     @classmethod
     def validate_func_ref(cls, v: str) -> str:
         if ":" not in v:
-            raise ValueError("func_ref must be in format 'module.path:function_name'")
+            msg = "func_ref must be in format 'module.path:function_name'"
+            raise ValueError(msg)
         return v
 
 

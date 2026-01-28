@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from flash_scheduler.events import Event, EventListener, EventManager, SchedulerEvent
@@ -28,12 +28,15 @@ class FailingListener(EventListener):
     """A listener that consistently raises an exception."""
 
     async def on_event(self, event: Event) -> None:
-        raise ValueError("Simulated listener failure")
+        assert event is not None
+
+        msg = "Simulated listener failure"
+        raise ValueError(msg)
 
 
 def test_event_initialization():
     """Verify that the Event dataclass stores fields correctly using real schemas."""
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
 
     # Real JobDefinition
     job = JobDefinition(
@@ -97,7 +100,7 @@ async def test_event_manager_dispatch_to_single_listener():
     listener = MockListener()
     manager.add_listener(listener)
 
-    event = Event(type=SchedulerEvent.STARTUP, timestamp=datetime.now())
+    event = Event(type=SchedulerEvent.STARTUP, timestamp=datetime.now(timezone.utc))
     await manager.dispatch(event)
 
     assert listener.call_count == 1
@@ -111,7 +114,7 @@ async def test_event_manager_dispatch_to_multiple_listeners():
     for listener in listeners:
         manager.add_listener(listener)
 
-    event = Event(type=SchedulerEvent.JOB_ADDED, timestamp=datetime.now())
+    event = Event(type=SchedulerEvent.JOB_ADDED, timestamp=datetime.now(timezone.utc))
     await manager.dispatch(event)
 
     for listener in listeners:
@@ -131,7 +134,7 @@ async def test_event_manager_error_isolation(caplog):
     manager.add_listener(failing_listener)
     manager.add_listener(success_listener)
 
-    event = Event(type=SchedulerEvent.JOB_ERROR, timestamp=datetime.now())
+    event = Event(type=SchedulerEvent.JOB_ERROR, timestamp=datetime.now(timezone.utc))
 
     # This should not raise an exception
     await manager.dispatch(event)
@@ -145,6 +148,6 @@ async def test_event_manager_error_isolation(caplog):
 async def test_dispatch_with_no_listeners():
     """Ensure dispatching with no listeners is a safe no-op."""
     manager = EventManager()
-    event = Event(type=SchedulerEvent.SHUTDOWN, timestamp=datetime.now())
+    event = Event(type=SchedulerEvent.SHUTDOWN, timestamp=datetime.now(timezone.utc))
     # Should complete without error
     await manager.dispatch(event)

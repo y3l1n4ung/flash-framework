@@ -6,11 +6,12 @@ import asyncio
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from .schemas import ExecutionResult, JobDefinition
 
 logger = logging.getLogger(__name__)
@@ -89,7 +90,8 @@ class EventManager:
         """
         Dispatch an event to all registered listeners concurrently.
 
-        Exceptions in listeners are logged but suppressed to prevent crashing the scheduler.
+        Exceptions in listeners are logged but suppressed to prevent crashing
+        the scheduler.
         """
         if not self._listeners:
             return
@@ -102,4 +104,4 @@ class EventManager:
         try:
             await listener.on_event(event)
         except Exception:
-            logger.exception(f"Error in event listener {listener}")
+            logger.exception("Error in event listener %s", listener)

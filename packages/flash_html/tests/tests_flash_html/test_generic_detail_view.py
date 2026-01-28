@@ -20,8 +20,8 @@ class TestDetailView:
                         "published": True,
                     },
                     {"id": 2, "name": "Phone", "slug": "phone-max", "published": False},
-                ]
-            )
+                ],
+            ),
         )
         await db_session.execute(
             insert(Blog).values(
@@ -32,8 +32,8 @@ class TestDetailView:
                         "slug": "first-post",
                         "status": "published",
                     },
-                ]
-            )
+                ],
+            ),
         )
         await db_session.commit()
 
@@ -52,7 +52,9 @@ class TestDetailView:
         assert response.headers["content-type"] == "text/html; charset=utf-8"
 
     def test_should_merge_extra_context_with_database_object(
-        self, app: FastAPI, client
+        self,
+        app: FastAPI,
+        client,
     ):
         """Hits: self.get_context_data(**kwargs) with as_view(extra_context)."""
 
@@ -61,7 +63,8 @@ class TestDetailView:
             template_name = "extra.html"
 
         app.add_api_route(
-            "/promo/{pk}", PromoView.as_view(extra_context={"name": "Flash Sale"})
+            "/promo/{pk}",
+            PromoView.as_view(extra_context={"name": "Flash Sale"}),
         )
         response = client.get("/promo/1")
         assert "Extra: Flash Sale" in response.text
@@ -78,7 +81,9 @@ class TestDetailView:
         assert "Post: First Post" in response.text
 
     def test_should_prioritize_pk_over_slug_when_both_present(
-        self, app: FastAPI, client
+        self,
+        app: FastAPI,
+        client,
     ):
         """PK takes priority when both PK and slug are in URL."""
 
@@ -114,7 +119,9 @@ class TestDetailView:
         assert "Item: Laptop" in response.text
 
     def test_should_allow_manual_logic_before_calling_super_get(
-        self, app: FastAPI, client
+        self,
+        app: FastAPI,
+        client,
     ):
         """Override get() to add custom business logic."""
 
@@ -135,7 +142,9 @@ class TestDetailView:
 
     @pytest.mark.asyncio
     async def test_should_inject_nested_path_parameters_into_handler(
-        self, app: FastAPI, client
+        self,
+        app: FastAPI,
+        client,
     ):
         """Path parameters from URL pattern are injected into get() method."""
 
@@ -143,7 +152,7 @@ class TestDetailView:
             model = Product
             template_name = "product_detail.html"
 
-            async def get(self, org: str, team: str, **kwargs):  # type: ignore
+            async def get(self, org: str, team: str, **_kwargs):  # type: ignore
                 self.object = await self.get_object()
                 assert self.object
                 return Response(f"{org}/{team}: {self.object.name}")
@@ -164,7 +173,9 @@ class TestDetailView:
         assert detail_idx < template_idx
 
     def test_should_fallback_to_model_name_when_context_name_missing(
-        self, app: FastAPI, client
+        self,
+        app: FastAPI,
+        client,
     ):
         """
         Target: name = self.context_object_name or self.model.__name__.lower()
@@ -184,21 +195,23 @@ class TestDetailView:
         assert "Product: Laptop" in response.text
 
     def test_should_preserve_existing_kwargs_when_merging_object(
-        self, app: FastAPI, client
+        self,
+        app: FastAPI,
+        client,
     ):
         """
         Target: return await super().get(**kwargs, **{name: object})
-        Ensures that path parameters in **kwargs are not overwritten by the object merge.
+        Ensures that path parameters in **kwargs are not overwritten by the object
+        merge.
         """
 
         class KwargMergeView(DetailView[Product]):
             model = Product
             template_name = "product_detail.html"
 
-            async def get(self, *, category: str, **kwargs):  # ty:ignore[invalid-method-override]
+            async def get(self, *, category: str, **kwargs):
                 # We expect 'category' to be in kwargs when super().get is called
-                response = await super().get(category=category, **kwargs)
-                return response
+                return await super().get(category=category, **kwargs)
 
         app.add_api_route("/merge/{category}/{pk}", KwargMergeView.as_view())
         response = client.get("/merge/electronics/1")
@@ -237,8 +250,8 @@ class TestDetailViewContextData:
                         "slug": "laptop-pro",
                         "published": True,
                     },
-                ]
-            )
+                ],
+            ),
         )
         await db_session.commit()
 
@@ -288,7 +301,8 @@ class TestDetailViewContextData:
 
     @pytest.mark.asyncio
     async def test_get_context_data_uses_model_name_when_no_context_object_name(
-        self, db_session
+        self,
+        db_session,
     ):
         """
         Direct unit test for line 53:
@@ -340,8 +354,8 @@ class TestDetailViewIntegration:
                         "slug": "tablet-pro",
                         "published": True,
                     },
-                ]
-            )
+                ],
+            ),
         )
         await db_session.commit()
 

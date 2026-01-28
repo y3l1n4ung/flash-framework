@@ -11,7 +11,9 @@ class Trigger(ABC):
 
     @abstractmethod
     def next_fire_time(
-        self, prev_fire_time: datetime | None, now: datetime
+        self,
+        prev_fire_time: datetime | None,
+        now: datetime,
     ) -> datetime | None: ...
 
     def __eq__(self, other: object) -> bool:

@@ -55,7 +55,8 @@ class FlashSettings(BaseSettings):
     def validate_security(self) -> "FlashSettings":
         """Ensures production doesn't ship without a secret key."""
         if not self.DEBUG and not self.SECRET_KEY:
-            raise ValueError("SECRET_KEY is mandatory in production mode.")
+            msg = "SECRET_KEY is mandatory in production mode."
+            raise ValueError(msg)
         return self
 
     def is_development(self) -> bool:

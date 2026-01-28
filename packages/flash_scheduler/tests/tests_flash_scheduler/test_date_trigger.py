@@ -22,7 +22,9 @@ def future_date(utc):
 
 def test_validation_error_naive_datetime():
     """Ensure validation fails if a timezone-naive datetime is provided."""
-    naive_dt = datetime(2024, 1, 1)  # No timezone info
+    # Create a naive datetime by removing timezone from an aware datetime
+    aware_dt = datetime(2024, 1, 1, tzinfo=timezone.utc)
+    naive_dt = aware_dt.replace(tzinfo=None)  # No timezone info
 
     with pytest.raises(ValueError, match="run_at must be timezone-aware"):
         DateTrigger(run_at=naive_dt)

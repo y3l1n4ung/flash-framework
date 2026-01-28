@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from datetime import datetime
+from typing import TYPE_CHECKING
 
-from ..schemas import JobDefinition
+if TYPE_CHECKING:
+    from datetime import datetime
+
+    from flash_scheduler.schemas import JobDefinition
 
 
 class JobStore(ABC):

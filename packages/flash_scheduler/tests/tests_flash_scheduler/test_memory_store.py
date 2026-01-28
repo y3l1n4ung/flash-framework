@@ -164,7 +164,7 @@ async def test_get_all_jobs(store, job):
 @pytest.mark.asyncio
 async def test_set_next_run_time_error(store):
     with pytest.raises(ValueError, match="not found"):
-        await store.set_next_run_time("non_existent", datetime.now())
+        await store.set_next_run_time("non_existent", datetime.now(timezone.utc))
 
 
 @pytest.mark.asyncio

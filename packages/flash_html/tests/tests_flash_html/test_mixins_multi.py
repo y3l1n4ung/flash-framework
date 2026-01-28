@@ -23,8 +23,8 @@ async def products_data(db_session):
                     "slug": "keyboard-mech",
                     "published": False,
                 },
-            ]
-        )
+            ],
+        ),
     )
     await db_session.commit()
 
@@ -78,8 +78,9 @@ class TestMultipleObjectMixinCore:
         """If ModelValidator.validate_model() raises TypeError, it gets re-raised."""
         from flash_db.validator import ModelValidator
 
-        def mock_validate_model(model):
-            raise TypeError("Model validation failed: invalid model structure")
+        def mock_validate_model(_model):
+            msg = "Model validation failed: invalid model structure"
+            raise TypeError(msg)
 
         monkeypatch.setattr(ModelValidator, "validate_model", mock_validate_model)
 
@@ -153,8 +154,9 @@ class TestGetObjects:
     """Tests for get_objects() method."""
 
     @pytest.mark.asyncio
-    async def test_get_objects_success(self, setup_mixin, products_data):
+    async def test_get_objects_success(self, setup_mixin, products_data):  # noqa: ARG002
         """Fetch objects successfully."""
+        # Verify products_data fixture is available even though we create mock data
 
         class ProductListView(MultipleObjectMixin[Product]):
             model = Product
@@ -170,8 +172,9 @@ class TestGetObjects:
         assert data["has_previous"] is False
 
     @pytest.mark.asyncio
-    async def test_get_objects_with_pagination(self, setup_mixin, products_data):
+    async def test_get_objects_with_pagination(self, setup_mixin, products_data):  # noqa: ARG002
         """Pagination returns correct subset."""
+        # Verify products_data fixture is available
 
         class ProductListView(MultipleObjectMixin[Product]):
             model = Product
@@ -186,8 +189,9 @@ class TestGetObjects:
         assert data["has_previous"] is True
 
     @pytest.mark.asyncio
-    async def test_get_objects_with_ordering(self, setup_mixin, products_data):
+    async def test_get_objects_with_ordering(self, setup_mixin, products_data):  # noqa: ARG002
         """Objects are ordered correctly."""
+        # Verify products_data fixture is available
 
         class ProductListView(MultipleObjectMixin[Product]):
             model = Product
@@ -199,8 +203,9 @@ class TestGetObjects:
         assert data["object_list"][-1].id == 1
 
     @pytest.mark.asyncio
-    async def test_get_objects_uses_paginate_by(self, setup_mixin, products_data):
+    async def test_get_objects_uses_paginate_by(self, setup_mixin, products_data):  # noqa: ARG002
         """Uses paginate_by when limit not provided."""
+        # Verify products_data fixture is available
 
         class ProductListView(MultipleObjectMixin[Product]):
             model = Product
@@ -214,7 +219,9 @@ class TestGetObjects:
 
     @pytest.mark.asyncio
     async def test_get_objects_limit_overrides_paginate_by(
-        self, setup_mixin, products_data
+        self,
+        setup_mixin,
+        products_data,
     ):
         """Explicit limit parameter overrides paginate_by."""
 
@@ -229,7 +236,7 @@ class TestGetObjects:
         assert data["limit"] == 3
 
     @pytest.mark.asyncio
-    async def test_get_objects_with_custom_queryset(self, setup_mixin, products_data):
+    async def test_get_objects_with_custom_queryset(self, setup_mixin, products_data):  # noqa: ARG002
         """Custom queryset filtering is respected."""
 
         class PublishedListView(MultipleObjectMixin[Product]):
@@ -244,7 +251,9 @@ class TestGetObjects:
 
     @pytest.mark.asyncio
     async def test_get_objects_custom_queryset_override(
-        self, setup_mixin, products_data
+        self,
+        setup_mixin,
+        products_data,
     ):
         """get_queryset() override is called."""
 
@@ -276,7 +285,9 @@ class TestGetObjects:
 
     @pytest.mark.asyncio
     async def test_get_objects_empty_list_allow_empty_false(
-        self, setup_mixin, products_data
+        self,
+        setup_mixin,
+        products_data,
     ):
         """Empty result raises 404 when allow_empty=False and no data."""
 
@@ -318,13 +329,16 @@ class TestGetObjects:
         mixin.db = None
 
         with pytest.raises(
-            RuntimeError, match="Database session is required but not set"
+            RuntimeError,
+            match="Database session is required but not set",
         ):
             await mixin.get_objects(limit=10, offset=0)
 
     @pytest.mark.asyncio
     async def test_get_objects_invalid_ordering_field_skipped(
-        self, setup_mixin, products_data
+        self,
+        setup_mixin,
+        products_data,
     ):
         """Invalid ordering field is skipped with warning."""
 
@@ -333,7 +347,9 @@ class TestGetObjects:
 
         mixin = setup_mixin(ProductListView)
         data = await mixin.get_objects(
-            limit=10, offset=0, ordering=[("nonexistent_field", "asc"), ("id", "desc")]
+            limit=10,
+            offset=0,
+            ordering=[("nonexistent_field", "asc"), ("id", "desc")],
         )
 
         assert len(data["object_list"]) == 5
@@ -341,7 +357,7 @@ class TestGetObjects:
         assert data["object_list"][0].id == 5
 
     @pytest.mark.asyncio
-    async def test_get_objects_has_next_calculation(self, setup_mixin, products_data):
+    async def test_get_objects_has_next_calculation(self, setup_mixin, products_data):  # noqa: ARG002
         """has_next flag calculated correctly."""
 
         class ProductListView(MultipleObjectMixin[Product]):
@@ -363,7 +379,9 @@ class TestGetObjects:
 
     @pytest.mark.asyncio
     async def test_get_objects_has_previous_calculation(
-        self, setup_mixin, products_data
+        self,
+        setup_mixin,
+        products_data,
     ):
         """has_previous flag calculated correctly."""
 
@@ -393,19 +411,20 @@ class TestDatabaseExceptions:
 
             def get_queryset(self):  # type: ignore
                 class MockQuerySet:
-                    async def count(self, db):
-                        raise OperationalError("Connection lost", None, None)  # type: ignore
+                    async def count(self, _db):
+                        msg = "Connection lost"
+                        raise OperationalError(msg, None, None)  # type: ignore
 
-                    def filter(self, *args, **kwargs):
+                    def filter(self, *_args, **_kwargs):
                         return self
 
-                    def order_by(self, *args, **kwargs):
+                    def order_by(self, *_args, **_kwargs):
                         return self
 
-                    def limit(self, *args, **kwargs):
+                    def limit(self, *_args, **_kwargs):
                         return self
 
-                    def offset(self, *args, **kwargs):
+                    def offset(self, *_args, **_kwargs):
                         return self
 
                 return MockQuerySet()
@@ -427,19 +446,20 @@ class TestDatabaseExceptions:
 
             def get_queryset(self):  # type: ignore
                 class MockQuerySet:
-                    async def count(self, db):
-                        raise IntegrityError("Integrity violation", None, None)  # type: ignore
+                    async def count(self, _db):
+                        msg = "Integrity violation"
+                        raise IntegrityError(msg, None, None)  # type: ignore
 
-                    def filter(self, *args, **kwargs):
+                    def filter(self, *_args, **_kwargs):
                         return self
 
-                    def order_by(self, *args, **kwargs):
+                    def order_by(self, *_args, **_kwargs):
                         return self
 
-                    def limit(self, *args, **kwargs):
+                    def limit(self, *_args, **_kwargs):
                         return self
 
-                    def offset(self, *args, **kwargs):
+                    def offset(self, *_args, **_kwargs):
                         return self
 
                 return MockQuerySet()
@@ -450,7 +470,7 @@ class TestDatabaseExceptions:
             await mixin.get_objects(limit=10, offset=0)
 
         assert excinfo.value.status_code == 500
-        assert "integrity error" in excinfo.value.detail
+        assert "Internal database error occurred" in excinfo.value.detail
 
     @pytest.mark.asyncio
     async def test_database_error_returns_500(self, setup_mixin):
@@ -461,19 +481,20 @@ class TestDatabaseExceptions:
 
             def get_queryset(self):  # type: ignore
                 class MockQuerySet:
-                    async def count(self, db):
-                        raise DatabaseError("Database error", None, None)  # type: ignore
+                    async def count(self, _db):
+                        msg = "Database error"
+                        raise DatabaseError(msg, None, None)  # type: ignore
 
-                    def filter(self, *args, **kwargs):
+                    def filter(self, *_args, **_kwargs):
                         return self
 
-                    def order_by(self, *args, **kwargs):
+                    def order_by(self, *_args, **_kwargs):
                         return self
 
-                    def limit(self, *args, **kwargs):
+                    def limit(self, *_args, **_kwargs):
                         return self
 
-                    def offset(self, *args, **kwargs):
+                    def offset(self, *_args, **_kwargs):
                         return self
 
                 return MockQuerySet()
@@ -484,7 +505,7 @@ class TestDatabaseExceptions:
             await mixin.get_objects(limit=10, offset=0)
 
         assert excinfo.value.status_code == 500
-        assert "Database error" in excinfo.value.detail
+        assert "Internal database error occurred." in excinfo.value.detail
 
     @pytest.mark.asyncio
     async def test_unexpected_exception_returns_500(self, setup_mixin):
@@ -495,19 +516,20 @@ class TestDatabaseExceptions:
 
             def get_queryset(self):  # type: ignore
                 class MockQuerySet:
-                    async def count(self, db):
-                        raise ValueError("Unexpected error")
+                    async def count(self, _db):
+                        msg = "Unexpected error"
+                        raise ValueError(msg)
 
-                    def filter(self, *args, **kwargs):
+                    def filter(self, *_args, **_kwargs):
                         return self
 
-                    def order_by(self, *args, **kwargs):
+                    def order_by(self, *_args, **_kwargs):
                         return self
 
-                    def limit(self, *args, **kwargs):
+                    def limit(self, *_args, **_kwargs):
                         return self
 
-                    def offset(self, *args, **kwargs):
+                    def offset(self, *_args, **_kwargs):
                         return self
 
                 return MockQuerySet()

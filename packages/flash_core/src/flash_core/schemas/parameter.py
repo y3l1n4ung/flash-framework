@@ -41,18 +41,21 @@ class PaginationParams(BaseModel):
     limit: Annotated[
         int,
         Field(
-            default=flash_settings.DEFAULT_LIST_PER_PAGE, description="Items per page"
+            default=flash_settings.DEFAULT_LIST_PER_PAGE,
+            description="Items per page",
         ),
     ]
 
     page: Annotated[
-        int | None, Field(default=None, description="1-indexed page number")
+        int | None,
+        Field(default=None, description="1-indexed page number"),
     ]
 
     offset: Annotated[int, Field(default=0, description="Raw skip count")]
 
     ordering: Annotated[
-        str | None, Field(default=None, description="Format: 'field1,-field2'")
+        str | None,
+        Field(default=None, description="Format: 'field1,-field2'"),
     ]
 
     @model_validator(mode="after")

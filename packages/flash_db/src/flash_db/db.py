@@ -80,7 +80,8 @@ async def close_db() -> None:
 
 def _require_session_factory() -> async_sessionmaker[AsyncSession]:
     if _session_factory is None:
-        raise RuntimeError("Database not initialized. Call init_db() first.")
+        msg = "Database not initialized. Call init_db() first."
+        raise RuntimeError(msg)
     return _session_factory
 
 

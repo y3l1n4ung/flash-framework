@@ -19,7 +19,9 @@ class TestFlashSettings:
         # Must provide SECRET_KEY because DEBUG is False
         assert (
             FlashSettings(
-                DEBUG=False, ENVIRONMENT="development", SECRET_KEY="test_key"
+                DEBUG=False,
+                ENVIRONMENT="development",
+                SECRET_KEY="test_key",
             ).is_development()
             is True
         )
@@ -27,7 +29,9 @@ class TestFlashSettings:
         # Case 3: Debug False, Env Production (True Production)
         assert (
             FlashSettings(
-                DEBUG=False, ENVIRONMENT="production", SECRET_KEY="test_key"
+                DEBUG=False,
+                ENVIRONMENT="production",
+                SECRET_KEY="test_key",
             ).is_development()
             is False
         )
@@ -35,14 +39,17 @@ class TestFlashSettings:
     def test_validate_security_production_success(self):
         """Ensures validator passes when SECRET_KEY is provided in production."""
         settings = FlashSettings(
-            DEBUG=False, ENVIRONMENT="production", SECRET_KEY="super-secret-key"
+            DEBUG=False,
+            ENVIRONMENT="production",
+            SECRET_KEY="super-secret-key",
         )
         assert settings.SECRET_KEY == "super-secret-key"
 
     def test_validate_security_production_failure(self):
         """Ensures ValueError is raised if SECRET_KEY is missing in production."""
         with pytest.raises(
-            ValueError, match="SECRET_KEY is mandatory in production mode"
+            ValueError,
+            match="SECRET_KEY is mandatory in production mode",
         ):
             FlashSettings(DEBUG=False, ENVIRONMENT="production", SECRET_KEY="")
 

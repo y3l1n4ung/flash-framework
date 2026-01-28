@@ -21,7 +21,7 @@ class TraceFormatter(logging.Formatter):
         # FORCE UTC: Critical for distributed systems to avoid timezone ambiguity
         self.converter = time.gmtime
 
-    def formatTime(self, record, datefmt=None):
+    def format_time(self, record, datefmt=None):
         """Overridden to ensure strict ISO-8601 UTC format."""
         ct = self.converter(record.created)
         if datefmt:
@@ -54,6 +54,7 @@ def setup_logging(
     log_file: Optional[Union[str, Path]] = None,
     max_bytes: int = 10_485_760,  # 10MB
     backup_count: int = 10,
+    *,
     capture_roots: bool = True,  # If True, captures third-party logs (requests, etc)
     module_name: str = "flash",  # The main namespace for your app
 ) -> None:

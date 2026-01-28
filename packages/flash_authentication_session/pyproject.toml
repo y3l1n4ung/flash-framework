@@ -1,0 +1,23 @@
+[project]
+name = "flash-authentication-session"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "YeLinAung", email = "40236753+b14cknc0d3@users.noreply.github.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "flash_db","flash_authentication",
+]
+[tool.uv.sources]
+flash-db = { workspace = true}
+flash-authentication = {workspace = true}
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+addopts = "--cov=flash_authentication_session"
