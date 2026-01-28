@@ -26,7 +26,7 @@ def test_construction_with_all_fields():
             "page": 2,
             "offset": 50,
             "ordering": "-name",
-        }
+        },
     )
 
     assert params.limit == 10
@@ -40,7 +40,7 @@ def test_extra_fields_are_ignored():
         {
             "limit": 10,
             "unknown": "value",
-        }
+        },
     )
 
     assert params.limit == 10
@@ -49,7 +49,7 @@ def test_extra_fields_are_ignored():
 
 def test_limit_clamped_to_max():
     params = PaginationParams.model_validate(
-        {"limit": flash_settings.MAX_API_LIMIT + 100}
+        {"limit": flash_settings.MAX_API_LIMIT + 100},
     )
 
     assert params.limit == flash_settings.MAX_API_LIMIT

@@ -38,7 +38,7 @@ _SKIP_DIRECTORIES = frozenset(
         ".pytest_cache",
         ".idea",
         ".vscode",
-    }
+    },
 )
 
 
@@ -102,7 +102,9 @@ class TemplateManager:
             ... )
             >>>
             >>> # 3. Use it in a View
-            >>> # return manager.templates.TemplateResponse("index.html", {"request": req})
+            >>> # return manager.templates.TemplateResponse(
+            >>>     "index.html", {"request": req}
+            >>> )
         """
         self._directories: list[str] = []
 
@@ -124,7 +126,7 @@ class TemplateManager:
         if project_root:
             self._scan_project_directories(Path(project_root))
 
-        logger.debug(f"HTML Engine initialized with directories: {self._directories}")
+        logger.debug("HTML Engine initialized with directories: %s", self._directories)
 
         # --- Step 4: Create the Jinja2 Environment ---
         # We pass the collected list of strings to Starlette/FastAPI's wrapper.

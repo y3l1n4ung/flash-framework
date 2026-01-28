@@ -15,10 +15,11 @@ class TestSchemaGenerator:
         return SchemaGenerator(model_class=Profile)
 
     def test_create_schema_excludes_defaults_and_pks(
-        self, profile_generator: SchemaGenerator[Profile]
+        self,
+        profile_generator: SchemaGenerator[Profile],
     ):
-        ProfileCreate = profile_generator.create_schema()
-        fields = ProfileCreate.model_fields
+        profile_create = profile_generator.create_schema()
+        fields = profile_create.model_fields
 
         # Check exclusions
         assert "id" not in fields
@@ -55,10 +56,11 @@ class TestSchemaGenerator:
         assert fields["metadata_json"].annotation is Union[dict, None]
 
     def test_update_schema_enforces_full_optionality(
-        self, profile_generator: SchemaGenerator[Profile]
+        self,
+        profile_generator: SchemaGenerator[Profile],
     ):
-        ProfileUpdate = profile_generator.update_schema()
-        fields = ProfileUpdate.model_fields
+        profile_update = profile_generator.update_schema()
+        fields = profile_update.model_fields
 
         # Check exclusions (Same as Create)
         assert "id" not in fields
@@ -66,7 +68,7 @@ class TestSchemaGenerator:
         assert "updated_at" not in fields
 
         # Every field must be optional (PATCH behavior)
-        for field_name, field_info in fields.items():
+        for field_info in fields.values():
             assert field_info.is_required() is False
             assert field_info.default is None
 
@@ -81,10 +83,11 @@ class TestSchemaGenerator:
         assert fields["api_key_hash"].annotation is Union[str, None]
 
     def test_response_schema_filters_and_types(
-        self, profile_generator: SchemaGenerator[Profile]
+        self,
+        profile_generator: SchemaGenerator[Profile],
     ):
-        ProfileResponse = profile_generator.response_schema()
-        fields = ProfileResponse.model_fields
+        profile_response = profile_generator.response_schema()
+        fields = profile_response.model_fields
 
         # Sensitive data check
         assert "api_key_hash" not in fields
@@ -117,27 +120,27 @@ class TestSchemaGenerator:
         )
         generator = SchemaGenerator(Profile, config)
 
-        Response = generator.response_schema()
-        Create = generator.create_schema()
+        response = generator.response_schema()
+        create = generator.create_schema()
 
         # Custom exclude
-        assert "internal_notes" not in Response.model_fields
-        assert "internal_notes" not in Create.model_fields
+        assert "internal_notes" not in response.model_fields
+        assert "internal_notes" not in create.model_fields
 
         # Custom readonly
-        assert "created_at" in Response.model_fields
-        assert "created_at" not in Create.model_fields
+        assert "created_at" in response.model_fields
+        assert "created_at" not in create.model_fields
 
         # Custom sensitive keyword
-        assert "salary_expectation" not in Response.model_fields
+        assert "salary_expectation" not in response.model_fields
 
     def test_explicit_field_inclusion_whitelisting(self):
         config = SchemaConfig(create_fields={"full_name", "bio"})
         generator = SchemaGenerator(Profile, config)
 
-        Create = generator.create_schema()
-        assert set(Create.model_fields.keys()) == {"full_name", "bio"}
-        assert Create.model_fields["bio"].annotation == Union[str, None]
+        create = generator.create_schema()
+        assert set(create.model_fields.keys()) == {"full_name", "bio"}
+        assert create.model_fields["bio"].annotation == Union[str, None]
 
     def test_relationship_exclusion(self):
         generator = SchemaGenerator(Article)
@@ -149,22 +152,22 @@ class TestSchemaGenerator:
 
     def test_pydantic_runtime_validation(self):
         generator = SchemaGenerator(Profile)
-        ProfileUpdate = generator.update_schema()
+        profile_update = generator.update_schema()
 
-        ProfileCreate = generator.create_schema()
-        ProfileResponse = generator.response_schema()
+        profile_create = generator.create_schema()
+        profile_response = generator.response_schema()
         generator.config
 
         # 1. Validation Error: Missing required field in Create
         with pytest.raises(ValidationError):
-            ProfileCreate(api_key_hash="abc")  # full_name is missing
+            profile_create(api_key_hash="abc")  # full_name is missing
 
         # 2. Validation Error: Incorrect type (string instead of float/numeric)
         with pytest.raises(ValidationError):
-            ProfileCreate(full_name="John", salary_expectation="not-a-number")
+            profile_create(full_name="John", salary_expectation="not-a-number")
 
         # 3. Successful type coercion (Pydantic feature)
-        valid_create = ProfileCreate(
+        valid_create = profile_create(
             full_name="John",
             salary_expectation="50000.50",
             is_verified="true",
@@ -176,8 +179,8 @@ class TestSchemaGenerator:
         assert valid_create.full_name == "John"  # type: ignore
 
         # 4. Update Schema (PATCH) allows partial data
-        assert "salary_expectation" in ProfileUpdate.model_fields
-        valid_update = ProfileUpdate(salary_expectation=60000.0)
+        assert "salary_expectation" in profile_update.model_fields
+        valid_update = profile_update(salary_expectation=60000.0)
         data = valid_update.model_dump(exclude_unset=False)
         assert data["full_name"] is None
         assert data["salary_expectation"] == 60000.0
@@ -186,42 +189,45 @@ class TestSchemaGenerator:
             "id": 1,
             "full_name": "Jane Doe",
             "is_verified": True,
-            "created_at": datetime.datetime.now(),
+            "created_at": datetime.datetime.now(datetime.timezone.utc),
             "salary_expectation": None,
         }
-        valid_response = ProfileResponse(**mock_db_data)
+        valid_response = profile_response(**mock_db_data)
         assert valid_response.id == 1  # type: ignore
         assert valid_response.salary_expectation is None  # type: ignore
 
     def test_explicit_field_filtering_with_exclusions(self):
         config = SchemaConfig(create_fields={"full_name", "id"}, exclude={"id"})
         generator = SchemaGenerator(Profile, config=config)
-        Create = generator.create_schema()
-        assert "id" not in Create.model_fields
-        assert "full_name" in Create.model_fields
+        create = generator.create_schema()
+        assert "id" not in create.model_fields
+        assert "full_name" in create.model_fields
 
     def test_unsupported_type_fallback(
-        self, profile_generator: SchemaGenerator[Profile]
+        self,
+        profile_generator: SchemaGenerator[Profile],
     ):
         """Triggers the 'return Any' line in _get_python_type using JSON type."""
-        Response = profile_generator.response_schema()
+        response = profile_generator.response_schema()
         # Verify field exists first to avoid KeyError, then check annotation
-        assert "metadata_json" in Response.model_fields
-        assert Response.model_fields["metadata_json"].annotation == Union[dict, None]
+        assert "metadata_json" in response.model_fields
+        assert response.model_fields["metadata_json"].annotation == Union[dict, None]
 
     def test_get_python_type_fallback(
-        self, profile_generator: SchemaGenerator[Profile]
+        self,
+        profile_generator: SchemaGenerator[Profile],
     ):
         """
         Covers the implicit fallback in _get_python_type.
         Verifies that unknown SQL types result in an effectively null/any annotation.
         """
-        ResponseSchema = profile_generator.response_schema()
-        assert "mystery_blob" in ResponseSchema.model_fields
+        response_schema = profile_generator.response_schema()
+        assert "mystery_blob" in response_schema.model_fields
 
-        # When _get_python_type returns None, Pydantic defaults the annotation to NoneType
-        # for nullable fields, which is functionally equivalent to missing type info.
-        annotation = ResponseSchema.model_fields["mystery_blob"].annotation
+        # When _get_python_type returns None, Pydantic defaults the annotation
+        # to NoneType for nullable fields, which is functionally
+        # equivalent to missing type info.
+        annotation = response_schema.model_fields["mystery_blob"].annotation
         assert (
             annotation is type(None) or annotation is Any or "None" in str(annotation)
         )
@@ -229,21 +235,22 @@ class TestSchemaGenerator:
     def test_explicit_whitelisting_with_exclude_collision(self):
         config = SchemaConfig(create_fields={"full_name", "bio"}, exclude={"bio"})
         gen = SchemaGenerator(Profile, config)
-        CreateSchema = gen.create_schema()
+        create_schema = gen.create_schema()
 
         # 'bio' should be skipped because it is in 'exclude'
-        assert "full_name" in CreateSchema.model_fields
-        assert "bio" not in CreateSchema.model_fields
+        assert "full_name" in create_schema.model_fields
+        assert "bio" not in create_schema.model_fields
 
     def test_response_schema_sensitive_filter_branch(
-        self, profile_generator: SchemaGenerator[Profile]
+        self,
+        profile_generator: SchemaGenerator[Profile],
     ):
         """
         Triggers the 'is_sensitive' block and the associated 'pass' statement.
         """
         # 'api_key_hash' contains 'hash', which is a default sensitive keyword
-        ResponseSchema = profile_generator.response_schema()
-        assert "api_key_hash" not in ResponseSchema.model_fields
+        response_schema = profile_generator.response_schema()
+        assert "api_key_hash" not in response_schema.model_fields
 
     def test_has_default(self):
         # Testing different default scenarios on columns
@@ -263,9 +270,9 @@ class TestSchemaGenerator:
         """
         config = SchemaConfig(update_fields={"full_name", "id"}, exclude={"full_name"})
         gen = SchemaGenerator(Profile, config)
-        UpdateSchema = gen.update_schema()
+        update_schema = gen.update_schema()
 
         # 'full_name' is skipped because it's in 'exclude'
         # 'id' is skipped because it's a primary key (implicitly in logic or readonly)
-        assert "full_name" not in UpdateSchema.model_fields
-        assert "id" not in UpdateSchema.model_fields
+        assert "full_name" not in update_schema.model_fields
+        assert "id" not in update_schema.model_fields

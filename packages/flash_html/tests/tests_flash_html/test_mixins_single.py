@@ -53,7 +53,8 @@ class TestSingleObjectMixinCore:
         assert "missing the required 'model' attribute" in str(excinfo.value)
 
     def test_missing_model_not_enforced_for_base_classes(self):
-        """Base view classes (DetailView, CreateView, etc.) don't need model attribute."""
+        """Base view classes (DetailView, CreateView, etc.) don't need
+        model attribute."""
         try:
 
             class DetailView(SingleObjectMixin):
@@ -78,7 +79,8 @@ class TestSingleObjectMixinCore:
         from flash_db.validator import ModelValidator
 
         def mock_validate_model(model):
-            raise TypeError("Model validation failed: invalid model structure")
+            msg = "Model validation failed: invalid model structure"
+            raise TypeError(msg)
 
         monkeypatch.setattr(ModelValidator, "validate_model", mock_validate_model)
 
@@ -200,7 +202,8 @@ class TestGetObject:
         mixin.kwargs = {"pk": 1}
 
         with pytest.raises(
-            RuntimeError, match="Database session is required but not set"
+            RuntimeError,
+            match="Database session is required but not set",
         ):
             await mixin.get_object()
 
@@ -250,7 +253,8 @@ class TestErrorHandling:
 
     @pytest.mark.asyncio
     async def test_database_not_found_returns_none_when_auto_error_false(
-        self, setup_mixin
+        self,
+        setup_mixin,
     ):
         """When auto_error=False, None is returned instead of raising 404."""
 
@@ -368,7 +372,8 @@ class TestContextObjectName:
 
 
 class TestDatabaseExceptions:
-    """Tests for database error handling (OperationalError, IntegrityError, DatabaseError)."""
+    """Tests for database error handling (OperationalError, IntegrityError,
+    DatabaseError)."""
 
     @pytest.mark.asyncio
     async def test_operational_error_returns_503(self, db_session):
@@ -381,7 +386,8 @@ class TestDatabaseExceptions:
             def get_queryset(self):  # type: ignore
                 class MockQuerySet:
                     async def first(self, db):
-                        raise OperationalError("Connection lost", None, None)  # type: ignore
+                        msg = "Connection lost"
+                        raise OperationalError(msg, None, None)  # type: ignore
 
                     def filter(self, *args, **kwargs):
                         return self
@@ -410,7 +416,8 @@ class TestDatabaseExceptions:
                 # Return a mock queryset that raises on first()
                 class MockQuerySet:
                     async def first(self, db):
-                        raise IntegrityError("Integrity violation", None, None)  # type: ignore
+                        msg = "Integrity violation"
+                        raise IntegrityError(msg, None, None)  # type: ignore
 
                     def filter(self, *args, **kwargs):
                         return self
@@ -438,7 +445,8 @@ class TestDatabaseExceptions:
             def get_queryset(self):  # type: ignore
                 class MockQuerySet:
                     async def first(self, db):
-                        raise DatabaseError("Database error", None, None)  # type: ignore
+                        msg = "Database error"
+                        raise DatabaseError(msg, None, None)  # type: ignore
 
                     def filter(self, *args, **kwargs):
                         return self
@@ -465,7 +473,8 @@ class TestDatabaseExceptions:
             def get_queryset(self):  # type: ignore
                 class MockQuerySet:
                     async def first(self, db):
-                        raise ValueError("Unexpected error")
+                        msg = "Unexpected error"
+                        raise ValueError(msg)
 
                     def filter(self, *args, **kwargs):
                         return self
@@ -484,15 +493,17 @@ class TestDatabaseExceptions:
 
     @pytest.mark.asyncio
     async def test_attribute_error_re_raised_in_get_object(self, db_session):
-        """AttributeError and TypeError are re-raised (not converted to HTTPException)."""
+        """AttributeError and TypeError are re-raised (not converted to
+        HTTPException)."""
 
         class ProductDetail(SingleObjectMixin[Product]):
             model = Product
 
-            def get_queryset(self): # type: ignore
+            def get_queryset(self):  # type: ignore
                 class MockQuerySet:
                     async def first(self, db):
-                        raise AttributeError("Missing attribute")
+                        msg = "Missing attribute"
+                        raise AttributeError(msg)
 
                     def filter(self, *args, **kwargs):
                         return self
@@ -513,10 +524,11 @@ class TestDatabaseExceptions:
         class ProductDetail(SingleObjectMixin[Product]):
             model = Product
 
-            def get_queryset(self): # type: ignore
+            def get_queryset(self):  # type: ignore
                 class MockQuerySet:
                     async def first(self, db):
-                        raise TypeError("Type mismatch")
+                        msg = "Type mismatch"
+                        raise TypeError(msg)
 
                     def filter(self, *args, **kwargs):
                         return self
@@ -548,7 +560,8 @@ class TestSlugFieldConfiguration:
 
     @pytest.mark.asyncio
     async def test_slug_field_not_found_shows_available_fields(self, setup_mixin):
-        """AttributeError message includes available fields when slug_field doesn't exist."""
+        """AttributeError message includes available fields when slug_field
+        doesn't exist."""
 
         class ProductDetail(SingleObjectMixin[Product]):
             model = Product
@@ -569,7 +582,10 @@ class TestQuerysetOverrides:
 
     @pytest.mark.asyncio
     async def test_queryset_class_attribute_overrides_default(
-        self, setup_mixin, product, unpublished_product
+        self,
+        setup_mixin,
+        product,
+        unpublished_product,
     ):
         """Class-level queryset attribute filters results."""
 
@@ -590,7 +606,10 @@ class TestQuerysetOverrides:
 
     @pytest.mark.asyncio
     async def test_get_queryset_override_adds_filters(
-        self, setup_mixin, product, unpublished_product
+        self,
+        setup_mixin,
+        product,
+        unpublished_product,
     ):
         """Overriding get_queryset() allows dynamic filtering."""
 
@@ -657,9 +676,8 @@ class TestLoggingBehavior:
 
         mixin = setup_mixin(ProductDetail, pk=999)
 
-        with caplog.at_level(logging.INFO):
-            with pytest.raises(HTTPException):
-                await mixin.get_object()
+        with caplog.at_level(logging.INFO), pytest.raises(HTTPException):
+            await mixin.get_object()
 
         assert any("not found" in record.message for record in caplog.records)
 

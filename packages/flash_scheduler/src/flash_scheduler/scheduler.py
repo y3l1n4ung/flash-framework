@@ -5,16 +5,14 @@ Main Scheduler entry point.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 from datetime import datetime, timezone
 from functools import wraps
-from typing import Any, Callable, Dict, Final, Set, Type
-
-from pydantic import BaseModel
+from typing import TYPE_CHECKING, Any, Callable, Dict, Final, Set, Type
 
 from .events import Event, EventManager, SchedulerEvent
 from .executors.async_executor import AsyncExecutor
-from .executors.base import BaseExecutor
 from .schemas import (
     CalendarIntervalTriggerConfig,
     CronTriggerConfig,
@@ -24,7 +22,6 @@ from .schemas import (
     JobDefinition,
     TriggerConfig,
 )
-from .stores.base import JobStore
 from .stores.memory import MemoryJobStore
 from .triggers import (
     CalendarIntervalTrigger,
@@ -33,6 +30,12 @@ from .triggers import (
     IntervalTrigger,
     Trigger,
 )
+
+if TYPE_CHECKING:
+    from pydantic import BaseModel
+
+    from .executors.base import BaseExecutor
+    from .stores.base import JobStore
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +72,8 @@ def create_trigger(config: BaseModel) -> Trigger:
     """
     trigger_cls = _TRIGGER_REGISTRY.get(type(config))
     if not trigger_cls:
-        raise TypeError(f"Unsupported trigger config: {type(config).__name__}")
+        msg = f"Unsupported trigger config: {type(config).__name__}"
+        raise TypeError(msg)
     return trigger_cls(config)  # type: ignore[arg-type]
 
 
@@ -119,9 +123,11 @@ class FlashScheduler:
             ValueError: If provided backends have incompatible interfaces.
         """
         if store is not None and not hasattr(store, "add_job"):
-            raise ValueError("Store must implement JobStore interface")
+            msg = "Store must implement JobStore interface"
+            raise ValueError(msg)
         if executor is not None and not hasattr(executor, "submit_job"):
-            raise ValueError("Executor must implement BaseExecutor interface")
+            msg = "Executor must implement BaseExecutor interface"
+            raise ValueError(msg)
 
         self.store = store or MemoryJobStore()
         self.executor = executor or AsyncExecutor()
@@ -185,8 +191,9 @@ class FlashScheduler:
             final_job_id = job_id or f"{func_module}.{func_name}"
 
             if not final_job_id or len(final_job_id) > 255:
+                msg = f"Job ID must be 1-255 characters, got '{final_job_id}'"
                 raise ValueError(
-                    f"Job ID must be 1-255 characters, got '{final_job_id}'"
+                    msg,
                 )
 
             func_ref = f"{func_module}:{func_name}"
@@ -230,8 +237,9 @@ class FlashScheduler:
         try:
             await self.executor.start()
         except Exception as e:
-            logger.error("Failed to start executor", exc_info=e)
-            raise RuntimeError("Executor startup failed") from e
+            logger.exception("Failed to start executor", exc_info=e)
+            msg = "Executor startup failed"
+            raise RuntimeError(msg) from e
 
         self._running = True
 
@@ -241,7 +249,7 @@ class FlashScheduler:
         self._pending_jobs.clear()
 
         await self.events.dispatch(
-            Event(type=SchedulerEvent.STARTUP, timestamp=datetime.now(timezone.utc))
+            Event(type=SchedulerEvent.STARTUP, timestamp=datetime.now(timezone.utc)),
         )
 
         self._main_task = asyncio.create_task(self._run_loop())
@@ -269,10 +277,8 @@ class FlashScheduler:
 
         if self._main_task:
             self._main_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._main_task
-            except asyncio.CancelledError:
-                pass
 
         if wait and self._active_executions:
             try:
@@ -286,7 +292,7 @@ class FlashScheduler:
         await self.executor.shutdown(wait=wait)
 
         await self.events.dispatch(
-            Event(type=SchedulerEvent.SHUTDOWN, timestamp=datetime.now(timezone.utc))
+            Event(type=SchedulerEvent.SHUTDOWN, timestamp=datetime.now(timezone.utc)),
         )
 
     async def add_job(self, job: JobDefinition) -> None:
@@ -305,7 +311,8 @@ class FlashScheduler:
             RuntimeError: If store operation fails.
         """
         if not job or not job.job_id:
-            raise ValueError("Job and job_id are required")
+            msg = "Job and job_id are required"
+            raise ValueError(msg)
 
         now = datetime.now(timezone.utc)
 
@@ -326,7 +333,7 @@ class FlashScheduler:
                     timestamp=datetime.now(timezone.utc),
                     job=job,
                     job_id=job.job_id,
-                )
+                ),
             )
 
             if job.enabled:
@@ -337,8 +344,9 @@ class FlashScheduler:
             self._wakeup.set()
 
         except Exception as e:
-            logger.error(f"Failed to add job {job.job_id}", exc_info=e)
-            raise RuntimeError(f"Failed to add job: {e}") from e
+            logger.exception("Failed to add job %s", job.job_id, exc_info=e)
+            msg = f"Failed to add job: {e}"
+            raise RuntimeError(msg) from e
 
     async def remove_job(self, job_id: str) -> None:
         """
@@ -355,7 +363,8 @@ class FlashScheduler:
             ValueError: If job_id is invalid.
         """
         if not job_id:
-            raise ValueError("job_id is required")
+            msg = "job_id is required"
+            raise ValueError(msg)
 
         started_at = datetime.now(timezone.utc)
 
@@ -376,12 +385,13 @@ class FlashScheduler:
                         started_at=started_at,
                         finished_at=datetime.now(timezone.utc),
                     ),
-                )
+                ),
             )
 
         except Exception as e:
-            logger.error(f"Failed to remove job {job_id}", exc_info=e)
-            raise RuntimeError(f"Failed to remove job: {e}") from e
+            logger.exception("Failed to remove job %s", job_id, exc_info=e)
+            msg = f"Failed to remove job: {e}"
+            raise RuntimeError(msg) from e
 
     async def _run_loop(self) -> None:
         """
@@ -440,7 +450,7 @@ class FlashScheduler:
             except asyncio.CancelledError:
                 break
             except Exception as exc:
-                logger.error("Scheduler loop error", exc_info=exc)
+                logger.exception("Scheduler loop error", exc_info=exc)
                 try:
                     await asyncio.wait_for(
                         self._wakeup.wait(),
@@ -474,7 +484,7 @@ class FlashScheduler:
                 timestamp=datetime.now(timezone.utc),
                 job_id=job.job_id,
                 job=job,
-            )
+            ),
         )
 
         result: ExecutionResult = await self.executor.submit_job(job)
@@ -490,5 +500,5 @@ class FlashScheduler:
                 job_id=job.job_id,
                 job=job,
                 result=result,
-            )
+            ),
         )

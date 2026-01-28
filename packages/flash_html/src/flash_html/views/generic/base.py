@@ -25,12 +25,13 @@ class TemplateView(TemplateResponseMixin, ContextMixin, View):
         >>> app.add_api_route("/", TemplateView.as_view(template_name="index.html"))
     """
 
-    async def get(self, **kwargs: Any) -> Response:
+    async def get(self, *arg: Any, **kwargs: Any) -> Response:
         """
         Handle GET requests: render the template with context.
 
         Args:
             request: The current FastAPI request.
+            *args:
             **kwargs: Arbitrary keyword arguments
 
         Returns:

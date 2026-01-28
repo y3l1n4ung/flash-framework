@@ -45,10 +45,10 @@ class SchemaConfig:
 
     exclude: set[str] = field(default_factory=set)
     readonly_fields: set[str] = field(
-        default_factory=lambda: {"id", "created_at", "updated_at"}
+        default_factory=lambda: {"id", "created_at", "updated_at"},
     )
     sensitive_fields: set[str] = field(
-        default_factory=lambda: {"password", "secret", "salt", "hash"}
+        default_factory=lambda: {"password", "secret", "salt", "hash"},
     )
 
     create_fields: set[str] | None = None
@@ -78,12 +78,13 @@ class SchemaGenerator(Generic[T]):
         for sql_type, py_type in SQL_TO_PYTHON_TYPE.items():
             if isinstance(column.type, sql_type):
                 return py_type
+        return None
 
     def _get_model_columns(self) -> Iterable[Column[Any]]:
         """Helper to iterate only over actual column attributes of the model."""
         for attr in self.inspector.attrs:
             if isinstance(attr, ColumnProperty):
-                yield cast(Column[Any], attr.columns[0])
+                yield cast("Column[Any]", attr.columns[0])
 
     @staticmethod
     def _has_default(column: Column[Any]) -> bool:
@@ -94,7 +95,7 @@ class SchemaGenerator(Generic[T]):
                 column.server_default is not None,
                 column.onupdate is not None,
                 column.server_onupdate is not None,
-            ]
+            ],
         )
 
     def create_schema(self) -> type[BaseModel]:

@@ -9,7 +9,8 @@ class TestContextMixin:
     def test_view_injection(self):
         """
         Requirement: The 'view' instance is automatically injected into the context.
-        This allows templates to access view attributes/methods (e.g., {{ view.some_helper() }}).
+        This allows templates to access view attributes/methods
+        (e.g., {{ view.some_helper() }}).
         """
         mixin = ContextMixin()
         ctx = mixin.get_context_data()
@@ -17,7 +18,8 @@ class TestContextMixin:
 
     def test_kwargs_merge(self):
         """
-        Requirement: Keyword arguments passed to get_context_data are included in the result.
+        Requirement: Keyword arguments passed to get_context_data are included in the
+        result.
         """
         mixin = ContextMixin()
         ctx = mixin.get_context_data(foo="bar", num=1)
@@ -40,7 +42,8 @@ class TestContextMixin:
 
     def test_extra_context_pydantic(self):
         """
-        Requirement: 'extra_context' defined as a Pydantic model is converted to a dict and merged.
+        Requirement: 'extra_context' defined as a Pydantic model is converted to a
+        dict and merged.
         """
 
         class PageConfig(BaseModel):
@@ -59,7 +62,8 @@ class TestContextMixin:
     def test_priority_logic(self):
         """
         Requirement: 'extra_context' overrides arguments passed via kwargs.
-        This ensures class-level definitions take precedence over dynamic defaults if conflict occurs.
+        This ensures class-level definitions take precedence over dynamic
+        defaults if conflict occurs.
         """
 
         class OverrideView(ContextMixin):
@@ -74,7 +78,8 @@ class TestContextMixin:
 
     def test_invalid_extra_context_type(self):
         """
-        Requirement: Raises TypeError if extra_context is not a dict or Pydantic BaseModel.
+        Requirement: Raises TypeError if extra_context is not a dict or
+        Pydantic BaseModel.
         """
 
         class BrokenView(ContextMixin):

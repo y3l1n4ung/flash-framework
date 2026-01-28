@@ -49,7 +49,8 @@ class TestTemplateView:
         app.add_api_route(
             "/override",
             GenericView.as_view(
-                template_name="hello.html", extra_context={"name": "Override"}
+                template_name="hello.html",
+                extra_context={"name": "Override"},
             ),
         )
 

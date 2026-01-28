@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import calendar
 import random
-import zoneinfo
 from datetime import datetime, timedelta, timezone
+from typing import TYPE_CHECKING
 
 from flash_scheduler.schemas import CronTriggerConfig
 
 from .base import Trigger
+
+if TYPE_CHECKING:
+    import zoneinfo
 
 
 class CronField:
@@ -59,8 +62,9 @@ class CronField:
 
         for v in values:
             if v < self.min_val or v > self.max_val:
+                msg = f"Value {v} out of range [{self.min_val}, {self.max_val}]"
                 raise ValueError(
-                    f"Value {v} out of range [{self.min_val}, {self.max_val}]"
+                    msg,
                 )
 
         return values
@@ -178,9 +182,9 @@ class CronTrigger(Trigger):
                     day_of_week=dow,
                     tz=tz,
                     jitter=jitter,
-                )
+                ),
             )
-        elif num_parts == 6:
+        if num_parts == 6:
             # Extended: sec min hour day month dow
             second, minute, hour, day, month, dow = parts
             return cls(
@@ -193,15 +197,20 @@ class CronTrigger(Trigger):
                     day_of_week=dow,
                     tz=tz,
                     jitter=jitter,
-                )
+                ),
             )
-        else:
-            raise ValueError(
-                f"Invalid cron expression: '{expr}'. Expected 5 or 6 fields, got {num_parts}."
-            )
+        msg = (
+            f"Invalid cron expression: '{expr}'. "
+            f"Expected 5 or 6 fields, got {num_parts}."
+        )
+        raise ValueError(
+            msg,
+        )
 
     def next_fire_time(
-        self, prev_fire_time: datetime | None, now: datetime
+        self,
+        prev_fire_time: datetime | None,
+        now: datetime,
     ) -> datetime | None:
         """Finds the next matching time by iteratively advancing fields."""
         local_now = now.astimezone(self.tz)

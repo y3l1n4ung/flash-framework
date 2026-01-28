@@ -5,9 +5,12 @@ from __future__ import annotations
 import calendar
 import random
 from datetime import datetime, timedelta, timezone
+from typing import TYPE_CHECKING
 
-from ..schemas import CalendarIntervalTriggerConfig
 from .base import Trigger
+
+if TYPE_CHECKING:
+    from flash_scheduler.schemas import CalendarIntervalTriggerConfig
 
 
 class CalendarIntervalTrigger(Trigger):
@@ -48,7 +51,9 @@ class CalendarIntervalTrigger(Trigger):
         self.jitter = config.jitter
 
     def next_fire_time(
-        self, prev_fire_time: datetime | None, now: datetime
+        self,
+        prev_fire_time: datetime | None,
+        now: datetime,
     ) -> datetime | None:
         """Calculates the next scheduled time."""
         if self.end_time and now >= self.end_time:
@@ -113,5 +118,6 @@ class CalendarIntervalTrigger(Trigger):
         return (
             f"CalendarIntervalTrigger(years={self.years}, months={self.months}, "
             f"weeks={self.weeks}, days={self.days}, "
-            f"time='{self.hour:02}:{self.minute:02}:{self.second:02}', tz={self.tz}, 'jitter={self.jitter}')"
+            f"time='{self.hour:02}:{self.minute:02}:{self.second:02}', "
+            f"tz={self.tz}, 'jitter={self.jitter}')"
         )

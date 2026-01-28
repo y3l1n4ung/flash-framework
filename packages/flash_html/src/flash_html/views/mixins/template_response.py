@@ -38,14 +38,19 @@ class TemplateResponseMixin:
             ['home.html']
         """
         if self.template_name is None:
-            raise ValueError(
+            msg = (
                 "TemplateResponseMixin requires either a definition of "
                 "'template_name' or an implementation of 'get_template_names()'"
+            )
+            raise ValueError(
+                msg,
             )
         return [self.template_name]
 
     def render_to_response(
-        self, context: dict[str, Any], **response_kwargs: Any
+        self,
+        context: dict[str, Any],
+        **response_kwargs: Any,
     ) -> Response:
         """
         Return a response, using the `template_engine` to render the template.
@@ -55,7 +60,8 @@ class TemplateResponseMixin:
 
         Args:
             context: Dictionary of context data for the template.
-            **response_kwargs: Keyword arguments passed to the TemplateResponse constructor.
+            **response_kwargs: Keyword arguments passed to the
+                TemplateResponse constructor.
 
         Returns:
             Response: The rendered HTML response.
@@ -67,18 +73,20 @@ class TemplateResponseMixin:
         # Priority: Instance attribute (injected via as_view) -> App State
         engine = self.template_engine
 
-        if not engine:
-            # Try to get from request state (Standard FastAPI dependency injection pattern)
-            if hasattr(self, "request"):
-                req = cast(Request, getattr(self, "request"))
-                if hasattr(req.app.state, "template_manager"):
-                    engine = req.app.state.template_manager
+        if not engine and hasattr(self, "request"):
+            req = cast("Request", self.request)  # type: ignore
+            if hasattr(req.app.state, "template_manager"):
+                engine = req.app.state.template_manager
 
         if not engine:
-            raise RuntimeError(
+            msg = (
                 "Template engine not found. "
-                "Initialize TemplateManager and attach it to `app.state.template_manager` "
-                "or pass it to the view via `as_view(template_engine=...)`."
+                "Initialize TemplateManager and attach it to "
+                "`app.state.template_manager` "
+                "or pass it to view via `as_view(template_engine=...)`."
+            )
+            raise RuntimeError(
+                msg,
             )
 
         # 2. Add Request to context (Required by Starlette/Jinja2Templates)

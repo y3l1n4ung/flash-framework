@@ -159,7 +159,7 @@ def test_init_with_direct_interval_object():
 
     # Pass it to the trigger, also passing 'minutes=30' to ensure it gets ignored
     trigger = IntervalTrigger(
-        IntervalTriggerConfig(minutes=30, interval=direct_interval)
+        IntervalTriggerConfig(minutes=30, interval=direct_interval),
     )
 
     # The trigger should use the direct object (2 hours), NOT the minutes (30 mins)

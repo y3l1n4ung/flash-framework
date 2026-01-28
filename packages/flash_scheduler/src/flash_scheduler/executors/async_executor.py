@@ -9,7 +9,8 @@ import sys
 import traceback
 from datetime import datetime, timezone
 
-from ..schemas import ExecutionResult, JobDefinition
+from flash_scheduler.schemas import ExecutionResult, JobDefinition
+
 from .base import BaseExecutor
 
 logger = logging.getLogger(__name__)
@@ -44,8 +45,9 @@ class AsyncExecutor(BaseExecutor):
         try:
             asyncio.get_running_loop()
         except RuntimeError:
+            msg = "AsyncExecutor must be started inside a running event loop."
             raise RuntimeError(
-                "AsyncExecutor must be started inside a running event loop."
+                msg,
             )
         self._running = True
 
@@ -64,7 +66,8 @@ class AsyncExecutor(BaseExecutor):
         Runs the job immediately and returns the result.
         """
         if not self._running:
-            raise RuntimeError("Executor is not running.")
+            msg = "Executor is not running."
+            raise RuntimeError(msg)
 
         task = asyncio.create_task(self._execute_wrapper(job))
         self._tasks.add(task)
@@ -105,7 +108,7 @@ class AsyncExecutor(BaseExecutor):
         except Exception as e:
             error_msg = str(e)
             error_tb = traceback.format_exc()
-            logger.error(f"Job {job.job_id} failed: {error_msg}")
+            logger.exception("Job %s failed: %s", job.job_id, error_msg)
 
         finished_at = datetime.now(timezone.utc)
 

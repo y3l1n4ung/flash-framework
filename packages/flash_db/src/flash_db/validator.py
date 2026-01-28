@@ -20,24 +20,32 @@ class ModelValidator:
             TypeError: If model is not a Model subclass or missing required attributes.
         """
         if not isinstance(model, type):
-            raise TypeError(f"model must be a class, got {type(model).__name__}")
+            msg = f"model must be a class, got {type(model).__name__}"
+            raise TypeError(msg)
 
         if not issubclass(model, Model):
-            raise TypeError(
+            msg = (
                 f"model must be a Model subclass, got {model.__name__}. "
                 f"Make sure '{model.__name__}' inherits from flash_db.Model"
             )
+            raise TypeError(
+                msg,
+            )
 
         if not hasattr(model, "__tablename__"):
-            raise TypeError(
+            msg = (
                 f"Model {model.__name__} is missing __tablename__. "
                 f"SQLAlchemy requires this attribute."
+            )
+            raise TypeError(
+                msg,
             )
 
         if not hasattr(model, "id"):
             logger.warning(
-                f"Model {model.__name__} has no 'id' field. "
-                f"This may cause issues with pk-based lookups."
+                "Model %s has no 'id' field. "
+                "This may cause issues with pk-based lookups.",
+                model.__name__,
             )
 
         return model

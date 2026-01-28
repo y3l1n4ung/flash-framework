@@ -3,8 +3,8 @@ from typing import Any, Generic, TypeVar
 from fastapi import Response
 from flash_db.models import Model
 
-from ..generic import TemplateView
-from ..mixins import SingleObjectMixin
+from flash_html.views.generic import TemplateView
+from flash_html.views.mixins import SingleObjectMixin
 
 T = TypeVar("T", bound=Model)
 
@@ -38,7 +38,7 @@ class DetailView(SingleObjectMixin[T], TemplateView, Generic[T]):
         >>> app.add_api_route("/products/{pk}", ProductDetail.as_view())
     """
 
-    async def get(self, **kwargs: Any) -> Response:
+    async def get(self, *arg, **kwargs: Any) -> Response:
         """
         Handle GET requests: fetch the object and render the template.
 
@@ -50,7 +50,7 @@ class DetailView(SingleObjectMixin[T], TemplateView, Generic[T]):
             Response: The rendered HTML response containing the object context.
         """
         self.object = await self.get_object()
-        return await super().get(**kwargs)
+        return await super().get(*arg, **kwargs)
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)

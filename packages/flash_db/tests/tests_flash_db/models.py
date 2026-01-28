@@ -20,7 +20,8 @@ class Article(Model, TimestampMixin):
     content: Mapped[Optional[str]] = mapped_column(String(1024), nullable=True)
 
     comments: Mapped[list["Comment"]] = relationship(
-        "Comment", back_populates="article"
+        "Comment",
+        back_populates="article",
     )
 
 
@@ -35,7 +36,8 @@ class Profile(Model, TimestampMixin):
     __tablename__ = "profiles"
     full_name: Mapped[str] = mapped_column(String(100))
     bio: Mapped[Optional[str]] = mapped_column(
-        Text, default="No bio provided"
+        Text,
+        default="No bio provided",
     )  # TODO: check if we should add default to schema or not.
     salary_expectation: Mapped[float] = mapped_column(Numeric(10, 2), nullable=True)
     api_key_hash: Mapped[str] = mapped_column(String(255))  # Sensitive word 'hash'

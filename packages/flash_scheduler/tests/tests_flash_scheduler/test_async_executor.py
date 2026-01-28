@@ -150,11 +150,14 @@ async def test_shutdown_waits_for_tasks(executor, base_job, temp_task_module):
 
 async def test_start_no_event_loop(executor):
     """RuntimeError if started without loop."""
-    with patch("asyncio.get_running_loop", side_effect=RuntimeError):
-        with pytest.raises(
-            RuntimeError, match="must be started inside a running event loop"
-        ):
-            await executor.start()
+    with (
+        patch("asyncio.get_running_loop", side_effect=RuntimeError),
+        pytest.raises(
+            RuntimeError,
+            match="must be started inside a running event loop",
+        ),
+    ):
+        await executor.start()
 
 
 async def test_shutdown_nowait_cancels_tasks(executor, base_job, temp_task_module):
@@ -210,7 +213,8 @@ async def test_dynamic_import(executor, tmp_path):
     pkg_dir.mkdir()
     (pkg_dir / "__init__.py").touch()
     (pkg_dir / "worker.py").write_text(
-        "def run_me(): return 'dynamic_ok'", encoding="utf-8"
+        "def run_me(): return 'dynamic_ok'",
+        encoding="utf-8",
     )
 
     # 2. Add to sys.path so importlib can find it

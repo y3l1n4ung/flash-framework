@@ -57,7 +57,10 @@ def test_specific_time(jan_1_2026):
 def test_day_of_week_execution(jan_1_2026, utc):
     """Expr: * * * * * MON (Only run on Mondays)."""
     trigger_conf = CronTriggerConfig(
-        day_of_week="MON", hour="12", minute="0", second="0"
+        day_of_week="MON",
+        hour="12",
+        minute="0",
+        second="0",
     )
     trigger = CronTrigger(config=trigger_conf)
 
@@ -120,7 +123,7 @@ def test_month_rollover(utc):
 def test_leap_year_handling(utc):
     """Expr: * * * 29 FEB * (Only Feb 29th)."""
     trigger = CronTrigger(
-        CronTriggerConfig(month="FEB", day="29", hour="0", minute="0")
+        CronTriggerConfig(month="FEB", day="29", hour="0", minute="0"),
     )
 
     # Start 2023 (Non-leap year)
@@ -180,7 +183,7 @@ def test_cron_jitter(mock_random, jan_1_2026):
     """Ensure jitter is added to the final calculated cron time."""
     mock_random.return_value = 10.0
     trigger = CronTrigger(
-        CronTriggerConfig(second="0", minute="0", hour="*", jitter=30)
+        CronTriggerConfig(second="0", minute="0", hour="*", jitter=30),
     )
 
     # Current: 00:59:00

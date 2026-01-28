@@ -15,11 +15,11 @@ from .date import DateTrigger
 from .interval import IntervalTrigger
 
 __all__ = [
-    "Trigger",
-    "IntervalTrigger",
+    "AndTrigger",
     "CalendarIntervalTrigger",
     "CronTrigger",
     "DateTrigger",
-    "AndTrigger",
+    "IntervalTrigger",
     "OrTrigger",
+    "Trigger",
 ]

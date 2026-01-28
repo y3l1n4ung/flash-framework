@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from typing import TYPE_CHECKING
 
 from . import base
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 
 class DateTrigger(base.Trigger):
@@ -23,11 +26,14 @@ class DateTrigger(base.Trigger):
 
     def __init__(self, run_at: datetime):
         if run_at.tzinfo is None:
-            raise ValueError("run_at must be timezone-aware")
+            msg = "run_at must be timezone-aware"
+            raise ValueError(msg)
         self.run_at = run_at
 
     def next_fire_time(
-        self, prev_fire_time: datetime | None, now: datetime
+        self,
+        prev_fire_time: datetime | None,
+        now: datetime,
     ) -> datetime | None:
         """Calculates the next scheduled time."""
         # Case 1: Already ran (DateTrigger only runs once)

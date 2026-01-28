@@ -12,11 +12,12 @@ class TestViewBase:
     def test_initialization(self):
         """Requirement: View accepts kwargs in __init__ and sets them as attributes."""
         view = View(key="value", number=42)
-        assert getattr(view, "key") == "value"
-        assert getattr(view, "number") == 42
+        assert view.key == "value"
+        assert view.number == 42
 
     def test_as_view_strict_validation(self):
-        """Requirement: as_view() raises TypeError for invalid attributes to prevent typos."""
+        """Requirement: as_view() raises TypeError for invalid attributes to
+        prevent typos."""
 
         class StrictView(View):
             existing_attr = True
@@ -46,7 +47,8 @@ class TestFastAPIIntegration:
         assert response.text == "Hello World"
 
     def test_dispatch_method_not_allowed(self, app: FastAPI, client: TestClient):
-        """Requirement: Returns 405 if the HTTP method is not implemented in the class."""
+        """Requirement: Returns 405 if the HTTP method is not implemented in
+        the class."""
 
         class ReadOnlyView(View):
             async def get(self) -> Response:

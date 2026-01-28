@@ -1,9 +1,11 @@
 import os
 from pathlib import Path
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 from flash_html.template_manager import TemplateManager
-from jinja2 import FileSystemLoader
+
+if TYPE_CHECKING:
+    from jinja2 import FileSystemLoader
 
 
 class TestTemplateManager:
@@ -14,7 +16,7 @@ class TestTemplateManager:
         manager = TemplateManager()
         assert manager.templates is not None
         # Should contain at least the internal templates path
-        loader = cast(FileSystemLoader, manager.templates.env.loader)
+        loader = cast("FileSystemLoader", manager.templates.env.loader)
         assert len(loader.searchpath) > 0
 
     def test_internal_template_loading(self):
@@ -24,7 +26,7 @@ class TestTemplateManager:
         manager = TemplateManager()
 
         expected_suffix = os.path.join("flash_html", "templates")
-        loader = cast(FileSystemLoader, manager.templates.env.loader)
+        loader = cast("FileSystemLoader", manager.templates.env.loader)
         loader_paths = loader.searchpath
         assert any(str(p).endswith(expected_suffix) for p in loader_paths)
 
@@ -37,7 +39,8 @@ class TestTemplateManager:
             return "works"
 
         manager = TemplateManager(
-            global_context={"site": "Flash"}, global_functions={"check": my_func}
+            global_context={"site": "Flash"},
+            global_functions={"check": my_func},
         )
 
         assert manager.templates.env.globals["site"] == "Flash"
@@ -60,7 +63,7 @@ class TestTemplateManager:
 
         # --- Run ---
         manager = TemplateManager(project_root=tmp_path)
-        loader = cast(FileSystemLoader, manager.templates.env.loader)
+        loader = cast("FileSystemLoader", manager.templates.env.loader)
         loader_paths = loader.searchpath
 
         # --- Assertions ---
@@ -86,7 +89,7 @@ class TestTemplateManager:
         nested.mkdir(parents=True)
 
         manager = TemplateManager(project_root=tmp_path)
-        loader = cast(FileSystemLoader, manager.templates.env.loader)
+        loader = cast("FileSystemLoader", manager.templates.env.loader)
         loader_paths = loader.searchpath
 
         assert str(nested.resolve()) in loader_paths
@@ -95,7 +98,8 @@ class TestTemplateManager:
         """
         Requirement:
         Should skip directories in _SKIP_DIRECTORIES (e.g., .venv, node_modules).
-        Must be CASE-INSENSITIVE for Windows compatibility (Node_Modules should be skipped).
+        Must be CASE-INSENSITIVE for Windows compatibility
+        (Node_Modules should be skipped).
         """
         # 1. Standard .venv
         venv_tpl = tmp_path / ".venv" / "templates"
@@ -111,7 +115,7 @@ class TestTemplateManager:
         valid_tpl.mkdir(parents=True)
 
         manager = TemplateManager(project_root=tmp_path)
-        loader = cast(FileSystemLoader, manager.templates.env.loader)
+        loader = cast("FileSystemLoader", manager.templates.env.loader)
         loader_paths = loader.searchpath
 
         # Should contain valid
@@ -135,7 +139,7 @@ class TestTemplateManager:
             project_root=tmp_path,
             extra_directories=[root_tpl],  # Pass Path object directly
         )
-        loader = cast(FileSystemLoader, manager.templates.env.loader)
+        loader = cast("FileSystemLoader", manager.templates.env.loader)
 
         loader_paths = loader.searchpath
 
@@ -147,7 +151,8 @@ class TestTemplateManager:
             f"Path {resolved_path} should appear exactly once, found {count}"
         )
 
-        # Root template should be at index 0 (Highest priority) due to scanning logic logic
+        # Root template should be at index 0 (Highest priority) due to
+        # scanning logic logic
         assert loader_paths[0] == resolved_path
 
     def test_non_existent_project_root_handled_gracefully(self):
@@ -162,7 +167,7 @@ class TestTemplateManager:
 
         # Should still contain the internal templates path
         expected_suffix = os.path.join("flash_html", "templates")
-        loader = cast(FileSystemLoader, manager.templates.env.loader)
+        loader = cast("FileSystemLoader", manager.templates.env.loader)
         loader_paths = loader.searchpath
         assert any(str(p).endswith(expected_suffix) for p in loader_paths)
 
@@ -185,8 +190,8 @@ class TestTemplateManager:
 
     def test_scan_ignores_files_named_templates(self, tmp_path):
         """
-        Requirement: The scanner should ignore files named 'templates' (if not path.is_dir()),
-        it should only register directories.
+        Requirement: The scanner should ignore files named 'templates'
+        (if not path.is_dir()), it should only register directories.
         """
         # Create a file named 'templates' instead of a directory
         # Structure: /tmp/app/templates (file)
@@ -197,7 +202,7 @@ class TestTemplateManager:
 
         manager = TemplateManager(project_root=tmp_path)
         assert manager.templates.env
-        loader = cast(FileSystemLoader, manager.templates.env.loader)
+        loader = cast("FileSystemLoader", manager.templates.env.loader)
         loader_paths = loader.searchpath
 
         # Verify the file path is NOT in the loader paths

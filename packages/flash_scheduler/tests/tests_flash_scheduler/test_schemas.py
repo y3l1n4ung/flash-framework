@@ -47,7 +47,10 @@ def test_cron_config_defaults():
 def test_cron_config_custom():
     """Should accept custom values."""
     config = CronTriggerConfig(
-        minute="*/15", hour="9-17", day_of_week="MON-FRI", tz=ZoneInfo("US/Eastern")
+        minute="*/15",
+        hour="9-17",
+        day_of_week="MON-FRI",
+        tz=ZoneInfo("US/Eastern"),
     )
     assert config.minute == "*/15"
     assert config.hour == "9-17"
@@ -64,7 +67,9 @@ def test_date_config_valid():
 
 def test_date_config_invalid_naive():
     """Should raise ValueError for naive datetimes."""
-    naive_dt = datetime(2026, 1, 1, 12, 0)
+    # Create a naive datetime by removing timezone from an aware datetime
+    aware_dt = datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc)
+    naive_dt = aware_dt.replace(tzinfo=None)
     with pytest.raises(ValidationError) as exc:
         DateTriggerConfig(run_at=naive_dt)
     assert "run_at must be timezone-aware" in str(exc.value)
@@ -81,7 +86,7 @@ def test_calendar_config_invalid_empty():
     with pytest.raises(ValidationError) as exc:
         CalendarIntervalTriggerConfig(hour=9)  # Only time, no interval
     assert "At least one of years, months, weeks, or days must be specified" in str(
-        exc.value
+        exc.value,
     )
 
 
@@ -89,7 +94,10 @@ def test_job_definition_func_ref_valid():
     """Should accept 'module:func' format."""
     trigger = IntervalTriggerConfig(seconds=60)
     job = JobDefinition(
-        job_id="1", name="Test", func_ref="my_module.sub:my_func", trigger=trigger
+        job_id="1",
+        name="Test",
+        func_ref="my_module.sub:my_func",
+        trigger=trigger,
     )
     assert job.func_ref == "my_module.sub:my_func"
 
@@ -101,7 +109,10 @@ def test_job_definition_func_ref_invalid():
     # Missing colon
     with pytest.raises(ValidationError) as exc:
         JobDefinition(
-            job_id="1", name="Test", func_ref="my_module.my_func", trigger=trigger
+            job_id="1",
+            name="Test",
+            func_ref="my_module.my_func",
+            trigger=trigger,
         )
     assert "func_ref must be in format" in str(exc.value)
 
@@ -123,7 +134,10 @@ def test_execution_result_duration():
     end = datetime(2026, 1, 1, 12, 0, 5, tzinfo=timezone.utc)
 
     result = ExecutionResult(
-        job_id="1", success=True, started_at=start, finished_at=end
+        job_id="1",
+        success=True,
+        started_at=start,
+        finished_at=end,
     )
 
     assert result.duration == timedelta(seconds=5)
@@ -215,9 +229,11 @@ def test_serializer_raise_fallback():
     # 2. Bypass validation by setting the attribute directly to an unsupported type
     config.tz = 123.45  # A float is not handled by the serializer logic
 
-    # 3. Trigger serialization - this will now hit the 'raise' at the end of the serializer
+    # 3. Trigger serialization - this will now hit the 'raise' at the end
+    # of the serializer
     with pytest.raises(
-        ValueError, match="Expected str, ZoneInfo, or timezone, got float"
+        ValueError,
+        match="Expected str, ZoneInfo, or timezone, got float",
     ):
         config.model_dump()
 
@@ -228,6 +244,7 @@ def test_calendar_serializer_raise_fallback():
     config.tz = [1, 2, 3]  # A list
 
     with pytest.raises(
-        ValueError, match="Expected str, ZoneInfo, or timezone, got list"
+        ValueError,
+        match="Expected str, ZoneInfo, or timezone, got list",
     ):
         config.model_dump()

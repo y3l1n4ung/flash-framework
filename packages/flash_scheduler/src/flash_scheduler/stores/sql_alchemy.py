@@ -9,7 +9,7 @@ from sqlalchemy import String, Text, select
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
-from ..schemas import (
+from flash_scheduler.schemas import (
     CalendarIntervalTriggerConfig,
     CronTriggerConfig,
     DateTriggerConfig,
@@ -17,13 +17,12 @@ from ..schemas import (
     JobDefinition,
     MisfirePolicy,
 )
+
 from .base import JobStore
 
 
 class Base(DeclarativeBase):
     """Base class for SQLAlchemy models."""
-
-    pass
 
 
 class ScheduledJob(Base):
@@ -81,7 +80,8 @@ class ScheduledJob(Base):
         elif self.trigger_type == "calendar":
             trigger = CalendarIntervalTriggerConfig(**trigger_data)
         else:
-            raise ValueError(f"Unknown trigger type: {self.trigger_type}")
+            msg = f"Unknown trigger type: {self.trigger_type}"
+            raise ValueError(msg)
 
         timeout = None
         if self.timeout_seconds:
@@ -137,7 +137,8 @@ class SQLAlchemyJobStore(JobStore):
         """Helper to create a new async session."""
         if self._session_factory is not None:
             return self._session_factory()
-        raise RuntimeError("Store not initialized. Call initialize() first.")
+        msg = "Store not initialized. Call initialize() first."
+        raise RuntimeError(msg)
 
     async def add_job(self, job: JobDefinition) -> None:
         """
@@ -152,7 +153,8 @@ class SQLAlchemyJobStore(JobStore):
         async with self._get_session() as session:
             existing = await session.get(ScheduledJob, job.job_id)
             if existing:
-                raise ValueError(f"Job '{job.job_id}' already exists")
+                msg = f"Job '{job.job_id}' already exists"
+                raise ValueError(msg)
 
             model = ScheduledJob.from_job_definition(job)
             session.add(model)
@@ -213,7 +215,8 @@ class SQLAlchemyJobStore(JobStore):
         async with self._get_session() as session:
             model = await session.get(ScheduledJob, job.job_id)
             if not model:
-                raise ValueError(f"Job '{job.job_id}' not found")
+                msg = f"Job '{job.job_id}' not found"
+                raise ValueError(msg)
 
             # Update fields
             model.name = job.name
@@ -277,7 +280,8 @@ class SQLAlchemyJobStore(JobStore):
         async with self._get_session() as session:
             model = await session.get(ScheduledJob, job_id)
             if not model:
-                raise ValueError(f"Job '{job_id}' not found")
+                msg = f"Job '{job_id}' not found"
+                raise ValueError(msg)
 
             model.next_run_time = next_run
             await session.commit()
@@ -368,7 +372,8 @@ class SQLAlchemyJobStore(JobStore):
         async with self._get_session() as session:
             model = await session.get(ScheduledJob, job_id)
             if not model:
-                raise ValueError(f"Job '{job_id}' not found")
+                msg = f"Job '{job_id}' not found"
+                raise ValueError(msg)
 
             model.enabled = False
             await session.commit()
@@ -386,7 +391,8 @@ class SQLAlchemyJobStore(JobStore):
         async with self._get_session() as session:
             model = await session.get(ScheduledJob, job_id)
             if not model:
-                raise ValueError(f"Job '{job_id}' not found")
+                msg = f"Job '{job_id}' not found"
+                raise ValueError(msg)
 
             model.enabled = True
             await session.commit()

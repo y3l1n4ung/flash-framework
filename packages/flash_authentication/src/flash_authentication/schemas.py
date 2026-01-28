@@ -89,7 +89,9 @@ class UserCreateSchema(BaseModel):
         min_length=3,
         max_length=150,
         pattern=r"^[a-zA-Z0-9_-]+$",
-        description="Username must be alphanumeric, can contain underscores or hyphens.",
+        description=(
+            "Username must be alphanumeric, can contain underscores or hyphens."
+        ),
     )
     email: EmailStr
     password: str = Field(..., min_length=8, description="Plain text password")
@@ -107,9 +109,11 @@ class UserCreateSchema(BaseModel):
             ValueError: If password lacks digit or uppercase letter.
         """
         if not any(char.isdigit() for char in v):
-            raise ValueError("Password must contain at least one number")
+            msg = "Password must contain at least one number"
+            raise ValueError(msg)
         if not any(char.isupper() for char in v):
-            raise ValueError("Password must contain at least one uppercase letter")
+            msg = "Password must contain at least one uppercase letter"
+            raise ValueError(msg)
         return v
 
     @model_validator(mode="after")
@@ -120,5 +124,6 @@ class UserCreateSchema(BaseModel):
             ValueError: If passwords don't match.
         """
         if self.password != self.password_confirm:
-            raise ValueError("Passwords do not match")
+            msg = "Passwords do not match"
+            raise ValueError(msg)
         return self

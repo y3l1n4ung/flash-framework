@@ -6,24 +6,25 @@ from flash_authentication import (
     AuthenticationBackend,
     AuthenticationResult,
 )
-from typing_extensions import Unpack
 
 # Shared mock result for consistency
 MOCK_RESULT = AuthenticationResult(
-    success=False, user=AnonymousUser(), message="Fail To Authenticate"
+    success=False,
+    user=AnonymousUser(),
+    message="Fail To Authenticate",
 )
 
 
 class ConcreteBackend(AuthenticationBackend):
     """A valid implementation for testing the contract."""
 
-    async def authenticate(self, *arg, **kwargs) -> AuthenticationResult:
+    async def authenticate(self, *_args, **_kwargs) -> AuthenticationResult:
         return MOCK_RESULT
 
-    async def login(self, *arg, **kwargs) -> AuthenticationResult:
+    async def login(self, *_args, **_kwargs) -> AuthenticationResult:
         return MOCK_RESULT
 
-    async def logout(self, *arg, **kwargs) -> str:
+    async def logout(self, *_args, **_kwargs) -> str:
         return "Logged Out"
 
 

@@ -54,7 +54,8 @@ class TestTemplateResponseMixin:
 
     def test_resolve_engine_from_app_state(self, manager):
         """
-        Requirement: Resolves engine from request.app.state.template_manager if not on instance.
+        Requirement: Resolves engine from request.app.state.template_manager
+                if not on instance.
         """
         mixin = TemplateResponseMixin()
         mixin.template_name = "test.html"

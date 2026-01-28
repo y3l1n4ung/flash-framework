@@ -44,9 +44,12 @@ class SingleObjectMixin(Generic[T]):
         base_classes = ("DetailView", "CreateView", "UpdateView", "DeleteView")
 
         if model is None and cls.__name__ not in base_classes:
-            raise TypeError(
+            msg = (
                 f"The '{cls.__name__}' is missing the required 'model' attribute. "
                 f"Usage: class {cls.__name__}(DetailView): model = MyModelClass"
+            )
+            raise TypeError(
+                msg,
             )
 
         if model is not None:
@@ -73,7 +76,9 @@ class SingleObjectMixin(Generic[T]):
         return self.model.objects.all()
 
     async def get_object(
-        self, queryset: QuerySet[T] | None = None, auto_error: bool = True
+        self,
+        queryset: QuerySet[T] | None = None,
+        auto_error: bool = True,
     ) -> T | None:
         """
         Fetch a single object from the database.
@@ -102,9 +107,12 @@ class SingleObjectMixin(Generic[T]):
             >>> product = await view.get_object()
         """
         if self.db is None:
-            raise RuntimeError(
+            msg = (
                 "Database session is required but not set. "
                 "Ensure your view is using Depends(get_db) for 'db' parameter."
+            )
+            raise RuntimeError(
+                msg,
             )
 
         if queryset is None:
@@ -116,46 +124,63 @@ class SingleObjectMixin(Generic[T]):
         try:
             if pk is not None:
                 logger.debug(
-                    f"Looking up {self.model.__name__} by {self.pk_url_kwarg}={pk}"
+                    "Looking up %s by %s=%s",
+                    self.model.__name__,
+                    self.pk_url_kwarg,
+                    pk,
                 )
                 queryset = queryset.filter(self.model.id == pk)
 
             elif slug is not None:
                 field = getattr(self.model, self.slug_field, None)
                 if field is None:
+                    msg = (
+                        f"Model {self.model.__name__} has no field "
+                        f"'{self.slug_field}'. Valid fields: {self._get_model_fields()}"
+                    )
                     raise AttributeError(
-                        f"Model {self.model.__name__} has no field '{self.slug_field}'. "
-                        f"Valid fields: {self._get_model_fields()}"
+                        msg,
                     )
 
                 logger.debug(
-                    f"Looking up {self.model.__name__} by {self.slug_field}={slug}"
+                    "Looking up %s by %s=%s",
+                    self.model.__name__,
+                    self.slug_field,
+                    slug,
                 )
                 queryset = queryset.filter(field == slug)
 
             else:
                 # Neither lookup parameter provided
                 available_params = list(self.kwargs.keys())
-                raise AttributeError(
-                    f"URL must include '{self.pk_url_kwarg}' or '{self.slug_url_kwarg}' "
-                    f"parameter. Available: {available_params}. "
+                msg = (
+                    f"URL must include '{self.pk_url_kwarg}' or "
+                    f"'{self.slug_url_kwarg}' parameter. "
+                    f"Available: {available_params}. "
                     f"Configure 'pk_url_kwarg' and 'slug_url_kwarg' to match your URL."
+                )
+                raise AttributeError(
+                    msg,
                 )
 
             obj = await queryset.first(self.db)
 
         except OperationalError as e:
             logger.exception(
-                f"Database connection error while fetching {self.model.__name__}"
+                "Database connection error while fetching %s",
+                self.model.__name__,
             )
             raise HTTPException(
                 status_code=503,
-                detail="Database service temporarily unavailable. Please try again later.",
+                detail=(
+                    "Database service temporarily unavailable. Please try again later."
+                ),
             ) from e
 
         except IntegrityError as e:
             logger.exception(
-                f"Database integrity error while fetching {self.model.__name__}"
+                "Database integrity error while fetching %s",
+                self.model.__name__,
             )
             raise HTTPException(
                 status_code=500,
@@ -164,31 +189,39 @@ class SingleObjectMixin(Generic[T]):
 
         except DatabaseError as e:
             logger.exception(
-                f"Database error while fetching {self.model.__name__}: {e}"
+                "Database error while fetching %s: %s",
+                self.model.__name__,
             )
             raise HTTPException(
-                status_code=500, detail="Database error. Please try again later."
+                status_code=500,
+                detail="Database error. Please try again later.",
             ) from e
 
         except (AttributeError, TypeError):
-            logger.exception(f"Configuration error in {self.__class__.__name__}")
+            logger.exception("Configuration error in %s", self.__class__.__name__)
             raise
 
         except Exception as e:
             logger.exception(
-                f"Unexpected error fetching {self.model.__name__}: {type(e).__name__}"
+                "Unexpected error fetching %s: %s",
+                self.model.__name__,
+                type(e).__name__,
             )
             raise HTTPException(status_code=500, detail="Internal server error") from e
 
         if not obj and auto_error:
             logger.info(
-                f"{self.model.__name__} not found with {self.pk_url_kwarg or self.slug_url_kwarg}={pk or slug}"
+                "%s not found with %s=%s",
+                self.model.__name__,
+                self.pk_url_kwarg or self.slug_url_kwarg,
+                pk or slug,
             )
             raise HTTPException(
-                status_code=404, detail=f"{self.model.__name__} not found."
+                status_code=404,
+                detail=f"{self.model.__name__} not found.",
             )
 
-        logger.debug(f"Successfully fetched {self.model.__name__}")
+        logger.debug("Successfully fetched %s", self.model.__name__)
         return obj
 
     def _get_model_fields(self) -> list[str]:

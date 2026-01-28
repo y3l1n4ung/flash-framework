@@ -73,9 +73,13 @@ class MultipleObjectMixin(Generic[T]):
         base_classes = ("ListView",)
 
         if model is None and cls.__name__ not in base_classes:
-            raise TypeError(
+            msg = (
                 f"The '{cls.__name__}' is missing the required 'model' attribute. "
-                f"Usage: class {cls.__name__}(MultipleObjectMixin): model = MyModelClass"
+                f"Usage: class {cls.__name__}(MultipleObjectMixin): "
+                f"model = MyModelClass"
+            )
+            raise TypeError(
+                msg,
             )
 
         if model is not None:
@@ -151,7 +155,7 @@ class MultipleObjectMixin(Generic[T]):
                 else:
                     normalized.append((item, "asc"))
 
-        logger.debug(f"Resolved ordering: {normalized}")
+        logger.debug("Resolved ordering: %s", normalized)
         return normalized
 
     async def get_objects(
@@ -215,14 +219,15 @@ class MultipleObjectMixin(Generic[T]):
             20
         """
         if self.db is None:
-            raise RuntimeError(
+            msg = (
                 "Database session is required but not set. "
                 "Ensure your view is using Depends(get_db) for 'db' parameter."
             )
+            raise RuntimeError(msg)
 
         try:
             qs = self.get_queryset()
-            logger.debug(f"Fetching {self.model.__name__} objects")
+            logger.debug("Fetching %s objects", self.model.__name__)
 
             # Apply ordering
             ordering_map = self.resolve_ordering(ordering, self.ordering)
@@ -230,29 +235,35 @@ class MultipleObjectMixin(Generic[T]):
                 if hasattr(self.model, field):
                     col = getattr(self.model, field)
                     qs = qs.order_by(col.desc() if direction == "desc" else col.asc())
-                    logger.debug(f"Applied ordering: {field} {direction}")
+                    logger.debug(
+                        "Applied ordering: %s %s",
+                        field,
+                        "desc" if direction == "desc" else "asc",
+                    )
                 else:
                     logger.warning(
-                        f"Model {self.model.__name__} has no field '{field}'. Skipping."
+                        "Model %s has no field '%s'. Skipping.",
+                        self.model.__name__,
+                        field,
                     )
 
             # Get total count before pagination
             total_count = await qs.count(self.db)
-            logger.debug(f"Total count: {total_count}")
+            logger.debug("Total count: %s", total_count)
 
             # Apply pagination
             effective_limit = limit or self.paginate_by
             if effective_limit:
                 qs = qs.limit(effective_limit).offset(offset)
-                logger.debug(f"Pagination: limit={effective_limit}, offset={offset}")
+                logger.debug("Pagination: limit=%s, offset=%s", effective_limit, offset)
 
             # Fetch objects
             object_list = await qs.fetch(self.db)
-            logger.debug(f"Fetched {len(object_list)} objects")
+            logger.debug("Fetched %s objects", len(object_list))
 
             # Check if empty and not allowed
             if not object_list and not self.allow_empty and auto_error:
-                logger.info(f"Empty {self.model.__name__} list not allowed")
+                logger.info("Empty %s list not allowed", self.model.__name__)
                 raise HTTPException(
                     status_code=404,
                     detail=f"No {self.model.__name__} objects found.",
@@ -277,16 +288,20 @@ class MultipleObjectMixin(Generic[T]):
 
         except OperationalError as e:
             logger.exception(
-                f"Database connection error while fetching {self.model.__name__} list"
+                "Database connection error while fetching %s list",
+                self.model.__name__,
             )
             raise HTTPException(
                 status_code=503,
-                detail="Database service temporarily unavailable. Please try again later.",
+                detail=(
+                    "Database service temporarily unavailable. Please try again later."
+                ),
             ) from e
 
         except IntegrityError as e:
             logger.exception(
-                f"Database integrity error while fetching {self.model.__name__} list"
+                "Database integrity error while fetching %s list",
+                self.model.__name__,
             )
             raise HTTPException(
                 status_code=500,
@@ -295,14 +310,19 @@ class MultipleObjectMixin(Generic[T]):
 
         except DatabaseError as e:
             logger.exception(
-                f"Database error while fetching {self.model.__name__} list: {e}"
+                "Database error while fetching %s list: %s",
+                self.model.__name__,
+                e,
             )
             raise HTTPException(
-                status_code=500, detail="Database error. Please try again later."
+                status_code=500,
+                detail="Database error. Please try again later.",
             ) from e
 
         except Exception as e:
             logger.exception(
-                f"Unexpected error fetching {self.model.__name__} list: {type(e).__name__}"
+                "Unexpected error fetching %s list: %s",
+                self.model.__name__,
+                type(e).__name__,
             )
             raise HTTPException(status_code=500, detail="Internal server error") from e

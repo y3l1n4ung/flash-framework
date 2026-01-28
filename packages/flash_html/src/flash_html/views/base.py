@@ -37,7 +37,7 @@ class View:
     request: Request
     kwargs: dict[str, Any]
 
-    def __init__(self, **kwargs: Any) -> None:
+    def __init__(self, *arg: Any, **kwargs: Any) -> None:
         """
         Initialize the view instance with configuration overrides.
         """
@@ -61,20 +61,23 @@ class View:
         # 1. Validate initkwargs against class attributes
         for key in initkwargs:
             if not hasattr(cls, key):
-                raise TypeError(
+                msg = (
                     f"{cls.__name__}() received an invalid keyword {key!r}. "
                     f"as_view() only accepts arguments that are already attributes "
                     f"of the class."
                 )
+                raise TypeError(
+                    msg,
+                )
 
-        async def view(request: Request, **kwargs: Any) -> Response:
+        async def view(request: Request, *arg, **kwargs: Any) -> Response:
             self = cls(**initkwargs)
             self.request = request
 
             # Extract database session if provided by FastAPI injection
             db = kwargs.pop("db", None)
             if db is not None:
-                setattr(self, "db", db)
+                self.db = db  # type: ignore # ty:ignore[unresolved-attribute]
 
             # Merge path parameters and additional kwargs
             self.kwargs = {**request.path_params, **kwargs}
@@ -134,9 +137,9 @@ class View:
                 key=lambda p: (
                     p.kind.value,
                     p.default is not inspect.Parameter.empty,
-                )
+                ),
             )
-            cast(Any, view).__signature__ = sig.replace(parameters=new_params)
+            cast("Any", view).__signature__ = sig.replace(parameters=new_params)
 
         return view
 

@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -115,7 +116,7 @@ class TestSchedulerLifecycle:
     async def test_startup_failure_propagates(self, scheduler):
         """Executor startup failure raises RuntimeError."""
         scheduler.executor.start = AsyncMock(
-            side_effect=RuntimeError("Executor init failed")
+            side_effect=RuntimeError("Executor init failed"),
         )
 
         with pytest.raises(RuntimeError, match="Executor startup failed"):
@@ -167,7 +168,6 @@ class TestTaskDecorator:
         @scheduler.task(IntervalTriggerConfig(seconds=1))
         async def documented_job():
             """Job documentation."""
-            pass
 
         assert documented_job.__name__ == "documented_job"
         assert documented_job.__doc__ == "Job documentation."
@@ -329,7 +329,9 @@ class TestJobManagement:
 
         # Force exception to trigger the try/except block
         with patch.object(
-            scheduler.store, "add_job", side_effect=RuntimeError("DB error")
+            scheduler.store,
+            "add_job",
+            side_effect=RuntimeError("DB error"),
         ):
             job = JobDefinition(
                 name="Error Job",
@@ -356,10 +358,12 @@ class TestJobManagement:
             trigger=IntervalTriggerConfig(seconds=1),
         )
 
-        # Let add_job succeed (first call), but update_job fail (second call logic in add_job)
-        # Note: add_job logic is: check existing, if not existing -> add, then ALWAYS update.
+        # Let add_job succeed (first call), but update_job fail (second call logic in
+        # add_job)
+        # Note: add_job logic is: check existing, if not existing -> add, then
+        # ALWAYS update.
         scheduler.store.update_job = AsyncMock(
-            side_effect=RuntimeError("Update failed")
+            side_effect=RuntimeError("Update failed"),
         )
 
         with pytest.raises(RuntimeError, match="Failed to add job"):
@@ -441,7 +445,9 @@ class TestJobExecution:
     """Tests for job execution flow and event dispatch."""
 
     async def test_successful_job_execution(
-        self, scheduler_with_events, temp_task_module
+        self,
+        scheduler_with_events,
+        temp_task_module,
     ):
         """Successful execution emits JOB_EXECUTED with result."""
         scheduler, collector = scheduler_with_events
@@ -486,7 +492,9 @@ class TestJobExecution:
         assert error.result.error_message is not None
 
     async def test_job_submitted_before_execution(
-        self, scheduler_with_events, temp_task_module
+        self,
+        scheduler_with_events,
+        temp_task_module,
     ):
         """JOB_SUBMITTED emitted before any execution attempt."""
         scheduler, collector = scheduler_with_events
@@ -536,7 +544,9 @@ class TestConcurrencyControl:
     """Tests for concurrent execution prevention."""
 
     async def test_prevent_concurrent_execution_same_job(
-        self, scheduler, temp_task_module
+        self,
+        scheduler,
+        temp_task_module,
     ):
         """Job in _running_jobs skipped in run loop."""
         collector = EventCollector()
@@ -674,7 +684,9 @@ class TestEventDispatching:
     """Tests for event type selection and dispatch."""
 
     async def test_success_event_on_successful_result(
-        self, scheduler_with_events, temp_task_module
+        self,
+        scheduler_with_events,
+        temp_task_module,
     ):
         """JOB_EXECUTED event when result.success=True."""
         scheduler, collector = scheduler_with_events
@@ -696,7 +708,9 @@ class TestEventDispatching:
         assert len(executed) > 0
 
     async def test_error_event_on_failed_result(
-        self, scheduler_with_events, temp_task_module
+        self,
+        scheduler_with_events,
+        temp_task_module,
     ):
         """JOB_ERROR event when result.success=False."""
         scheduler, collector = scheduler_with_events
@@ -723,7 +737,7 @@ class TestErrorHandling:
     async def test_loop_error_recovery_with_backoff(self, scheduler):
         """Scheduler recovers from loop errors with 5s backoff."""
         scheduler.store.get_due_jobs = AsyncMock(
-            side_effect=RuntimeError("Store failed")
+            side_effect=RuntimeError("Store failed"),
         )
 
         await scheduler.start()
@@ -736,7 +750,7 @@ class TestErrorHandling:
         with patch("flash_scheduler.scheduler.ERROR_BACKOFF_INTERVAL", 0.01):
             # Force an error in the loop
             scheduler.store.get_due_jobs = AsyncMock(
-                side_effect=RuntimeError("Loop Fail")
+                side_effect=RuntimeError("Loop Fail"),
             )
 
             await scheduler.start()
@@ -748,7 +762,9 @@ class TestErrorHandling:
             await scheduler.shutdown()
 
     async def test_shutdown_waits_for_active_executions(
-        self, scheduler_with_events, temp_task_module
+        self,
+        scheduler_with_events,
+        temp_task_module,
     ):
         """Shutdown with wait=True completes pending executions."""
         scheduler, collector = scheduler_with_events
@@ -790,10 +806,8 @@ class TestErrorHandling:
 
         # Cleanup the fake task
         fake_task.cancel()
-        try:
+        with contextlib.suppress(asyncio.CancelledError):
             await fake_task
-        except asyncio.CancelledError:
-            pass
 
     async def test_run_loop_backoff_with_bad_job(self, scheduler):
         """

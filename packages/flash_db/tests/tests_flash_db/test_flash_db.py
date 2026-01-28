@@ -120,7 +120,8 @@ class TestQuerySet:
         # Action: Update titles containing 'Draft'
         # This hits QuerySet.update() and its safety check for filters
         count = await Article.objects.filter(Article.title.contains("Draft")).update(
-            db_session, content="Published Content"
+            db_session,
+            content="Published Content",
         )
 
         # Assertions
@@ -128,7 +129,7 @@ class TestQuerySet:
 
         # Verify the update actually persisted
         updated_count = await Article.objects.filter(
-            Article.content == "Published Content"
+            Article.content == "Published Content",
         ).count(db_session)
         assert updated_count == 2
 
@@ -143,7 +144,7 @@ class TestQuerySet:
         await create_article(db_session, title="Keep Me")
 
         count = await Article.objects.filter(Article.title == "Delete Me").delete(
-            db_session
+            db_session,
         )
         assert count == 1
 
@@ -214,15 +215,20 @@ class TestModelManager:
         """Verify get() raises ValueError when content is not unique."""
         # title must be unique, so keep them different
         await Article.objects.create(
-            db_session, title="T1", content="Duplicate Content"
+            db_session,
+            title="T1",
+            content="Duplicate Content",
         )
         await Article.objects.create(
-            db_session, title="T2", content="Duplicate Content"
+            db_session,
+            title="T2",
+            content="Duplicate Content",
         )
 
         with pytest.raises(ValueError, match="returned more than one"):
             await Article.objects.get(
-                db_session, Article.content == "Duplicate Content"
+                db_session,
+                Article.content == "Duplicate Content",
             )
 
     async def test_update_single_record(self, db_session):
@@ -230,7 +236,9 @@ class TestModelManager:
         article = await create_article(db_session, title="Old Title")
 
         updated = await Article.objects.update(
-            db_session, article.id, title="New Title"
+            db_session,
+            article.id,
+            title="New Title",
         )
         assert updated.title == "New Title"
 
@@ -255,13 +263,17 @@ class TestModelManager:
 
     async def test_delete_by_pk_raise_if_missing_branch(self, db_session):
         count = await Article.objects.delete_by_pk(
-            db_session, 999999, raise_if_missing=False
+            db_session,
+            999999,
+            raise_if_missing=False,
         )
         assert count == 0
 
         with pytest.raises(ValueError, match="not found"):
             await Article.objects.delete_by_pk(
-                db_session, 999999, raise_if_missing=True
+                db_session,
+                999999,
+                raise_if_missing=True,
             )
 
     async def test_queryset_first(self, db_session):
@@ -275,7 +287,7 @@ class TestModelManager:
 
         # Empty queryset
         empty_first = await Article.objects.filter(
-            Article.title == "NonExistent"
+            Article.title == "NonExistent",
         ).first(db_session)
         assert empty_first is None
 
@@ -303,11 +315,15 @@ class TestModelManager:
 
     async def test_delete_by_pk_foreign_key_violation(self, db_session):
         article = await Article.objects.create(
-            db_session, title="Parent", content="..."
+            db_session,
+            title="Parent",
+            content="...",
         )
 
         await Comment.objects.create(
-            db_session, text="I depend on the article", article_id=article.id
+            db_session,
+            text="I depend on the article",
+            article_id=article.id,
         )
 
         with pytest.raises(RuntimeError):
@@ -319,7 +335,9 @@ class TestModelManager:
         # Passing an invalid type (dict) to a String column triggers SQLAlchemyError
         with pytest.raises(RuntimeError, match="Database error while updating Article"):
             await Article.objects.update(
-                db_session, article.id, title={"invalid": "type"}
+                db_session,
+                article.id,
+                title={"invalid": "type"},
             )  # type: ignore
 
     async def test_update_raises_runtime_error_on_integrity_violation(self, db_session):
@@ -354,7 +372,7 @@ class TestModelManager:
         await create_article(db_session, title="Original2")
 
         count = await Article.objects.filter(
-            Article.title.startswith("Original")
+            Article.title.startswith("Original"),
         ).update(db_session, content="Updated content")
         assert count >= 2
 
@@ -364,21 +382,21 @@ class TestModelManager:
         await create_article(db_session, title="Delete2")
 
         count = await Article.objects.filter(Article.title.startswith("Delete")).delete(
-            db_session
+            db_session,
         )
         assert count >= 2
 
     async def test_count_with_no_records(self, db_session):
         """Verify count returns 0 for empty result set."""
         count = await Article.objects.filter(
-            Article.title == "NonExistentArticle"
+            Article.title == "NonExistentArticle",
         ).count(db_session)
         assert count == 0
 
     async def test_exists_returns_false_for_empty(self, db_session):
         """Verify exists returns False when no matches."""
         exists = await Article.objects.filter(
-            Article.title == "NonExistentArticle"
+            Article.title == "NonExistentArticle",
         ).exists(db_session)
         assert exists is False
 
@@ -386,7 +404,9 @@ class TestModelManager:
         """Verify filtering by both equality and NULL constraints."""
         # Titles MUST be unique now
         await Article.objects.create(
-            db_session, title="Unique 1", content="Has Content"
+            db_session,
+            title="Unique 1",
+            content="Has Content",
         )
         await Article.objects.create(db_session, title="Unique 2", content=None)
 

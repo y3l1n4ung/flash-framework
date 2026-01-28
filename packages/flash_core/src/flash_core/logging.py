@@ -21,7 +21,7 @@ class TraceFormatter(logging.Formatter):
         # FORCE UTC: Critical for distributed systems to avoid timezone ambiguity
         self.converter = time.gmtime
 
-    def formatTime(self, record, datefmt=None):
+    def format_time(self, record, datefmt=None):
         """Overridden to ensure strict ISO-8601 UTC format."""
         ct = self.converter(record.created)
         if datefmt:
