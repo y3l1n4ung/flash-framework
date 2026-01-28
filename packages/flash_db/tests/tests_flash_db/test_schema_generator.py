@@ -156,7 +156,6 @@ class TestSchemaGenerator:
 
         profile_create = generator.create_schema()
         profile_response = generator.response_schema()
-        generator.config
 
         # 1. Validation Error: Missing required field in Create
         with pytest.raises(ValidationError):

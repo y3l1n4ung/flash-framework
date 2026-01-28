@@ -152,7 +152,7 @@ class TestDetailView:
             model = Product
             template_name = "product_detail.html"
 
-            async def get(self, org: str, team: str, **kwargs):  # type: ignore
+            async def get(self, org: str, team: str, **_kwargs):  # type: ignore
                 self.object = await self.get_object()
                 assert self.object
                 return Response(f"{org}/{team}: {self.object.name}")
@@ -209,7 +209,7 @@ class TestDetailView:
             model = Product
             template_name = "product_detail.html"
 
-            async def get(self, *, category: str, **kwargs):  # ty:ignore[invalid-method-override]
+            async def get(self, *, category: str, **kwargs):
                 # We expect 'category' to be in kwargs when super().get is called
                 return await super().get(category=category, **kwargs)
 

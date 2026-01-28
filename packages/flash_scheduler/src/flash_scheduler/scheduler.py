@@ -147,6 +147,7 @@ class FlashScheduler:
         name: str | None = None,
         args: list[Any] | None = None,
         kwargs: dict[str, Any] | None = None,
+        *,
         enabled: bool = True,
     ):
         """
@@ -254,7 +255,7 @@ class FlashScheduler:
 
         self._main_task = asyncio.create_task(self._run_loop())
 
-    async def shutdown(self, wait: bool = True) -> None:
+    async def shutdown(self, *, wait: bool = True) -> None:
         """
         Shut down the scheduler and stop job execution.
 

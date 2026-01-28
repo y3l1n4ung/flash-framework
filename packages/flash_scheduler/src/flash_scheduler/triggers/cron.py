@@ -5,7 +5,7 @@ from __future__ import annotations
 import calendar
 import random
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from flash_scheduler.schemas import CronTriggerConfig
 
@@ -114,8 +114,16 @@ class CronTrigger(Trigger):
         jitter: Max random delay in seconds.
     """
 
-    DAY_ALIASES = {"SUN": 0, "MON": 1, "TUE": 2, "WED": 3, "THU": 4, "FRI": 5, "SAT": 6}
-    MONTH_ALIASES = {
+    DAY_ALIASES: ClassVar[dict[str, int]] = {
+        "SUN": 0,
+        "MON": 1,
+        "TUE": 2,
+        "WED": 3,
+        "THU": 4,
+        "FRI": 5,
+        "SAT": 6,
+    }
+    MONTH_ALIASES: ClassVar[dict[str, int]] = {
         "JAN": 1,
         "FEB": 2,
         "MAR": 3,
@@ -209,7 +217,7 @@ class CronTrigger(Trigger):
 
     def next_fire_time(
         self,
-        prev_fire_time: datetime | None,
+        prev_fire_time: datetime | None,  # noqa: ARG002
         now: datetime,
     ) -> datetime | None:
         """Finds the next matching time by iteratively advancing fields."""

@@ -44,14 +44,14 @@ class AsyncExecutor(BaseExecutor):
         """
         try:
             asyncio.get_running_loop()
-        except RuntimeError:
+        except RuntimeError as r:
             msg = "AsyncExecutor must be started inside a running event loop."
             raise RuntimeError(
                 msg,
-            )
+            ) from r
         self._running = True
 
-    async def shutdown(self, wait: bool = True) -> None:
+    async def shutdown(self, *, wait: bool = True) -> None:
         self._running = False
         if wait and self._tasks:
             # Wait for pending tasks

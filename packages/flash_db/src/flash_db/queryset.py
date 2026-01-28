@@ -106,7 +106,7 @@ class QuerySet(Generic[T]):
         except SQLAlchemyError as e:
             await db.rollback()
             msg = f"Database error during bulk update: {e}"
-            raise RuntimeError(msg)
+            raise RuntimeError(msg) from e
 
     async def delete(self, db: AsyncSession) -> int:
         """
@@ -125,4 +125,4 @@ class QuerySet(Generic[T]):
         except SQLAlchemyError as e:
             await db.rollback()
             msg = f"Database error during bulk delete: {e}"
-            raise RuntimeError(msg)
+            raise RuntimeError(msg) from e

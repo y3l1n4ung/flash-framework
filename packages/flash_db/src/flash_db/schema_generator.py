@@ -66,9 +66,9 @@ class SchemaGenerator(Generic[T]):
         >>> UserResponse = generator.response_schema()
     """
 
-    def __init__(self, model_class: type[T], config: SchemaConfig = SchemaConfig()):
+    def __init__(self, model_class: type[T], config: SchemaConfig | None = None):
         self.model_class = model_class
-        self.config = config
+        self.config = config or SchemaConfig()
         self.inspector = inspect(model_class)
         self._columns: Iterable[Column[Any]] = list(self._get_model_columns())
 

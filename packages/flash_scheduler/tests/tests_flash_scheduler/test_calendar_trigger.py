@@ -21,14 +21,14 @@ class SimpleTrigger(Trigger):
     def __init__(self, interval: int):
         self.interval = interval
 
-    def next_fire_time(self, prev_fire_time, now):
+    def next_fire_time(self, prev_fire_time, now):  # noqa: ARG002
         return None
 
 
 class OtherTrigger(Trigger):
     """A different implementation to test type mismatch."""
 
-    def next_fire_time(self, prev_fire_time, now):
+    def next_fire_time(self, prev_fire_time, now):  # noqa: ARG002
         return None
 
 

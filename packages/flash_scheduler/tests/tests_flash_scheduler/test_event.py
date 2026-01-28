@@ -28,6 +28,8 @@ class FailingListener(EventListener):
     """A listener that consistently raises an exception."""
 
     async def on_event(self, event: Event) -> None:
+        assert event is not None
+
         msg = "Simulated listener failure"
         raise ValueError(msg)
 

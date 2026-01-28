@@ -25,7 +25,7 @@ class TemplateView(TemplateResponseMixin, ContextMixin, View):
         >>> app.add_api_route("/", TemplateView.as_view(template_name="index.html"))
     """
 
-    async def get(self, *arg: Any, **kwargs: Any) -> Response:
+    async def get(self, *_arg: Any, **kwargs: Any) -> Response:
         """
         Handle GET requests: render the template with context.
 

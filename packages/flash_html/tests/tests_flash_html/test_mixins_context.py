@@ -32,7 +32,7 @@ class TestContextMixin:
         """
 
         class DictView(ContextMixin):
-            extra_context = {"static_key": "static_value"}
+            extra_context = {"static_key": "static_value"}  # noqa: RUF012
 
         view = DictView()
         ctx = view.get_context_data(dynamic_key="dynamic_value")
@@ -67,7 +67,7 @@ class TestContextMixin:
         """
 
         class OverrideView(ContextMixin):
-            extra_context = {"theme": "dark"}
+            extra_context = {"theme": "dark"}  # noqa: RUF012
 
         view = OverrideView()
         # "theme" passed in kwargs should be overwritten by class-level extra_context

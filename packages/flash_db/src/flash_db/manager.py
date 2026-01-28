@@ -95,13 +95,15 @@ class ModelManager(Generic[T]):
             db.add(instance)
             await db.commit()
             await db.refresh(instance)
-            return instance
+
         except SQLAlchemyError as e:
             await db.rollback()
             msg = f"Database error while creating {self._model.__name__}: {e}"
             raise RuntimeError(
                 msg,
-            )
+            ) from e
+        else:
+            return instance
 
     async def update(self, db: AsyncSession, pk: Any, **fields: Any) -> T:
         """
@@ -124,13 +126,8 @@ class ModelManager(Generic[T]):
             result = await db.execute(stmt)
             instance = result.scalar_one_or_none()
 
-            if instance is None:
-                # We raise before commit to avoid unnecessary DB cycles
-                msg = f"{self._model.__name__} with id {pk} not found"
-                raise ValueError(msg)
-
-            await db.commit()
-            return cast("T", instance)
+            if instance is not None:
+                await db.commit()
 
         except SQLAlchemyError as e:
             await db.rollback()
@@ -141,6 +138,9 @@ class ModelManager(Generic[T]):
         except Exception:
             await db.rollback()
             raise
+        if instance is None:
+            msg = f"{self._model.__name__} with id {pk} not found"
+        return cast("T", instance)
 
     async def delete_by_pk(
         self,

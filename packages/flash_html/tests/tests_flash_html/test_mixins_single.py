@@ -78,7 +78,7 @@ class TestSingleObjectMixinCore:
         """If ModelValidator.validate_model() raises TypeError, it gets re-raised."""
         from flash_db.validator import ModelValidator
 
-        def mock_validate_model(model):
+        def mock_validate_model(_model):
             msg = "Model validation failed: invalid model structure"
             raise TypeError(msg)
 
@@ -143,6 +143,7 @@ class TestGetObject:
     @pytest.mark.asyncio
     async def test_fetch_by_slug_success(self, setup_mixin, product):
         """Successfully fetch object by slug."""
+        assert product is not None
 
         class ProductDetail(SingleObjectMixin[Product]):
             model = Product
@@ -282,6 +283,7 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_custom_slug_url_kwarg(self, setup_mixin, product):
         """Mixin respects custom slug_url_kwarg configuration."""
+        assert product is not None
 
         class ProductDetail(SingleObjectMixin[Product]):
             model = Product
@@ -385,11 +387,11 @@ class TestDatabaseExceptions:
 
             def get_queryset(self):  # type: ignore
                 class MockQuerySet:
-                    async def first(self, db):
+                    async def first(self, _db):
                         msg = "Connection lost"
                         raise OperationalError(msg, None, None)  # type: ignore
 
-                    def filter(self, *args, **kwargs):
+                    def filter(self, *_args, **_kwargs):
                         return self
 
                 return MockQuerySet()
@@ -415,11 +417,11 @@ class TestDatabaseExceptions:
             def get_queryset(self):  # type: ignore
                 # Return a mock queryset that raises on first()
                 class MockQuerySet:
-                    async def first(self, db):
+                    async def first(self, _db):
                         msg = "Integrity violation"
                         raise IntegrityError(msg, None, None)  # type: ignore
 
-                    def filter(self, *args, **kwargs):
+                    def filter(self, *_args, **_kwargs):
                         return self
 
                 return MockQuerySet()
@@ -444,11 +446,11 @@ class TestDatabaseExceptions:
 
             def get_queryset(self):  # type: ignore
                 class MockQuerySet:
-                    async def first(self, db):
+                    async def first(self, _db):
                         msg = "Database error"
                         raise DatabaseError(msg, None, None)  # type: ignore
 
-                    def filter(self, *args, **kwargs):
+                    def filter(self, *_args, **_kwargs):
                         return self
 
                 return MockQuerySet()
@@ -472,11 +474,11 @@ class TestDatabaseExceptions:
 
             def get_queryset(self):  # type: ignore
                 class MockQuerySet:
-                    async def first(self, db):
+                    async def first(self, _db):
                         msg = "Unexpected error"
                         raise ValueError(msg)
 
-                    def filter(self, *args, **kwargs):
+                    def filter(self, *_args, **_kwargs):
                         return self
 
                 return MockQuerySet()
@@ -501,11 +503,11 @@ class TestDatabaseExceptions:
 
             def get_queryset(self):  # type: ignore
                 class MockQuerySet:
-                    async def first(self, db):
+                    async def first(self, _db):
                         msg = "Missing attribute"
                         raise AttributeError(msg)
 
-                    def filter(self, *args, **kwargs):
+                    def filter(self, *_args, **_kwargs):
                         return self
 
                 return MockQuerySet()
@@ -526,11 +528,11 @@ class TestDatabaseExceptions:
 
             def get_queryset(self):  # type: ignore
                 class MockQuerySet:
-                    async def first(self, db):
+                    async def first(self, _db):
                         msg = "Type mismatch"
                         raise TypeError(msg)
 
-                    def filter(self, *args, **kwargs):
+                    def filter(self, *_args, **_kwargs):
                         return self
 
                 return MockQuerySet()
@@ -549,6 +551,7 @@ class TestSlugFieldConfiguration:
     @pytest.mark.asyncio
     async def test_custom_slug_field(self, setup_mixin, product):
         """Mixin uses custom slug_field when configured."""
+        assert product is not None
 
         class ProductDetail(SingleObjectMixin[Product]):
             model = Product
@@ -654,6 +657,8 @@ class TestLoggingBehavior:
     async def test_debug_log_on_slug_lookup(self, setup_mixin, product, caplog):
         """Debug log is created when looking up by slug."""
         import logging
+
+        assert product is not None
 
         class ProductDetail(SingleObjectMixin[Product]):
             model = Product

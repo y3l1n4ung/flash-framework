@@ -25,25 +25,11 @@ class MultipleObjectMixin(Generic[T]):
 
     Provides query building, ordering, and pagination for list views.
 
-    Attributes:
-        model: The database model class. Required.
-        queryset: Custom queryset override.
-        db: SQLAlchemy async session.
-        paginate_by: Default page size.
-        ordering: Default sort order (e.g., "-id").
-        allow_empty: If False, raise 404 on empty results.
-
-    Examples:
-        >>> class ProductMixin(MultipleObjectMixin[Product]):
-        ...     model = Product
-        ...     paginate_by = 20
-        ...     ordering = "-created_date"
-        ...
-        >>> mixin = ProductMixin()
-        >>> mixin.db = session
-        >>> data = await mixin.get_objects(limit=10, offset=0)
-        >>> print(data["total_count"], len(data["object_list"]))
-        42 10
+    Error Handling:
+        - RuntimeError: Database session not available
+        - HTTPException(404): Empty results and allow_empty=False
+        - HTTPException(503): Database connection unavailable
+        - HTTPException(500): Database integrity or unknown error
     """
 
     model: type[T]
@@ -54,19 +40,6 @@ class MultipleObjectMixin(Generic[T]):
     allow_empty: bool = True
 
     def __init_subclass__(cls) -> None:
-        """Validate model attribute on subclass creation.
-
-        Raises TypeError if subclass requires model but doesn't have it.
-
-        Examples:
-            >>> class ProductList(MultipleObjectMixin):
-            ...     model = Product  # Required
-            >>> # No error raised
-
-            >>> class InvalidList(MultipleObjectMixin):
-            ...     pass  # Missing model
-            >>> # TypeError: missing required 'model' attribute
-        """
         from flash_db.validator import ModelValidator
 
         model = getattr(cls, "model", None)
@@ -78,9 +51,7 @@ class MultipleObjectMixin(Generic[T]):
                 f"Usage: class {cls.__name__}(MultipleObjectMixin): "
                 f"model = MyModelClass"
             )
-            raise TypeError(
-                msg,
-            )
+            raise TypeError(msg)
 
         if model is not None:
             try:
@@ -91,21 +62,6 @@ class MultipleObjectMixin(Generic[T]):
         return super().__init_subclass__()
 
     def get_queryset(self) -> QuerySet[T]:
-        """Return base queryset for the model.
-
-        Override to add custom filters or select_related.
-
-        Returns:
-            QuerySet: Base query or custom queryset.
-
-        Examples:
-            >>> class ProductMixin(MultipleObjectMixin):
-            ...     model = Product
-            ...     def get_queryset(self):
-            ...         return self.model.objects.filter(published=True)
-            >>> mixin = ProductMixin()
-            >>> qs = mixin.get_queryset()
-        """
         if self.queryset is not None:
             return self.queryset
         return self.model.objects.all()
@@ -115,30 +71,6 @@ class MultipleObjectMixin(Generic[T]):
         params_ordering: List[OrderingInstruction] | None = None,
         class_ordering: str | list[str] | None = None,
     ) -> List[OrderingInstruction]:
-        """Normalize and resolve ordering parameters.
-
-        Params ordering takes priority over class ordering.
-        Converts string format "-field" to ("field", "desc") tuples.
-
-        Args:
-            params_ordering: Ordering from request (highest priority).
-            class_ordering: Default ordering from class.
-
-        Returns:
-            List of (field, direction) tuples.
-
-        Examples:
-            >>> MultipleObjectMixin.resolve_ordering(None, "-name")
-            [('name', 'desc')]
-
-            >>> MultipleObjectMixin.resolve_ordering(None, ["id", "-created"])
-            [('id', 'asc'), ('created', 'desc')]
-
-            >>> MultipleObjectMixin.resolve_ordering(
-            ...     [("priority", "desc")], "-id"
-            ... )
-            [('priority', 'desc')]
-        """
         raw = params_ordering if params_ordering is not None else class_ordering
         if not raw:
             return []
@@ -155,7 +87,6 @@ class MultipleObjectMixin(Generic[T]):
                 else:
                     normalized.append((item, "asc"))
 
-        logger.debug("Resolved ordering: %s", normalized)
         return normalized
 
     async def get_objects(
@@ -163,166 +94,69 @@ class MultipleObjectMixin(Generic[T]):
         limit: int | None = None,
         offset: int = 0,
         ordering: List[OrderingInstruction] | None = None,
+        *,
         auto_error: bool = True,
     ) -> dict[str, Any]:
-        """Fetch paginated objects from database.
-
-        Applies ordering, counts total results, applies pagination,
-        and returns objects with metadata.
-
-        Args:
-            limit: Items per page. Uses paginate_by if not provided.
-            offset: Number of items to skip.
-            ordering: List of (field, direction) tuples for sorting.
-            auto_error: Raise 404 if empty and allow_empty=False.
-
-        Returns:
-            Dictionary with:
-                - object_list: List of model instances
-                - total_count: Total matching objects (before pagination)
-                - limit: Applied limit
-                - offset: Applied offset
-                - has_next: Whether next page exists
-                - has_previous: Whether previous page exists
-
-        Raises:
-            RuntimeError: Database session not assigned.
-            HTTPException(404): Empty results and allow_empty=False.
-            HTTPException(503): Database connection unavailable.
-            HTTPException(500): Database integrity or unknown error.
-
-        Examples:
-            >>> class ProductMixin(MultipleObjectMixin[Product]):
-            ...     model = Product
-            ...     paginate_by = 20
-            ...
-            >>> mixin = ProductMixin()
-            >>> mixin.db = session
-            >>> data = await mixin.get_objects(limit=10, offset=0)
-            >>> data["total_count"]
-            42
-            >>> len(data["object_list"])
-            10
-            >>> data["has_next"]
-            True
-
-            >>> # With ordering
-            >>> data = await mixin.get_objects(
-            ...     limit=5,
-            ...     offset=0,
-            ...     ordering=[("name", "asc"), ("id", "desc")]
-            ... )
-
-            >>> # Without limit (uses paginate_by)
-            >>> data = await mixin.get_objects(offset=20)
-            >>> len(data["object_list"])
-            20
-        """
         if self.db is None:
-            msg = (
-                "Database session is required but not set. "
-                "Ensure your view is using Depends(get_db) for 'db' parameter."
-            )
+            msg = "Database session is required but not set."
             raise RuntimeError(msg)
 
-        try:
-            qs = self.get_queryset()
-            logger.debug("Fetching %s objects", self.model.__name__)
+        qs = self.get_queryset()
 
-            # Apply ordering
-            ordering_map = self.resolve_ordering(ordering, self.ordering)
-            for field, direction in ordering_map:
-                if hasattr(self.model, field):
-                    col = getattr(self.model, field)
-                    qs = qs.order_by(col.desc() if direction == "desc" else col.asc())
-                    logger.debug(
-                        "Applied ordering: %s %s",
-                        field,
-                        "desc" if direction == "desc" else "asc",
-                    )
-                else:
-                    logger.warning(
-                        "Model %s has no field '%s'. Skipping.",
-                        self.model.__name__,
-                        field,
-                    )
-
-            # Get total count before pagination
-            total_count = await qs.count(self.db)
-            logger.debug("Total count: %s", total_count)
-
-            # Apply pagination
-            effective_limit = limit or self.paginate_by
-            if effective_limit:
-                qs = qs.limit(effective_limit).offset(offset)
-                logger.debug("Pagination: limit=%s, offset=%s", effective_limit, offset)
-
-            # Fetch objects
-            object_list = await qs.fetch(self.db)
-            logger.debug("Fetched %s objects", len(object_list))
-
-            # Check if empty and not allowed
-            if not object_list and not self.allow_empty and auto_error:
-                logger.info("Empty %s list not allowed", self.model.__name__)
-                raise HTTPException(
-                    status_code=404,
-                    detail=f"No {self.model.__name__} objects found.",
+        # Apply ordering
+        ordering_map = self.resolve_ordering(ordering, self.ordering)
+        for field, direction in ordering_map:
+            if hasattr(self.model, field):
+                col = getattr(self.model, field)
+                qs = qs.order_by(col.desc() if direction == "desc" else col.asc())
+            else:
+                logger.warning(
+                    "Model %s has no field '%s'.",
+                    self.model.__name__,
+                    field,
                 )
 
-            # Calculate pagination metadata
-            has_next = False
-            has_previous = offset > 0
-            if effective_limit and len(object_list) >= effective_limit:
-                has_next = total_count > offset + effective_limit
+        effective_limit = limit or self.paginate_by
 
-            return {
-                "object_list": object_list,
-                "total_count": total_count,
-                "limit": effective_limit,
-                "offset": offset,
-                "has_next": has_next,
-                "has_previous": has_previous,
-            }
-        except HTTPException:
-            raise
+        try:
+            total_count = await qs.count(self.db)
+
+            if effective_limit:
+                qs = qs.limit(effective_limit).offset(offset)
+
+            object_list = await qs.fetch(self.db)
 
         except OperationalError as e:
-            logger.exception(
-                "Database connection error while fetching %s list",
-                self.model.__name__,
-            )
+            logger.exception("Database connection error")
             raise HTTPException(
                 status_code=503,
-                detail=(
-                    "Database service temporarily unavailable. Please try again later."
-                ),
+                detail="Database service temporarily unavailable.",
             ) from e
-
-        except IntegrityError as e:
-            logger.exception(
-                "Database integrity error while fetching %s list",
-                self.model.__name__,
-            )
+        except (IntegrityError, DatabaseError) as e:
+            logger.exception("Database error")
             raise HTTPException(
                 status_code=500,
-                detail="Database integrity error. Please contact support.",
+                detail="Internal database error occurred.",
             ) from e
-
-        except DatabaseError as e:
-            logger.exception(
-                "Database error while fetching %s list: %s",
-                self.model.__name__,
-                e,
-            )
-            raise HTTPException(
-                status_code=500,
-                detail="Database error. Please try again later.",
-            ) from e
-
         except Exception as e:
-            logger.exception(
-                "Unexpected error fetching %s list: %s",
-                self.model.__name__,
-                type(e).__name__,
-            )
+            logger.exception("Unexpected error")
             raise HTTPException(status_code=500, detail="Internal server error") from e
+
+        if not object_list and not self.allow_empty and auto_error:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No {self.model.__name__} objects found.",
+            )
+
+        has_next = False
+        if effective_limit and len(object_list) >= effective_limit:
+            has_next = total_count > offset + effective_limit
+
+        return {
+            "object_list": object_list,
+            "total_count": total_count,
+            "limit": effective_limit,
+            "offset": offset,
+            "has_next": has_next,
+            "has_previous": offset > 0,
+        }

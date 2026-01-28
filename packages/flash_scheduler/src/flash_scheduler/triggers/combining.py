@@ -35,7 +35,7 @@ class AndTrigger(base.Trigger):
 
     def next_fire_time(
         self,
-        prev_fire_time: datetime | None,
+        prev_fire_time: datetime | None,  # noqa: ARG002
         now: datetime,
     ) -> datetime | None:
         """Finds the next time where all triggers overlap."""
@@ -107,7 +107,7 @@ class OrTrigger(base.Trigger):
 
     def next_fire_time(
         self,
-        prev_fire_time: datetime | None,
+        prev_fire_time: datetime | None,  # noqa: ARG002
         now: datetime,
     ) -> datetime | None:
         """Returns the earliest next fire time from the list."""

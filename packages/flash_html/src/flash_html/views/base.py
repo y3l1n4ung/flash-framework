@@ -37,7 +37,7 @@ class View:
     request: Request
     kwargs: dict[str, Any]
 
-    def __init__(self, *arg: Any, **kwargs: Any) -> None:
+    def __init__(self, *_arg: Any, **kwargs: Any) -> None:
         """
         Initialize the view instance with configuration overrides.
         """
@@ -70,7 +70,7 @@ class View:
                     msg,
                 )
 
-        async def view(request: Request, *arg, **kwargs: Any) -> Response:
+        async def view(request: Request, *_arg, **kwargs: Any) -> Response:
             self = cls(**initkwargs)
             self.request = request
 
@@ -159,7 +159,7 @@ class View:
 
         return handler(**kwargs)
 
-    def http_method_not_allowed(self, **kwargs: Any) -> Response:
+    def http_method_not_allowed(self, **_kwargs: Any) -> Response:
         """
         Return a 405 Method Not Allowed response.
         """

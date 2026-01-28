@@ -33,7 +33,7 @@ class BaseExecutor(ABC):
         ...
 
     @abstractmethod
-    async def shutdown(self, wait: bool = True) -> None:
+    async def shutdown(self, *, wait: bool = True) -> None:
         """
         Shutdown the executor.
 

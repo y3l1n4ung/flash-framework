@@ -23,9 +23,9 @@ def validate_timezone(v: Any) -> Any:
     if isinstance(v, str):
         try:
             return zoneinfo.ZoneInfo(v)
-        except zoneinfo.ZoneInfoNotFoundError:
+        except zoneinfo.ZoneInfoNotFoundError as z:
             msg = f"Invalid timezone name: {v}"
-            raise ValueError(msg)
+            raise ValueError(msg) from z
     msg = f"Invalid timezone type: {type(v).__name__}"
     raise ValueError(msg)
 

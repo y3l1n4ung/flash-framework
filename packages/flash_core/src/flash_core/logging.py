@@ -54,6 +54,7 @@ def setup_logging(
     log_file: Optional[Union[str, Path]] = None,
     max_bytes: int = 10_485_760,  # 10MB
     backup_count: int = 10,
+    *,
     capture_roots: bool = True,  # If True, captures third-party logs (requests, etc)
     module_name: str = "flash",  # The main namespace for your app
 ) -> None:

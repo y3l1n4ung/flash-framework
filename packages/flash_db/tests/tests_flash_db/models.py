@@ -9,7 +9,7 @@ from sqlalchemy.sql.type_api import UserDefinedType
 class UnsupportedSQLType(UserDefinedType):
     """A type not present in the SQL_TO_PYTHON_TYPE mapping to trigger 'return Any'."""
 
-    def get_col_spec(self, **kw):
+    def get_col_spec(self, **_kw):
         return "UNSUPPORTED"
 
 

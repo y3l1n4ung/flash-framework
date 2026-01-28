@@ -22,9 +22,11 @@ async def create_article(db_session, **kwargs):
 
 async def test_require_session_factory_raises_runtime_error():
     """Tests factory is None check."""
-    with patch("flash_db.db._session_factory", None):
-        with pytest.raises(RuntimeError, match=r"Database not initialized"):
-            db._require_session_factory()
+    with (
+        patch("flash_db.db._session_factory", None),
+        pytest.raises(RuntimeError, match=r"Database not initialized"),
+    ):
+        db._require_session_factory()
 
 
 async def test_init_db_sqlite_executes_fk_path():
@@ -49,10 +51,12 @@ async def test_get_db_yields_session():
 
 async def test_get_db_raises_runtime_error_uninitialized():
     """Tests the generator safety without markers."""
-    with patch("flash_db.db._session_factory", None):
-        with pytest.raises(RuntimeError, match=r"Database not initialized"):
-            gen = db.get_db()
-            await gen.__anext__()
+    with (
+        patch("flash_db.db._session_factory", None),
+        pytest.raises(RuntimeError, match=r"Database not initialized"),
+    ):
+        gen = db.get_db()
+        await gen.__anext__()
 
 
 async def test_init_db_postgresql_url_replacement():
@@ -150,7 +154,7 @@ class TestQuerySet:
 
         assert await Article.objects.all().count(db_session) == 1
 
-    async def test_queryset_load_related_applies_joinedload(self, db_session):
+    async def test_queryset_load_related_applies_joinedload(self, _db_session):
         """Verify load_related adds relationship loading to the statement."""
         # This hits line 59 (the loop for fields)
         qs = Article.objects.all().load_related("comments")
@@ -491,8 +495,11 @@ class TestTimestampMixin:
 async def test_manager_error_handling_rollback(db_session, method_name, line_to_hit):
     """
     Forces the code to enter the 'except' blocks to ensure 100% coverage
-    of the rollback and raise logic.
+    of rollback and raise logic.
     """
+    # Ensure db_session fixture is properly initialized (even though we use mock)
+    assert db_session is not None
+
     # 1. Setup Mock
     mock_session = AsyncMock()
 

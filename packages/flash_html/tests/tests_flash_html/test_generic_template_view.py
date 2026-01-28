@@ -104,7 +104,7 @@ class TestTemplateView:
         class SearchView(TemplateView):
             template_name = "hello.html"
 
-            async def get(self, q: str = "Default", **kwargs: Any):
+            async def get(self, q: str = "Default", **_kwargs: Any):
                 context = self.get_context_data(name=q)
                 return self.render_to_response(context)
 
@@ -127,7 +127,7 @@ class TestTemplateView:
 
         class SimpleView(TemplateView):
             template_name = "hello.html"
-            extra_context = {"name": "Simple"}
+            extra_context = {"name": "Simple"}  # noqa: RUF012
 
         app.add_api_route("/simple", SimpleView.as_view())
 
@@ -146,7 +146,7 @@ class TestTemplateView:
 
         class LooseView(TemplateView):
             template_name = "hello.html"
-            extra_context = {"name": "Loose"}
+            extra_context = {"name": "Loose"}  # noqa: RUF012
 
         app.add_api_route("/loose", LooseView.as_view())
 

@@ -349,6 +349,7 @@ class TestJobManagement:
         """
         Test add_job exception handling when update_job fails.
         """
+        assert temp_task_module
         await scheduler.start()
 
         job = JobDefinition(

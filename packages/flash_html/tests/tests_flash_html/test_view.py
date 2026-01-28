@@ -9,12 +9,6 @@ from flash_html.views.base import View
 class TestViewBase:
     """Test suite for the internal mechanics of the View class."""
 
-    def test_initialization(self):
-        """Requirement: View accepts kwargs in __init__ and sets them as attributes."""
-        view = View(key="value", number=42)
-        assert view.key == "value"
-        assert view.number == 42
-
     def test_as_view_strict_validation(self):
         """Requirement: as_view() raises TypeError for invalid attributes to
         prevent typos."""

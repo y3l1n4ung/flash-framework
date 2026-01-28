@@ -1,5 +1,5 @@
 import os
-from typing import override
+from typing import Any, override
 
 from flash_authentication import AuthenticationBackend
 from flash_authentication.schemas import (
@@ -19,4 +19,10 @@ class SessionAuthenticationBackend(AuthenticationBackend):
         db: AsyncSession,
         session_token: str,
     ) -> AuthenticationResult:
-        pass
+        raise NotImplementedError
+
+    async def login(self, *arg: Any, **kwargs: Any) -> AuthenticationResult:
+        raise NotImplementedError
+
+    async def logout(self, *arg: Any, **kwargs: Any) -> Any:
+        raise NotImplementedError
