@@ -1,6 +1,5 @@
 import os
 from datetime import datetime, timedelta, timezone
-from operator import or_
 from typing import Any, Tuple, override
 
 from fastapi import Request
@@ -9,7 +8,7 @@ from flash_authentication.models import User
 from flash_authentication.schemas import (
     AuthenticationResult,
 )
-from sqlalchemy import Select, delete, select
+from sqlalchemy import Select, delete, false, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from flash_authentication_session.models import UserSession
@@ -113,8 +112,8 @@ class SessionAuthenticationBackend(AuthenticationBackend):
                 select(User)
                 .where(
                     or_(
-                        User.username == username if username else False,
-                        User.email == email if email else False,
+                        User.username == username if username else false(),
+                        User.email == email if email else false(),
                     )
                 )
                 .limit(1)

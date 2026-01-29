@@ -47,7 +47,7 @@ async def test_session_is_expired_past(test_user):
 
 
 @pytest.mark.asyncio
-async def test_session_relationship_persistence(db_session, test_user):
+async def test_session_relationship_persistence(db_session: AsyncSession, test_user):
     """Ensure the session retrieves the correct user from DB."""
     expires = datetime.now(timezone.utc) + timedelta(days=1)
     session = UserSession(user_id=test_user.id, expires_at=expires)
@@ -55,7 +55,7 @@ async def test_session_relationship_persistence(db_session, test_user):
     db_session.add(session)
     await db_session.commit()
 
-    db_session.refresh(session)
+    await db_session.refresh(session)
 
     stmt = select(UserSession).where(UserSession.session_key == session.session_key)
     result = await db_session.scalar(stmt)
