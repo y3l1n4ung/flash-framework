@@ -22,7 +22,6 @@ select = ["F",      # Pyflakes
           "FBT",    # flake8-boolean-trap
           "B",      # flake8-bugbear
           "A",      # flake8-builtins
-          "COM",    # flake8-commas
           "C4",     # flake8-comprehensions
           "DTZ",    # flake8-datetimez
           "EM",     # flake8-errmsg
@@ -47,3 +46,10 @@ select = ["F",      # Pyflakes
           "RUF"]  
 extend-select = ["I"]
 fixable = ["ALL"]
+
+[dependency-groups]
+dev = [
+    "pymelos>=0.1.4",
+    "ruff>=0.14.14",
+    "ty>=0.0.14",
+]

@@ -77,7 +77,7 @@ class View:
             # Extract database session if provided by FastAPI injection
             db = kwargs.pop("db", None)
             if db is not None:
-                self.db = db  # type: ignore # ty:ignore[unresolved-attribute]
+                self.db = db  # type: ignore
 
             # Merge path parameters and additional kwargs
             self.kwargs = {**request.path_params, **kwargs}
@@ -155,7 +155,7 @@ class View:
         )
 
         if inspect.iscoroutinefunction(handler):
-            return await handler(**kwargs)  # ty:ignore[invalid-await]
+            return await handler(**kwargs)
 
         return handler(**kwargs)
 

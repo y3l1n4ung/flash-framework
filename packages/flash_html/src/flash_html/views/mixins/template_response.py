@@ -74,7 +74,7 @@ class TemplateResponseMixin:
         engine = self.template_engine
 
         if not engine and hasattr(self, "request"):
-            req = cast("Request", self.request)  # type: ignore
+            req = cast("Request", self.request)  # pyright: ignore[reportAttributeAccessIssue]
             if hasattr(req.app.state, "template_manager"):
                 engine = req.app.state.template_manager
 

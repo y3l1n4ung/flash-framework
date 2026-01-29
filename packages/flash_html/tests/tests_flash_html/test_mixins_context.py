@@ -83,7 +83,7 @@ class TestContextMixin:
         """
 
         class BrokenView(ContextMixin):
-            extra_context = "not a dict or model"  # type: ignore
+            extra_context = "not a dict or model"
 
         view = BrokenView()
         with pytest.raises(TypeError) as excinfo:

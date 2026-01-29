@@ -81,7 +81,7 @@ class TestTemplateView:
         class ItemView(TemplateView):
             template_name = "hello.html"
 
-            async def get(self, item_id: int):  # type: ignore
+            async def get(self, item_id: int):
                 # Pass param to context to verify it was received
                 context = self.get_context_data(name=f"Item {item_id}")
                 return self.render_to_response(context)

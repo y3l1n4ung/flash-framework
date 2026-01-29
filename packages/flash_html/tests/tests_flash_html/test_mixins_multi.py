@@ -2,9 +2,10 @@ import pytest
 import pytest_asyncio
 from fastapi import HTTPException
 from flash_html.views.mixins.multi import MultipleObjectMixin
-from models import Product
 from sqlalchemy import insert
 from sqlalchemy.exc import DatabaseError, IntegrityError, OperationalError
+
+from .models import Product
 
 
 @pytest_asyncio.fixture
@@ -221,7 +222,7 @@ class TestGetObjects:
     async def test_get_objects_limit_overrides_paginate_by(
         self,
         setup_mixin,
-        products_data,
+        products_data,  # noqa: ARG002
     ):
         """Explicit limit parameter overrides paginate_by."""
 
@@ -253,7 +254,7 @@ class TestGetObjects:
     async def test_get_objects_custom_queryset_override(
         self,
         setup_mixin,
-        products_data,
+        products_data,  # noqa: ARG002
     ):
         """get_queryset() override is called."""
 
@@ -287,7 +288,7 @@ class TestGetObjects:
     async def test_get_objects_empty_list_allow_empty_false(
         self,
         setup_mixin,
-        products_data,
+        products_data,  # noqa: ARG002
     ):
         """Empty result raises 404 when allow_empty=False and no data."""
 
@@ -338,7 +339,7 @@ class TestGetObjects:
     async def test_get_objects_invalid_ordering_field_skipped(
         self,
         setup_mixin,
-        products_data,
+        products_data,  # noqa: ARG002
     ):
         """Invalid ordering field is skipped with warning."""
 
@@ -381,7 +382,7 @@ class TestGetObjects:
     async def test_get_objects_has_previous_calculation(
         self,
         setup_mixin,
-        products_data,
+        products_data,  # noqa: ARG002
     ):
         """has_previous flag calculated correctly."""
 
@@ -409,11 +410,11 @@ class TestDatabaseExceptions:
         class ProductListView(MultipleObjectMixin[Product]):
             model = Product
 
-            def get_queryset(self):  # type: ignore
+            def get_queryset(self):  # pyright: ignore[reportIncompatibleMethodOverride]
                 class MockQuerySet:
                     async def count(self, _db):
                         msg = "Connection lost"
-                        raise OperationalError(msg, None, None)  # type: ignore
+                        raise OperationalError(msg, None, Exception("ERROR"))
 
                     def filter(self, *_args, **_kwargs):
                         return self
@@ -444,11 +445,11 @@ class TestDatabaseExceptions:
         class ProductListView(MultipleObjectMixin[Product]):
             model = Product
 
-            def get_queryset(self):  # type: ignore
+            def get_queryset(self):  # pyright: ignore[reportIncompatibleMethodOverride]
                 class MockQuerySet:
                     async def count(self, _db):
                         msg = "Integrity violation"
-                        raise IntegrityError(msg, None, None)  # type: ignore
+                        raise IntegrityError(msg, None, Exception("ERROR"))
 
                     def filter(self, *_args, **_kwargs):
                         return self
@@ -479,11 +480,11 @@ class TestDatabaseExceptions:
         class ProductListView(MultipleObjectMixin[Product]):
             model = Product
 
-            def get_queryset(self):  # type: ignore
+            def get_queryset(self):  # pyright: ignore[reportIncompatibleMethodOverride]
                 class MockQuerySet:
                     async def count(self, _db):
                         msg = "Database error"
-                        raise DatabaseError(msg, None, None)  # type: ignore
+                        raise DatabaseError(msg, None, Exception("ERROR"))
 
                     def filter(self, *_args, **_kwargs):
                         return self
@@ -514,7 +515,7 @@ class TestDatabaseExceptions:
         class ProductListView(MultipleObjectMixin[Product]):
             model = Product
 
-            def get_queryset(self):  # type: ignore
+            def get_queryset(self):  # pyright: ignore[reportIncompatibleMethodOverride]
                 class MockQuerySet:
                     async def count(self, _db):
                         msg = "Unexpected error"

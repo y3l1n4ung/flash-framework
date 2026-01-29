@@ -3,8 +3,9 @@ import pytest_asyncio
 from fastapi import FastAPI, Response
 from flash_html.views.generic.base import TemplateView
 from flash_html.views.generic.detail import DetailView
-from models import Blog, Product
 from sqlalchemy import insert
+
+from .models import Blog, Product
 
 
 class TestDetailView:
@@ -152,7 +153,7 @@ class TestDetailView:
             model = Product
             template_name = "product_detail.html"
 
-            async def get(self, org: str, team: str, **_kwargs):  # type: ignore
+            async def get(self, org: str, team: str, **_kwargs):
                 self.object = await self.get_object()
                 assert self.object
                 return Response(f"{org}/{team}: {self.object.name}")
