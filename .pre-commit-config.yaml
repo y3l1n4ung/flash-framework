@@ -1,0 +1,38 @@
+repos:
+  - repo: local
+    hooks:
+      - id: lint
+        name: lint
+        entry: pymelos
+        args: [run, lint]
+        language: system
+        pass_filenames: false
+        always_run: true
+        fail_fast: true
+
+      - id: format
+        name: format
+        entry: pymelos
+        args: [run, format]
+        language: system
+        pass_filenames: false
+        always_run: true
+        fail_fast: true
+
+      - id: ty
+        name: type-check
+        entry: pymelos
+        args: [run, ty]
+        language: system
+        pass_filenames: false
+        always_run: true
+        fail_fast: true
+
+      - id: test
+        name: test
+        entry: pymelos
+        args: [run, test]
+        language: system
+        pass_filenames: false
+        always_run: true
+        fail_fast: true

@@ -1,4 +1,3 @@
-import logging
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -436,7 +435,13 @@ class TestDatabaseExceptions:
 
     @pytest.mark.asyncio
     async def test_database_error_returns_500(self, mixin, mock_queryset):
-        mock_queryset.first = AsyncMock(side_effect=DatabaseError("Error", None, None))
+        mock_queryset.first = AsyncMock(
+            side_effect=DatabaseError(
+                "Error",
+                None,
+                Exception("ERROR"),
+            ),
+        )
 
         with pytest.raises(HTTPException) as excinfo:
             await mixin.get_object()

@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  quality-checks:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up uv
+      uses: astral-sh/setup-uv@v3
+      with:
+        enable-cache: true
+        cache-dependency-glob: "uv.lock"
+    
+    - name: Install dependencies
+      run: uv sync
+    
+    - name: Lint
+      run: uv run pymelos run lint
+    
+    - name: Format check
+      run: uv run pymelos run format --check
+    
+    - name: Type check
+      run: uv run pymelos run ty
+    
+    - name: Test
+      run: uv run pymelos run test

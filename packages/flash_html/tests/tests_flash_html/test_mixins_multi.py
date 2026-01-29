@@ -221,7 +221,7 @@ class TestGetObjects:
     async def test_get_objects_limit_overrides_paginate_by(
         self,
         setup_mixin,
-        products_data,
+        products_data,  # noqa: ARG002
     ):
         """Explicit limit parameter overrides paginate_by."""
 
@@ -253,7 +253,7 @@ class TestGetObjects:
     async def test_get_objects_custom_queryset_override(
         self,
         setup_mixin,
-        products_data,
+        products_data,  # noqa: ARG002
     ):
         """get_queryset() override is called."""
 
@@ -287,7 +287,7 @@ class TestGetObjects:
     async def test_get_objects_empty_list_allow_empty_false(
         self,
         setup_mixin,
-        products_data,
+        products_data,  # noqa: ARG002
     ):
         """Empty result raises 404 when allow_empty=False and no data."""
 
@@ -338,7 +338,7 @@ class TestGetObjects:
     async def test_get_objects_invalid_ordering_field_skipped(
         self,
         setup_mixin,
-        products_data,
+        products_data,  # noqa: ARG002
     ):
         """Invalid ordering field is skipped with warning."""
 
@@ -381,7 +381,7 @@ class TestGetObjects:
     async def test_get_objects_has_previous_calculation(
         self,
         setup_mixin,
-        products_data,
+        products_data,  # noqa: ARG002
     ):
         """has_previous flag calculated correctly."""
 
