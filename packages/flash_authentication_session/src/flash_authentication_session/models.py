@@ -11,7 +11,8 @@ class UserSession(Model):
     __tablename__ = "flash_authentication_sessions"
     session_key: Mapped[str] = mapped_column(
         String(64),
-        primary_key=True,
+        unique=True,
+        index=True,
         default=lambda: secrets.token_urlsafe(32),
     )
     user_id: Mapped[int] = mapped_column(
@@ -29,6 +30,11 @@ class UserSession(Model):
     @property
     def is_expired(self) -> bool:
         """Check if the session has passed its expiry time."""
+        # Current time in UTC
+        now = datetime.now(timezone.utc)
+
+        # If stored time has timezone info, compare directly
         if self.expires_at.tzinfo:
-            return datetime.now(self.expires_at.tzinfo) > self.expires_at
-        return datetime.now(timezone.utc) > self.expires_at
+            return now > self.expires_at
+        # If stored time is naive (e.g. from SQLite), assume it is UTC
+        return now > self.expires_at.replace(tzinfo=timezone.utc)

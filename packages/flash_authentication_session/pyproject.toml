@@ -8,7 +8,9 @@ authors = [
 ]
 requires-python = ">=3.12"
 dependencies = [
-    "flash_db","flash_authentication",
+    "flash_db",
+    "flash_authentication",
+    "itsdangerous>=2.2.0",
 ]
 [tool.uv.sources]
 flash-db = { workspace = true}
