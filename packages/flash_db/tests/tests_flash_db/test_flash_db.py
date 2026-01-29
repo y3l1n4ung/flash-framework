@@ -342,7 +342,7 @@ class TestModelManager:
                 db_session,
                 article.id,
                 title={"invalid": "type"},
-            )  # type: ignore
+            )
 
     async def test_update_raises_runtime_error_on_integrity_violation(self, db_session):
         """Verify update raises RuntimeError on IntegrityError."""

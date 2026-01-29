@@ -410,11 +410,11 @@ class TestDatabaseExceptions:
         class ProductListView(MultipleObjectMixin[Product]):
             model = Product
 
-            def get_queryset(self):  # type: ignore
+            def get_queryset(self):  # pyright: ignore[reportIncompatibleMethodOverride]
                 class MockQuerySet:
                     async def count(self, _db):
                         msg = "Connection lost"
-                        raise OperationalError(msg, None, None)  # type: ignore
+                        raise OperationalError(msg, None, Exception("ERROR"))
 
                     def filter(self, *_args, **_kwargs):
                         return self
@@ -445,11 +445,11 @@ class TestDatabaseExceptions:
         class ProductListView(MultipleObjectMixin[Product]):
             model = Product
 
-            def get_queryset(self):  # type: ignore
+            def get_queryset(self):  # pyright: ignore[reportIncompatibleMethodOverride]
                 class MockQuerySet:
                     async def count(self, _db):
                         msg = "Integrity violation"
-                        raise IntegrityError(msg, None, None)  # type: ignore
+                        raise IntegrityError(msg, None, Exception("ERROR"))
 
                     def filter(self, *_args, **_kwargs):
                         return self
@@ -480,11 +480,11 @@ class TestDatabaseExceptions:
         class ProductListView(MultipleObjectMixin[Product]):
             model = Product
 
-            def get_queryset(self):  # type: ignore
+            def get_queryset(self):  # pyright: ignore[reportIncompatibleMethodOverride]
                 class MockQuerySet:
                     async def count(self, _db):
                         msg = "Database error"
-                        raise DatabaseError(msg, None, None)  # type: ignore
+                        raise DatabaseError(msg, None, Exception("ERROR"))
 
                     def filter(self, *_args, **_kwargs):
                         return self
@@ -515,7 +515,7 @@ class TestDatabaseExceptions:
         class ProductListView(MultipleObjectMixin[Product]):
             model = Product
 
-            def get_queryset(self):  # type: ignore
+            def get_queryset(self):  # pyright: ignore[reportIncompatibleMethodOverride]
                 class MockQuerySet:
                     async def count(self, _db):
                         msg = "Unexpected error"

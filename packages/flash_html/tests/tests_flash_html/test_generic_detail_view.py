@@ -153,7 +153,7 @@ class TestDetailView:
             model = Product
             template_name = "product_detail.html"
 
-            async def get(self, org: str, team: str, **_kwargs):  # type: ignore
+            async def get(self, org: str, team: str, **_kwargs):
                 self.object = await self.get_object()
                 assert self.object
                 return Response(f"{org}/{team}: {self.object.name}")
