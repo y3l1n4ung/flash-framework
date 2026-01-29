@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime  # noqa: TCH003
+from datetime import datetime  # noqa: TC003
 from typing import TYPE_CHECKING, ClassVar
 
 from sqlalchemy import DateTime, func

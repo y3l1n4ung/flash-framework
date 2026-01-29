@@ -17,10 +17,10 @@ Django-inspired web framework built on FastAPI.
 ## Development
 
 ```bash
-uv sync
-uv run pytest
-uv run ty
-uv run ruff check
+pymelos bootstrap
+pymelos run test
+pymelos run ty
+pymelos run ruff check
 ```
 
 ## License
