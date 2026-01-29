@@ -3,8 +3,9 @@ import pytest_asyncio
 from fastapi import FastAPI, Response
 from flash_html.views.generic.base import TemplateView
 from flash_html.views.generic.detail import DetailView
-from models import Blog, Product
 from sqlalchemy import insert
+
+from .models import Blog, Product
 
 
 class TestDetailView:

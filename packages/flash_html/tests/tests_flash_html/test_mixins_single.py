@@ -4,9 +4,10 @@ import pytest
 import pytest_asyncio
 from fastapi import HTTPException
 from flash_html.views.mixins.single import SingleObjectMixin
-from models import Product
 from sqlalchemy.exc import DatabaseError, IntegrityError, OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from .models import Product
 
 
 @pytest_asyncio.fixture

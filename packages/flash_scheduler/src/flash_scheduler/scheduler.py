@@ -74,7 +74,7 @@ def create_trigger(config: BaseModel) -> Trigger:
     if not trigger_cls:
         msg = f"Unsupported trigger config: {type(config).__name__}"
         raise TypeError(msg)
-    return trigger_cls(config)  # type: ignore[arg-type]
+    return trigger_cls(config)
 
 
 class FlashScheduler:

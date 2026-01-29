@@ -9,6 +9,9 @@ class Trigger(ABC):
     Triggers determine when a job should next be executed.
     """
 
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
     @abstractmethod
     def next_fire_time(
         self,
