@@ -32,7 +32,7 @@ class SessionAuthenticationBackend(AuthenticationBackend):
         """Verify the session key from the cookie against the database.
 
         Args:
-            token (str): The session key token.
+            session_token (str): The session key token.
             db (AsyncSession): Database session.
 
         Returns:
@@ -179,11 +179,15 @@ class SessionAuthenticationBackend(AuthenticationBackend):
         session_key = request.session.get(SESSION_COOKIE_NAME)
         if not session_key:
             return False
-        stmt = delete(UserSession).where(UserSession.session_key == session_key)
-        await db.execute(stmt)
-        await db.commit()
+        try:
+            stmt = delete(UserSession).where(UserSession.session_key == session_key)
+            await db.execute(stmt)
+            await db.commit()
+            request.session.clear()
 
-        request.session.clear()
+        except Exception:
+            await db.rollback()
+            return False
         return True
 
     def _get_client_info(self, request: Request) -> tuple[str | None, str | None]:
