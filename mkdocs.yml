@@ -1,0 +1,83 @@
+site_name: Flash Framework
+site_description: Django-inspired web framework built on FastAPI
+site_url: https://flash-framework.dev
+repo_url: https://github.com/y3l1n4ung/flash-framework
+repo_name: y3l1n4ung/flash-framework
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    # Palette toggle for light mode
+    - scheme: default
+      primary: teal
+      accent: purple
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+
+    # Palette toggle for dark mode
+    - scheme: slate
+      primary: teal
+      accent: lime
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - navigation.expand
+    - content.code.copy
+  icon:
+    repo: fontawesome/brands/github
+
+nav:
+  - Home: index.md
+  - Getting Started: getting-started.md
+  - Architecture: architecture.md
+  - Packages:
+    - Overview: packages/README.md
+    - Flash Core: ../packages/flash_core/docs/index.md
+    - Flash Web Framework: ../packages/flash_web_framework/docs/index.md
+    - Flash REST Framework: ../packages/flash_rest_framework/docs/index.md
+    - Flash Authentication: ../packages/flash_authentication/docs/index.md
+    - Flash Database: ../packages/flash_db/docs/index.md
+    - Flash Admin: ../packages/flash_admin/docs/index.md
+    - Flash Scheduler: ../packages/flash_scheduler/docs/index.md
+    - Flash HTML: ../packages/flash_html/docs/index.md
+    - Flash CLI: ../packages/flash_cli/docs/index.md
+    - Flash WebSocket: ../packages/flash_websocket/docs/index.md
+  - Configuration: configuration.md
+  - Development: development.md
+  - Deployment: deployment.md
+  - Contributing: contributing.md
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - attr_list
+  - md_in_html
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths:
+            - packages/flash_core/src
+            - packages/flash_web_framework/src
+            - packages/flash_rest_framework/src
+            - packages/flash_authentication/src
+            - packages/flash_db/src
+            - packages/flash_admin/src
+            - packages/flash_scheduler/src
+            - packages/flash_html/src
+            - packages/flash_cli/src
