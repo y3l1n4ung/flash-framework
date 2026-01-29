@@ -1,6 +1,6 @@
 import os
 from datetime import datetime, timedelta, timezone
-from typing import Any, Tuple, override
+from typing import Any, override
 
 from fastapi import Request
 from flash_authentication import AnonymousUser, AuthenticationBackend
@@ -46,7 +46,7 @@ class SessionAuthenticationBackend(AuthenticationBackend):
                 message="Internal Error",
                 errors=["Missing 'token' or 'db' dependency"],
             )
-        stmt: Select[Tuple[UserSession, User]] = (
+        stmt: Select[tuple[UserSession, User]] = (
             select(UserSession, User)
             .join(User, UserSession.user_id == User.id)
             .where(
@@ -90,6 +90,7 @@ class SessionAuthenticationBackend(AuthenticationBackend):
             },
         )
 
+    @override
     async def login(
         self,
         request: Request,
@@ -159,6 +160,7 @@ class SessionAuthenticationBackend(AuthenticationBackend):
                 extra={"session_key": user_session.session_key},
             )
         except Exception as e:
+            await db.rollback()
             return AuthenticationResult(
                 success=False,
                 user=AnonymousUser(),
@@ -166,6 +168,7 @@ class SessionAuthenticationBackend(AuthenticationBackend):
                 errors=[str(e)],
             )
 
+    @override
     async def logout(
         self,
         request: Request,
