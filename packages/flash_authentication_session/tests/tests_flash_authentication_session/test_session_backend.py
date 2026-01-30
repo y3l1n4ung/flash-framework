@@ -323,6 +323,37 @@ class TestSessionBackendUnit:
 
         assert success is False
 
+    async def test_logout_database_error(
+        self,
+        backend: SessionAuthenticationBackend,
+        db_session: AsyncSession,
+        test_user: User,
+    ) -> None:
+        """Test logout handles database exceptions gracefully."""
+        # Setup session
+        session = UserSession(
+            user_id=test_user.id,
+            expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+        )
+        db_session.add(session)
+        await db_session.commit()
+        await db_session.refresh(session)
+
+        request = self._create_request(
+            session_data={SESSION_COOKIE_NAME: session.session_key}
+        )
+
+        # Force error on commit
+        async def raising_commit():
+            msg = "Forced DB Error"
+            raise RuntimeError(msg)
+
+        db_session.commit = raising_commit  # ty:ignore[invalid-assignment]
+
+        success = await backend.logout(request, db_session)
+
+        assert success is False
+
     def test_get_client_info_extraction(
         self, backend: SessionAuthenticationBackend
     ) -> None:
