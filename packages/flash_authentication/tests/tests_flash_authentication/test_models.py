@@ -40,11 +40,6 @@ class TestUser:
         assert str(user) == "testuser"
         assert "User" in repr(user)
 
-    def test_is_authenticated_implementation(self):
-        user = User(username="testuser")
-        with pytest.raises(NotImplementedError):
-            _ = user.is_authenticated
-
 
 @pytest.mark.asyncio
 class TestUserPersistence:

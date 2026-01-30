@@ -28,10 +28,6 @@ class AbstractBaseUser(Model, TimestampMixin):
     is_staff: Mapped[bool] = mapped_column(Boolean, default=False)
     is_superuser: Mapped[bool] = mapped_column(Boolean, default=False)
 
-    @property
-    def is_authenticated(self) -> bool:
-        raise NotImplementedError
-
     last_login: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
