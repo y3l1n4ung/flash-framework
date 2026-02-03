@@ -3,6 +3,7 @@ name: flash-framework
 
 packages:
   - packages/*
+  - apps/*
 
 scripts:
   test:

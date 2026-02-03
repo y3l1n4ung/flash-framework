@@ -1,11 +1,38 @@
+from typing import ClassVar
+
 import pytest
 import pytest_asyncio
 from fastapi import FastAPI, Response
+from flash_authorization.permissions import (
+    AllowAny,
+    BasePermission,
+    IsAuthenticated,
+    IsStaffUser,
+)
 from flash_html.views.generic.base import TemplateView
 from flash_html.views.generic.detail import DetailView
 from sqlalchemy import insert
 
-from .models import Blog, Product
+from .models import Article, Blog, Product
+
+
+class IsArticleAuthor(BasePermission):
+    """Allow access only to the author of the article."""
+
+    async def has_permission(
+        self,
+        request,  # noqa: ARG002
+        user,
+    ):
+        return user.is_active
+
+    async def has_object_permission(
+        self,
+        request,  # noqa: ARG002
+        obj: Article,
+        user,
+    ):
+        return obj.author_id == user.id
 
 
 class TestDetailView:
@@ -316,9 +343,9 @@ class TestDetailViewContextData:
         class DirectContextView(DetailView[Product]):
             model = Product
             template_name = "product_detail.html"
-            context_object_name = None  # Explicitly None
+            context_object_name = None
 
-        view = DirectContextView()
+        view = DirectContextView()  # pyright: ignore[reportAbstractUsage]
         view.db = db_session
         view.kwargs = {"pk": 1}
 
@@ -485,3 +512,209 @@ class TestDetailViewIntegration:
 
         assert response.status_code == 200
         assert "Product: Laptop" in response.text
+
+
+class TestDetailViewPermissions:
+    """Test DetailView with permission classes."""
+
+    @pytest_asyncio.fixture(autouse=True)
+    async def setup_data(self, db_session):
+        await db_session.execute(
+            insert(Product).values(
+                [
+                    {
+                        "id": 1,
+                        "name": "Public Product",
+                        "slug": "public-product",
+                        "published": True,
+                    },
+                ],
+            ),
+        )
+        await db_session.commit()
+
+    def test_allow_any_permission(self, app: FastAPI, client):
+        """AllowAny permission permits access to everyone."""
+
+        class PublicProductView(DetailView[Product]):
+            model = Product
+            template_name = "product_detail.html"
+            permission_classes: ClassVar[list[type[BasePermission]]] = [AllowAny]
+
+        app.add_api_route("/public/{pk}", PublicProductView.as_view())
+        response = client.get("/public/1")
+
+        assert response.status_code == 200
+        assert "Product: Public Product" in response.text
+
+    def test_is_authenticated_permission_no_user(self, app: FastAPI, client):
+        """IsAuthenticated blocks access when user is not authenticated."""
+
+        class AuthenticatedProductView(DetailView[Product]):
+            model = Product
+            template_name = "product_detail.html"
+            permission_classes: ClassVar[list[type[BasePermission]]] = [IsAuthenticated]
+
+        app.add_api_route("/auth/{pk}", AuthenticatedProductView.as_view())
+        response = client.get("/auth/1")
+
+        # Should return 403 for unauthenticated access
+        assert response.status_code == 403
+
+    def test_permission_override_via_as_view(self, app: FastAPI, client):
+        """Permissions can be overridden via as_view() call."""
+
+        class ProductView(DetailView[Product]):
+            model = Product
+            template_name = "product_detail.html"
+            permission_classes: ClassVar[list[type[BasePermission]]] = [IsAuthenticated]
+
+        # Override with AllowAny for this route
+        app.add_api_route(
+            "/override/{pk}", ProductView.as_view(permission_classes=[AllowAny])
+        )
+        response = client.get("/override/1")
+
+        assert response.status_code == 200
+        assert "Product: Public Product" in response.text
+
+    def test_multiple_permission_classes(self, app: FastAPI, client):
+        """Multiple permission classes work together."""
+
+        class ProtectedProductView(DetailView[Product]):
+            model = Product
+            template_name = "product_detail.html"
+            permission_classes: ClassVar[list[type[BasePermission]]] = [
+                IsAuthenticated,
+                IsStaffUser,
+            ]
+
+        app.add_api_route("/multi/{pk}", ProtectedProductView.as_view())
+        response = client.get("/multi/1")
+
+        # Should be blocked - not authenticated, not staff
+        assert response.status_code == 403
+
+    def test_empty_permission_classes_defaults_to_allow(self, app: FastAPI, client):
+        """Empty permission_classes allows access."""
+
+        class DefaultProductView(DetailView[Product]):
+            model = Product
+            template_name = "product_detail.html"
+            permission_classes: ClassVar[list] = []
+
+        app.add_api_route("/empty/{pk}", DefaultProductView.as_view())
+        response = client.get("/empty/1")
+
+        assert response.status_code == 200
+        assert "Product: Public Product" in response.text
+
+
+class TestDetailViewObjectPermissions:
+    """Test DetailView with object-level permissions."""
+
+    @pytest_asyncio.fixture(autouse=True)
+    async def setup_data(self, db_session, test_user, admin_user, blog_user):
+        # Create articles with different authors
+        await db_session.execute(
+            insert(Article).values(
+                [
+                    {
+                        "id": 1,
+                        "title": "Test User's Article",
+                        "slug": "test-user-article",
+                        "content": "Content by test user",
+                        "author_id": test_user.id,
+                        "published": True,
+                    },
+                    {
+                        "id": 2,
+                        "title": "Blog User's Article",
+                        "slug": "blog-user-article",
+                        "content": "Content by blog user",
+                        "author_id": blog_user.id,
+                        "published": True,
+                    },
+                    {
+                        "id": 3,
+                        "title": "Admin's Article",
+                        "slug": "admin-article",
+                        "content": "Content by admin",
+                        "author_id": admin_user.id,
+                        "published": True,
+                    },
+                ],
+            ),
+        )
+        await db_session.commit()
+
+    def test_is_owner_permission_works(self, app: FastAPI, client, test_user):
+        """IsArticleAuthor permission allows owner to access their object."""
+
+        class OwnerArticleView(DetailView[Article]):
+            model = Article
+            template_name = "article_detail.html"
+            permission_classes: ClassVar[list[type[BasePermission]]] = [IsArticleAuthor]
+
+        app.add_api_route("/owner/{pk}", OwnerArticleView.as_view())
+
+        # Mock authenticated user as test_user (owner of article 1)
+        app.state.test_user = test_user
+        response = client.get("/owner/1")
+
+        assert response.status_code == 200
+        assert "Article: Test User" in response.text and "Article by 1" in response.text
+
+    def test_is_owner_blocks_non_owner(self, app: FastAPI, client, blog_user):
+        """IsArticleAuthor permission blocks non-author from accessing object."""
+
+        class OwnerArticleView(DetailView[Article]):
+            model = Article
+            template_name = "article_detail.html"
+            permission_classes: ClassVar[list[type[BasePermission]]] = [IsArticleAuthor]
+
+        app.add_api_route("/owner/{pk}", OwnerArticleView.as_view())
+
+        # Mock authenticated user as blog_user (not owner of article 1)
+        app.state.test_user = blog_user
+        response = client.get("/owner/1")
+
+        assert response.status_code == 403
+
+    def test_permissions_with_extra_context(self, app: FastAPI, client, test_user):
+        """Permissions work with extra context passed via as_view()."""
+
+        class ExtraContextArticleView(DetailView[Article]):
+            model = Article
+            template_name = "extra.html"  # Uses extra template
+            permission_classes: ClassVar[list[type[BasePermission]]] = [IsArticleAuthor]
+
+        app.add_api_route(
+            "/extra-context/{pk}",
+            ExtraContextArticleView.as_view(extra_context={"name": "Blog"}),
+        )
+
+        # Mock authenticated user as test_user (owner)
+        app.state.test_user = test_user
+        response = client.get("/extra-context/1")
+
+        assert response.status_code == 200
+        assert "Extra: Blog" in response.text
+
+    def test_permission_error_responses_are_proper(self, app: FastAPI, client):
+        """Permission denied responses return proper 403 status."""
+
+        class ProtectedArticleView(DetailView[Article]):
+            model = Article
+            template_name = "article_detail.html"
+            permission_classes: ClassVar[list[type[BasePermission]]] = [IsAuthenticated]
+
+        app.add_api_route("/protected/{pk}", ProtectedArticleView.as_view())
+
+        # No user authenticated - should get 403
+        response = client.get("/protected/1")
+
+        assert response.status_code == 403
+        assert (
+            "detail" in response.json() or response.text
+        )  # Either JSON detail or text

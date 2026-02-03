@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block title %}Articles - Flash Blog{% endblock %}
+
+{% block content %}
+<div class="container">
+    {% if messages.success %}
+        <div class="alert alert-success">
+            {{ messages.success }}
+        </div>
+    {% endif %}
+    
+    {% if messages.error %}
+        <div class="alert alert-danger">
+            {{ messages.error }}
+        </div>
+    {% endif %}
+    
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+        <h1>Articles</h1>
+        
+        <form method="GET" style="display: flex; gap: 1rem;">
+            <select name="status" onchange="this.form.submit()" style="padding: 0.5rem; border-radius: 4px; border: 1px solid #ddd;">
+                <option value="">All Articles</option>
+                <option value="published" {% if request.query_params.get('status') == 'published' %}selected{% endif %}>Published Only</option>
+                <option value="draft" {% if request.query_params.get('status') == 'draft' %}selected{% endif %}>Drafts Only</option>
+            </select>
+            
+            {% if user and user.is_active %}
+                <a href="/articles/new" class="btn">Write New Article</a>
+            {% endif %}
+        </form>
+        
+        {% if user and user.is_superuser %}
+            <a href="/admin/articles" class="btn btn-secondary">Admin Panel</a>
+        {% endif %}
+    </div>
+    
+    {% if articles %}
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 2rem;">
+            {% for article in articles %}
+                <div class="card">
+                    <div class="card-header">
+                        <h3><a href="/articles/{{ article.id }}" style="color: #333; text-decoration: none;">{{ article.title }}</a></h3>
+                        <div class="metadata">
+                            <span class="meta-item">
+                                <span class="meta-label">Author:</span> {{ article.author.username }}
+                            </span>
+                            <span class="meta-item">
+                                <span class="meta-label">Status:</span> 
+                                {% if article.published %}
+                                    <span style="color: #28a745; background: #d4edda; padding: 2px 6px; border-radius: 4px;">Published</span>
+                                {% else %}
+                                    <span style="color: #f8d7da; background: white; padding: 2px 6px; border-radius: 4px; border: 1px solid #f8d7da;">Draft</span>
+                                {% endif %}
+                            </span>
+                            <span class="meta-item">
+                                <span class="meta-label">Created:</span> {{ article.created_at.strftime('%Y-%m-%d') }}
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e5e7eb;">
+                        <p>{{ article.content[:200] }}{% if article.content|length > 200 %}...{% endif %}</p>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="card">
+            <h2>No articles found</h2>
+            <p>Start writing your first article!</p>
+            {% if user and user.is_active %}
+                <a href="/articles/new" class="btn">Write New Article</a>
+            {% endif %}
+        </div>
+    {% endif %}
+    
+    {% if articles and articles|length > 1 %}
+        <div class="pagination">
+            {% if page > 1 %}<a href="?page={{ page - 1 }}&status={{ request.query_params.get('status', '') }}">&laquo; Previous</a>{% endif %}
+            <span>Page {{ page }} of {{ total_pages }}</span>
+            {% if page < total_pages %}<a href="?page={{ page + 1 }}&status={{ request.query_params.get('status', '') }}">Next &raquo;</a>{% endif %}
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}Login - Flash Blog{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="card" style="max-width: 400px; margin: 0 auto;">
+        <h2 style="text-align: center; margin-bottom: 2rem;">Login to Your Account</h2>
+        
+        {% if messages.error %}
+            <div class="alert alert-danger">
+                {{ messages.error }}
+            </div>
+        {% endif %}
+        
+        {% if messages.success %}
+            <div class="alert alert-success">
+                {{ messages.success }}
+            </div>
+        {% endif %}
+        
+        <form method="POST" action="/login">
+            <input type="hidden" name="next" value="{{ request.query_params.get('next', '') }}">
+            <div style="margin-bottom: 1rem;">
+                <label for="username" style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Username:</label>
+                <input type="text" id="username" name="username" required
+                       style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+            
+            <div style="margin-bottom: 1rem;">
+                <label for="password" style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Password:</label>
+                <input type="password" id="password" name="password" required
+                       style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+            
+            <button type="submit" class="btn" style="width: 100%;">
+                Login
+            </button>
+        </form>
+        
+        <div style="text-align: center; margin-top: 2rem;">
+            <p style="color: #6c757d;">
+                Don't have an account? 
+                <a href="/register" style="color: #2563eb; text-decoration: none;">Register here</a>
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}

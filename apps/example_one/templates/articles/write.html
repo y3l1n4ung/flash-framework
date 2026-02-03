@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}Write Article - Flash Blog{% endblock %}
+
+{% block content %}
+<div class="container">
+    {% if messages.error %}
+        <div class="alert alert-danger">
+            {{ messages.error }}
+        </div>
+    {% endif %}
+    
+    <div class="card">
+        <h2 style="margin-bottom: 2rem;">Write New Article</h2>
+        
+        <form method="POST">
+            <div style="margin-bottom: 1rem;">
+                <label for="title" style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Title:</label>
+                <input type="text" id="title" name="title" required
+                       value="{{ form_data.title or '' }}"
+                       style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+            
+            <div style="margin-bottom: 1rem;">
+                <label for="slug" style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Slug:</label>
+                <input type="text" id="slug" name="slug" required
+                       value="{{ form_data.slug or '' }}"
+                       style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+            
+            <div style="margin-bottom: 1rem;">
+                <label for="content" style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Content:</label>
+                <textarea id="content" name="content" rows="12" required
+                       style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; font-family: inherit; resize: vertical;">{{ form_data.content or '' }}</textarea>
+            </div>
+            
+            <div style="margin-bottom: 1rem;">
+                <label style="display: flex; align-items: center; gap: 1rem;">
+                    <input type="checkbox" id="published" name="published" {% if form_data.published %}checked{% endif %}>
+                    <span style="font-weight: 600;">Publish immediately</span>
+                    <span style="color: #6c757d; font-size: 0.85rem;">(will be visible to all users)</span>
+                </label>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1rem;">
+                <button type="submit" class="btn">Save as Draft</button>
+                <button type="submit" name="publish" class="btn" style="background: #28a745; color: white;">Publish Now</button>
+            </div>
+        </form>
+        
+        <div style="margin-top: 2rem;">
+            <a href="/articles" class="btn btn-secondary">← Back to Articles</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

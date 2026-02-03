@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block title %}Register - Flash Blog{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: 400px; margin: 2rem auto;">
+    <div class="card">
+        <div class="card-header">
+            <h2>📝 Create Your Account</h2>
+        </div>
+        <div class="card-body">
+            {% if messages.error %}
+                <div class="alert alert-danger">
+                    {{ messages.error }}
+                </div>
+            {% endif %}
+            {% if messages.success %}
+                <div class="alert alert-success">
+                    {{ messages.success }}
+                </div>
+            {% endif %}
+            
+            <form method="post" style="display: flex; flex-direction: column; gap: 1rem;">
+                <div>
+                    <label for="username">Username:</label>
+                    <input 
+                        type="text" 
+                        id="username" 
+                        name="username" 
+                        required 
+                        autocomplete="username"
+                        placeholder="Choose a username"
+                        style="padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; width: 100%;"
+                    >
+                </div>
+                
+                <div>
+                    <label for="email">Email (optional):</label>
+                    <input 
+                        type="email" 
+                        id="email" 
+                        name="email" 
+                        autocomplete="email"
+                        placeholder="you@example.com"
+                        style="padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; width: 100%;"
+                    >
+                </div>
+
+                <div>
+                    <label for="password">Password:</label>
+                    <input 
+                        type="password" 
+                        id="password" 
+                        name="password" 
+                        required 
+                        autocomplete="new-password"
+                        placeholder="Choose a strong password"
+                        style="padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; width: 100%;"
+                    >
+                </div>
+                
+                <div>
+                    <label for="confirm_password">Confirm Password:</label>
+                    <input 
+                        type="password" 
+                        id="confirm_password" 
+                        name="confirm_password" 
+                        required 
+                        autocomplete="new-password"
+                        placeholder="Confirm your password"
+                        style="padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; width: 100%;"
+                    >
+                </div>
+
+                <button type="submit" class="btn" style="width: 100%;">
+                    Create Account
+                </button>
+            </form>
+        </div>
+        
+        <div class="card-footer">
+            <p style="text-align: center; margin-top: 1rem;">
+                Already have an account? 
+                <a href="/login" class="btn btn-secondary">Sign In</a>
+            </p>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

@@ -3,29 +3,20 @@ from typing import Any, Generic, TypeVar
 from fastapi import Response
 from flash_db.models import Model
 
-from flash_html.views.generic import TemplateView
-from flash_html.views.mixins import SingleObjectMixin
+from flash_html.views.mixins import PermissionMixin, SingleObjectMixin
+
+from .base import TemplateView
 
 T = TypeVar("T", bound=Model)
 
 
-class DetailView(SingleObjectMixin[T], TemplateView, Generic[T]):
+class DetailView(SingleObjectMixin[T], PermissionMixin, TemplateView, Generic[T]):
     """
     Render a "detail" view of an object.
 
     By default, this view will fetch the object based on a 'pk' or 'slug'
     passed in the URL kwargs, inject it into the context, and render
     the template.
-
-    Attributes:
-        model (type[T]): (Required) The FlashDB Model class to query.
-        template_name (str): (Required) The name of the template to render.
-        queryset (QuerySet[T] | None): (Optional) Specific QuerySet to use.
-        context_object_name (str | None): (Optional) The name to use for the
-            object in the template context.
-        slug_field (str): (Optional) Model field name for slug lookup.
-        pk_url_kwarg (str): (Optional) URL param name for primary key.
-        slug_url_kwarg (str): (Optional) URL param name for slug.
 
     Example:
         >>> # 1. Define a detail view class
@@ -38,7 +29,7 @@ class DetailView(SingleObjectMixin[T], TemplateView, Generic[T]):
         >>> app.add_api_route("/products/{pk}", ProductDetail.as_view())
     """
 
-    async def get(self, *arg, **kwargs: Any) -> Response:
+    async def get(self, *args, **kwargs: Any) -> Response:
         """
         Handle GET requests: fetch the object and render the template.
 
@@ -49,8 +40,18 @@ class DetailView(SingleObjectMixin[T], TemplateView, Generic[T]):
         Returns:
             Response: The rendered HTML response containing the object context.
         """
+
         self.object = await self.get_object()
-        return await super().get(*arg, **kwargs)
+        if self.permission_classes and self.object:
+            user = self.request.state.user  # Use request.state directly, not dependency
+            permissions = self.get_permissions()
+            await self.check_object_permissions(
+                request=self.request,
+                obj=self.object,
+                permissions=permissions,
+                user=user,
+            )
+        return await super().get(*args, **kwargs)
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)

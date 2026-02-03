@@ -5,8 +5,7 @@ description = "Python monorepo"
 requires-python = ">=3.12"
 
 [tool.uv]
-workspace = { members = ["packages/*"] }
-
+workspace = { members = ["packages/*","apps/*"] }
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

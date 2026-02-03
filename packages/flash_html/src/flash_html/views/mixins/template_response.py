@@ -91,7 +91,10 @@ class TemplateResponseMixin:
 
         # 2. Add Request to context (Required by Starlette/Jinja2Templates)
         # This allows templates to access {{ request }} and url_for()
-        context.setdefault("request", getattr(self, "request", None))
+        if not hasattr(self, "request") or self.request is None:
+            msg = "Request not set on view. Ensure the view is called via as_view()."
+            raise RuntimeError(msg)
+        context.setdefault("request", self.request)
 
         # 3. Render
         template_name = self.get_template_names()[0]

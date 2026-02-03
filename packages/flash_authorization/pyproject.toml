@@ -7,7 +7,13 @@ authors = [
     { name = "YeLinAung", email = "40236753+b14cknc0d3@users.noreply.github.com" }
 ]
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [    
+    "flash_db",    
+    "flash_authentication",
+]
+[tool.uv.sources]
+flash_db = { workspace = true}
+flash_authentication = {workspace= true}
 
 [build-system]
 requires = ["hatchling"]

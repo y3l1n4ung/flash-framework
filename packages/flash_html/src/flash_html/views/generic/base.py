@@ -22,10 +22,10 @@ class TemplateView(TemplateResponseMixin, ContextMixin, View):
         ...     template_name = "home.html"
         ...
         >>> # 2. configure via as_view()
-        >>> app.add_api_route("/", TemplateView.as_view(template_name="index.html"))
+        >>> app.add_api_route("/", HomeView.as_view(template_name="index.html"))
     """
 
-    async def get(self, *_arg: Any, **kwargs: Any) -> Response:
+    async def get(self, *args: Any, **kwargs: Any) -> Response:  # noqa: ARG002
         """
         Handle GET requests: render the template with context.
 

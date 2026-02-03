@@ -9,11 +9,13 @@ authors = [
 requires-python = ">=3.12"
 dependencies = [
     "jinja2>=3.1.6",
-    "flash_db",
+    "flash-db",
+    "flash-authorization",
     "argon2-cffi>=25.1.0",
 ]
 [tool.uv.sources]
 flash-db = { workspace = true}
+flash-authorization = {workspace= true}
 
 
 [build-system]

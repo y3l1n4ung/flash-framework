@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} - Flash Blog{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h1>{{ title }}</h1>
+    </div>
+    
+    <div class="about-content">
+        <h2>About Flash Framework Blog</h2>
+        <p>
+            This blog application demonstrates the power and elegance of the Flash Framework - 
+            a Django-inspired web framework built on FastAPI. It showcases how modern Python web 
+            development can combine the best of both worlds: FastAPI's performance and type safety 
+            with Django's familiar patterns and developer productivity.
+        </p>
+        
+        <h3>Key Features Demonstrated</h3>
+        <ul>
+            <li><strong>Class-Based Views</strong>: Clean, reusable view components using TemplateView and DetailView</li>
+            <li><strong>Database Integration</strong>: Flash DB ORM with async support for high performance</li>
+            <li><strong>Permission System</strong>: Flexible authorization with object-level permissions</li>
+            <li><strong>Template Management</strong>: Automatic template discovery and rendering</li>
+            <li><strong>FastAPI Integration</strong>: Seamless integration with FastAPI's dependency injection</li>
+        </ul>
+        
+        <h3>Architecture Highlights</h3>
+        <p>
+            The Flash Framework follows Django's proven patterns while leveraging FastAPI's modern 
+            async capabilities. Views are organized as reusable classes that automatically handle 
+            HTTP method dispatching, database sessions, and template rendering. The permission system 
+            provides both view-level and object-level access control.
+        </p>
+        
+        <h3>Get Started</h3>
+        <p>
+            Explore the blog application to see these features in action:
+        </p>
+        <ul>
+            <li><a href="/articles/" class="btn">Browse All Articles</a></li>
+            <li><a href="/articles/new" class="btn">Create New Article</a></li>
+            <li><a href="/" class="btn btn-secondary">Back to Home</a></li>
+        </ul>
+    </div>
+</div>
+{% endblock %}

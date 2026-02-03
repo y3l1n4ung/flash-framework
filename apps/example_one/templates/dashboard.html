@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Flash Blog{% endblock %}
+
+{% block content %}
+<div class="container">
+    {% if login_required %}
+        <div class="alert alert-info">
+            Please <a href="/login">log in</a> to access your personalized dashboard.
+        </div>
+    {% elif user and user.username %}
+        <h1 style="margin-bottom: 2rem;">Welcome, {{ user.username }}!</h1>
+    {% else %}
+        <h1 style="margin-bottom: 2rem;">Welcome to Flash Blog!</h1>
+    {% endif %}
+    
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem;">
+        
+        <div class="card">
+            <h2>Quick Stats</h2>
+            <div style="display: grid; gap: 1rem;">
+                <div class="metadata">
+                    <div class="meta-item">
+                        <span class="meta-label">Total Articles:</span>
+                        {{ user_articles|length }}
+                    </div>
+                    <div class="meta-item">
+                        <span class="meta-label">Published:</span>
+                        {{ user_articles|selectattr('published')|list|length }}
+                    </div>
+                    <div class="meta-item">
+                        <span class="meta-label">Drafts:</span>
+                        {{ user_articles|selectattr('published', false)|list|length }}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>Your Articles</h2>
+            <div class="metadata">
+                <div class="meta-item">
+                    <span class="meta-label">Total:</span>
+                    <a href="/articles" style="color: #2563eb;">View All Articles</a>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-label">Published:</span>
+                    <a href="/articles?status=published" style="color: #2563eb;">{{ user_articles|selectattr('published')|list|length }} Published</a>
+                </div>
+                <div class="meta-item">
+                    <span class="meta-label">Drafts:</span>
+                    <a href="/articles?status=draft" style="color: #2563eb;">{{ user_articles|selectattr('published', false)|list|length }} Drafts</a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>Quick Actions</h2>
+            <div style="display: grid; gap: 1rem;">
+                <a href="/articles/new" class="btn" style="text-decoration: none; text-align: center;">
+                    Write New Article
+                </a>
+                {% if user and user.is_superuser %}
+                    <a href="/admin/users" class="btn btn-secondary" style="text-decoration: none; text-align: center;">
+                        Manage Users
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

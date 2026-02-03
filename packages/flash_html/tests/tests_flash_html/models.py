@@ -14,3 +14,12 @@ class Blog(Model):
     title: Mapped[str] = mapped_column(unique=True)
     slug: Mapped[str] = mapped_column(unique=True)
     status: Mapped[str] = mapped_column(default="draft")
+
+
+class Article(Model):
+    __tablename__ = "test_articles"
+    title: Mapped[str] = mapped_column(unique=True)
+    slug: Mapped[str] = mapped_column(unique=True)
+    content: Mapped[str]
+    author_id: Mapped[int] = mapped_column()
+    published: Mapped[bool] = mapped_column(default=True)

@@ -1,0 +1,21 @@
+<nav class="navbar">
+    <div class="nav-container">
+        <a href="/" class="nav-brand">Flash Blog</a>
+        
+        <div class="nav-links">
+            {% if user and user.is_active %}
+                {% if user.is_superuser %}
+                    <a href="/admin/dashboard" class="nav-link">Admin</a>
+                {% endif %}
+                <a href="/dashboard" class="nav-link">Dashboard</a>
+                <a href="/articles/new" class="nav-link">Write</a>
+                <form method="POST" action="/logout" style="display: inline;">
+                    <button type="submit" class="btn btn-secondary">Logout</button>
+                </form>
+            {% else %}
+                <a href="/login" class="nav-link">Login</a>
+                <a href="/register" class="nav-link">Register</a>
+            {% endif %}
+        </div>
+    </div>
+</nav>

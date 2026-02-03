@@ -1,2 +1,3 @@
-def hello() -> str:
-    return "Hello from flash-web-framework!"
+from .app import FlashApp
+
+__all__ = ["FlashApp"]
