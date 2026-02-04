@@ -10,6 +10,7 @@ dependencies = [
     "flash-db",
     "flash-html",
     "flash-web-framework",
+    "markdown>=3.6",
     "python-multipart>=0.0.22",
 ]
 
@@ -22,5 +23,6 @@ flash-web-framework = { workspace = true }
 
 [dependency-groups]
 dev = [
+    "feedparser>=6.0.12",
     "uvicorn>=0.40.0",
 ]

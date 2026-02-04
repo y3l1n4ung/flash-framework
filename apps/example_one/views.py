@@ -7,6 +7,8 @@ This module demonstrates various view patterns using the Flash Framework:
 - Custom views for article listing and creation
 """
 
+import logging
+import math
 from collections.abc import Mapping
 from typing import Any, ClassVar
 
@@ -15,9 +17,13 @@ from fastapi.responses import RedirectResponse
 from flash_authentication import AnonymousUser
 from flash_authentication.models import User
 from flash_authentication_session.backend import SessionAuthenticationBackend
-from flash_authorization.permissions import AllowAny, IsAuthenticated
+from flash_authorization.permissions import (
+    AllowAny,
+    IsAuthenticated,
+    IsStaffUser,
+    IsSuperUser,
+)
 from flash_db import get_db
-from flash_html.views.base import View
 from flash_html.views.generic.base import TemplateView
 from flash_html.views.generic.detail import DetailView
 from flash_html.views.mixins import SingleObjectMixin
@@ -26,6 +32,8 @@ from models import Article
 from permissions import ArticleOwnerPermission
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = logging.getLogger(__name__)
 
 
 def _is_published(form_data: Mapping[str, Any]) -> bool:
@@ -58,6 +66,30 @@ def _form_value(form_data: Mapping[str, Any], key: str) -> str:
     if isinstance(raw, str):
         return raw
     return ""
+
+
+def _read_time_minutes(text: str) -> int:
+    words = len(text.split())
+    return max(1, math.ceil(words / 220))
+
+
+def _pagination_window(
+    page: int,
+    total_pages: int,
+    *,
+    window: int = 2,
+) -> tuple[list[int], bool, bool]:
+    if total_pages <= 1:
+        return [1], False, False
+    start = max(1, page - window)
+    end = min(total_pages, page + window)
+    if end - start < window * 2:
+        if start == 1:
+            end = min(total_pages, start + window * 2)
+        elif end == total_pages:
+            start = max(1, end - window * 2)
+    page_range = list(range(start, end + 1))
+    return page_range, start > 1, end < total_pages
 
 
 class HomeView(SingleObjectMixin[Article], PermissionMixin, TemplateView):
@@ -120,60 +152,110 @@ class ArticleListView(PermissionMixin, SingleObjectMixin[Article], TemplateView)
             return Response("Database session not available", status_code=500)
 
         status_filter = self.request.query_params.get("status", "").lower()
+        page_param = self.request.query_params.get("page", "1")
+        query = self.request.query_params.get("q", "").strip()
+        try:
+            page = max(1, int(page_param))
+        except ValueError:
+            page = 1
+        page_size = 12
         user = self.request.state.user
         messages: dict[str, str] = {}
 
         if status_filter == "draft":
-            if user and user.is_active:
-                articles = (
-                    await Article.objects.filter(
-                        Article.author_id == user.id,
-                        Article.published.is_(False),
+            if not (user and user.is_active):
+                articles = []
+                total_count = 0
+                messages["info"] = "Sign in to view your drafts."
+                total_pages = 1
+                page = 1
+            else:
+                queryset = Article.objects.filter(
+                    Article.author_id == user.id,
+                    Article.published.is_(False),
+                )
+                if query:
+                    queryset = queryset.filter(
+                        or_(
+                            Article.title.ilike(f"%{query}%"),
+                            Article.content.ilike(f"%{query}%"),
+                        )
                     )
-                    .order_by(Article.id.desc())
+                total_count = await queryset.count(self.db)
+                total_pages = max(1, math.ceil(total_count / page_size))
+                page = min(page, total_pages)
+                articles = (
+                    await queryset.order_by(Article.id.desc())
+                    .offset((page - 1) * page_size)
+                    .limit(page_size)
                     .fetch(self.db)
                 )
-            else:
-                articles = []
-                messages["info"] = "Sign in to view your drafts."
         elif status_filter == "published":
+            queryset = Article.objects.filter(Article.published.is_(True))
+            if query:
+                queryset = queryset.filter(
+                    or_(
+                        Article.title.ilike(f"%{query}%"),
+                        Article.content.ilike(f"%{query}%"),
+                    )
+                )
+            total_count = await queryset.count(self.db)
+            total_pages = max(1, math.ceil(total_count / page_size))
+            page = min(page, total_pages)
             articles = (
-                await Article.objects.filter(Article.published.is_(True))
-                .order_by(Article.id.desc())
+                await queryset.order_by(Article.id.desc())
+                .offset((page - 1) * page_size)
+                .limit(page_size)
                 .fetch(self.db)
             )
         else:
-            published_articles = (
-                await Article.objects.filter(Article.published.is_(True))
-                .order_by(Article.id.desc())
-                .fetch(self.db)
-            )
             if user and user.is_active:
-                draft_articles = (
-                    await Article.objects.filter(
+                queryset = Article.objects.filter(
+                    or_(
+                        Article.published.is_(True),
                         Article.author_id == user.id,
-                        Article.published.is_(False),
                     )
-                    .order_by(Article.id.desc())
-                    .fetch(self.db)
-                )
-                article_map = {article.id: article for article in published_articles}
-                for article in draft_articles:
-                    article_map[article.id] = article
-                articles = sorted(
-                    article_map.values(),
-                    key=lambda article: article.id,
-                    reverse=True,
                 )
             else:
-                articles = published_articles
+                queryset = Article.objects.filter(Article.published.is_(True))
+            if query:
+                queryset = queryset.filter(
+                    or_(
+                        Article.title.ilike(f"%{query}%"),
+                        Article.content.ilike(f"%{query}%"),
+                    )
+                )
+
+            total_count = await queryset.count(self.db)
+            total_pages = max(1, math.ceil(total_count / page_size))
+            page = min(page, total_pages)
+            articles = (
+                await queryset.order_by(Article.id.desc())
+                .offset((page - 1) * page_size)
+                .limit(page_size)
+                .fetch(self.db)
+            )
+
+        page_range, show_leading, show_trailing = _pagination_window(
+            page,
+            total_pages,
+        )
 
         context = self.get_context_data(
             articles=articles,
             title="Articles",
             active_status=status_filter,
             messages=messages,
+            page=page,
+            total_pages=total_pages,
+            total_count=total_count,
+            query=query,
+            page_range=page_range,
+            show_leading=show_leading,
+            show_trailing=show_trailing,
         )
+        for article in articles:
+            article.read_time = _read_time_minutes(article.content)  # type: ignore[attr-defined]
         return self.render_to_response(context)
 
 
@@ -203,11 +285,14 @@ class ArticleDetailView(DetailView[Article]):
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
         user = self.request.state.user
+        assert self.object
         context["can_edit"] = bool(
             user
             and user.is_active
             and (user.is_superuser or user.id == self.object.author_id)
         )
+        context["read_time"] = _read_time_minutes(self.object.content)
+        context.setdefault("messages", {})
         return context
 
 
@@ -279,7 +364,7 @@ class ArticleEditView(DetailView[Article]):
     model = Article
     template_name = "articles/write.html"
     context_object_name = "article"
-    permission_classes: ClassVar[list] = [ArticleOwnerPermission]
+    permission_classes: ClassVar[list] = [IsAuthenticated, ArticleOwnerPermission]
     login_url = "/login"
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
@@ -430,7 +515,7 @@ class RegisterView(PermissionMixin, TemplateView):
             )
         return await super().get(*args, **kwargs)
 
-    async def post(self, db: AsyncSession = Depends(get_db), **kwargs: Any) -> Response:
+    async def post(self, db: AsyncSession = Depends(get_db)) -> Response:
         form_data = await self.request.form()
         username = _form_value(form_data, "username").strip()
         email = _form_value(form_data, "email").strip() or None
@@ -504,16 +589,24 @@ class RegisterView(PermissionMixin, TemplateView):
 class LogoutView(PermissionMixin, TemplateView):
     template_name = "auth/logout.html"
     success_url = "/login"
-    permission_classes: ClassVar[list] = [IsAuthenticated]
-    login_url = "/login"
+    permission_classes: ClassVar[list] = [AllowAny]
 
     async def get(self, *args: Any, **kwargs: Any) -> Response:  # noqa: ARG002
-        context = self.get_context_data(
-            flash_message="Use the logout button to end your session.",
+        user = self.request.state.user
+        message = (
+            "Use the logout button to end your session."
+            if user.is_active
+            else "You are already signed out."
         )
+        context = self.get_context_data(flash_message=message)
         return self.render_to_response(context)
 
     async def post(self, db: AsyncSession = Depends(get_db)) -> Response:
+        if not self.request.state.user.is_active:
+            return RedirectResponse(
+                url=self.success_url,
+                status_code=status.HTTP_303_SEE_OTHER,
+            )
         backend = SessionAuthenticationBackend()
         success = await backend.logout(self.request, db)
         self.request.state.user = AnonymousUser()
@@ -523,4 +616,184 @@ class LogoutView(PermissionMixin, TemplateView):
             else "You are already logged out."
         )
         context = self.get_context_data(flash_message=message)
+        return self.render_to_response(context)
+
+
+class AdminDashboardView(PermissionMixin, TemplateView):
+    template_name = "admin/dashboard.html"
+    permission_classes: ClassVar[list] = [IsStaffUser]
+    login_url = "/login"
+
+    async def get(self, db: AsyncSession = Depends(get_db)) -> Response:
+        total_articles = await Article.objects.all().count(db)
+        published = await Article.objects.filter(Article.published.is_(True)).count(db)
+        drafts = await Article.objects.filter(Article.published.is_(False)).count(db)
+        total_users = await User.objects.all().count(db)
+        active_users = await User.objects.filter(User.is_active.is_(True)).count(db)
+        staff_users = await User.objects.filter(User.is_staff.is_(True)).count(db)
+
+        context = self.get_context_data(
+            stats={
+                "total_articles": total_articles,
+                "published": published,
+                "drafts": drafts,
+                "pending_drafts": drafts,
+                "total_users": total_users,
+                "active_users": active_users,
+                "staff_users": staff_users,
+            }
+        )
+        return self.render_to_response(context)
+
+
+class AdminUsersView(PermissionMixin, TemplateView):
+    template_name = "admin/users.html"
+    permission_classes: ClassVar[list] = [IsSuperUser]
+    login_url = "/login"
+
+    async def get(self, db: AsyncSession = Depends(get_db)) -> Response:
+        users = await User.objects.all().order_by(User.id.desc()).fetch(db)
+        context = self.get_context_data(users=users, messages={})
+        return self.render_to_response(context)
+
+    async def post(self, db: AsyncSession = Depends(get_db)) -> Response:
+        form_data = await self.request.form()
+        user_id = _form_value(form_data, "user_id")
+        action = _form_value(form_data, "action")
+        actor = self.request.state.user
+
+        messages: dict[str, str] = {}
+        if not user_id.isdigit():
+            messages["error"] = "Invalid user ID."
+            users = await User.objects.all().order_by(User.id.desc()).fetch(db)
+            context = self.get_context_data(users=users, messages=messages)
+            return self.render_to_response(context)
+
+        target = await db.get(User, int(user_id))
+        if not target:
+            messages["error"] = "User not found."
+            users = await User.objects.all().order_by(User.id.desc()).fetch(db)
+            context = self.get_context_data(users=users, messages=messages)
+            return self.render_to_response(context)
+
+        current_user = self.request.state.user
+        if (
+            current_user.is_active
+            and current_user.id == target.id
+            and action == "deactivate"
+        ):
+            messages["error"] = "You cannot deactivate your own account."
+        else:
+            if action == "deactivate":
+                target.is_active = False
+                messages["success"] = f"Deactivated {target.username}."
+                logger.info(
+                    "Admin action: deactivate user",
+                    extra={"actor_id": actor.id, "target_id": target.id},
+                )
+            elif action == "activate":
+                target.is_active = True
+                messages["success"] = f"Activated {target.username}."
+                logger.info(
+                    "Admin action: activate user",
+                    extra={"actor_id": actor.id, "target_id": target.id},
+                )
+            else:
+                messages["error"] = "Unknown action."
+
+            if "success" in messages:
+                db.add(target)
+                await db.commit()
+
+        users = await User.objects.all().order_by(User.id.desc()).fetch(db)
+        context = self.get_context_data(users=users, messages=messages)
+        return self.render_to_response(context)
+
+
+class AdminModerationView(PermissionMixin, TemplateView):
+    template_name = "admin/moderation.html"
+    permission_classes: ClassVar[list] = [IsStaffUser]
+    login_url = "/login"
+
+    async def get(self, db: AsyncSession = Depends(get_db)) -> Response:
+        drafts_query = Article.objects.filter(Article.published.is_(False))
+        articles = await drafts_query.order_by(Article.id.desc()).fetch(db)
+        draft_count = await drafts_query.count(db)
+        published_count = await Article.objects.filter(
+            Article.published.is_(True)
+        ).count(db)
+        context = self.get_context_data(
+            articles=articles,
+            messages={},
+            stats={
+                "drafts": draft_count,
+                "published": published_count,
+            },
+        )
+        return self.render_to_response(context)
+
+    async def post(self, db: AsyncSession = Depends(get_db)) -> Response:
+        form_data = await self.request.form()
+        article_id = _form_value(form_data, "article_id")
+        action = _form_value(form_data, "action")
+        actor = self.request.state.user
+        messages: dict[str, str] = {}
+
+        if action in {"publish_all", "unpublish_all"}:
+            if action == "publish_all":
+                updated = await Article.objects.filter(
+                    Article.published.is_(False)
+                ).update(db, published=True)
+                messages["success"] = f"Published {updated} drafts."
+            else:
+                updated = await Article.objects.filter(
+                    Article.published.is_(True)
+                ).update(db, published=False)
+                messages["success"] = f"Unpublished {updated} articles."
+            logger.info(
+                "Admin action: bulk moderation",
+                extra={"actor_id": actor.id, "action": action},
+            )
+        elif not article_id.isdigit():
+            messages["error"] = "Invalid article ID."
+        else:
+            article = await db.get(Article, int(article_id))
+            if not article:
+                messages["error"] = "Article not found."
+            else:
+                if action == "publish":
+                    article.published = True
+                    messages["success"] = f"Published '{article.title}'."
+                elif action == "unpublish":
+                    article.published = False
+                    messages["success"] = f"Unpublished '{article.title}'."
+                else:
+                    messages["error"] = "Unknown action."
+
+                if "success" in messages:
+                    db.add(article)
+                    await db.commit()
+                    logger.info(
+                        "Admin action: moderation update",
+                        extra={
+                            "actor_id": actor.id,
+                            "article_id": article.id,
+                            "action": action,
+                        },
+                    )
+
+        drafts_query = Article.objects.filter(Article.published.is_(False))
+        articles = await drafts_query.order_by(Article.id.desc()).fetch(db)
+        draft_count = await drafts_query.count(db)
+        published_count = await Article.objects.filter(
+            Article.published.is_(True)
+        ).count(db)
+        context = self.get_context_data(
+            articles=articles,
+            messages=messages,
+            stats={
+                "drafts": draft_count,
+                "published": published_count,
+            },
+        )
         return self.render_to_response(context)

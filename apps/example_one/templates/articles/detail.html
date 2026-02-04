@@ -4,10 +4,10 @@
 
 {% block content %}
 <section class="card">
-    {% if messages.success %}
+    {% if messages and messages.success %}
         <div class="alert alert-success">{{ messages.success }}</div>
     {% endif %}
-    {% if messages.error %}
+    {% if messages and messages.error %}
         <div class="alert alert-danger">{{ messages.error }}</div>
     {% endif %}
 
@@ -27,11 +27,12 @@
     <div class="meta meta-block">
         <div><strong>Slug:</strong> {{ article.slug }}</div>
         <div><strong>Article ID:</strong> {{ article.id }}</div>
+        <div><strong>Read time:</strong> {{ read_time }} min</div>
     </div>
 
     <div class="stack">
-        <div>
-            {{ article.content | linebreaksbr }}
+        <div class="prose">
+            {{ article.content | markdown | safe }}
         </div>
 
         {% if can_edit %}

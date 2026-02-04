@@ -22,6 +22,17 @@
         <div class="alert alert-danger">{{ messages.error }}</div>
     {% endif %}
 
+    <div class="toolbar">
+        <div class="meta">
+            <span><strong>Markdown</strong> enabled</span>
+            <span id="word-count">0 words</span>
+            <span id="read-time">1 min read</span>
+        </div>
+        <div class="article-actions">
+            <a href="/articles/" class="btn btn-secondary">Back to list</a>
+        </div>
+    </div>
+
     <form method="POST" class="stack">
         <div class="field">
             <label for="title" class="field-label">Title</label>
@@ -51,14 +62,24 @@
         </div>
 
         <div class="field">
-            <label for="content" class="field-label">Content</label>
-            <textarea
-                id="content"
-                name="content"
-                class="textarea"
-                required
-                placeholder="Write something people will remember..."
-            >{{ form_data.content or '' }}</textarea>
+            <label class="field-label">Content</label>
+            <div class="editor-grid">
+                <div class="editor-panel">
+                    <h4>Editor</h4>
+                    <textarea
+                        id="content"
+                        name="content"
+                        class="textarea"
+                        required
+                        placeholder="Write something people will remember..."
+                    >{{ form_data.content or '' }}</textarea>
+                    <span class="field-hint">Markdown supported: headings, lists, code, and links.</span>
+                </div>
+                <div class="editor-panel">
+                    <h4>Preview</h4>
+                    <div id="content-preview" class="preview"></div>
+                </div>
+            </div>
         </div>
 
         <div class="field">
@@ -78,4 +99,63 @@
         </div>
     </form>
 </section>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+(() => {
+    const titleInput = document.getElementById("title");
+    const slugInput = document.getElementById("slug");
+    const contentInput = document.getElementById("content");
+    const preview = document.getElementById("content-preview");
+    const wordCount = document.getElementById("word-count");
+    const readTime = document.getElementById("read-time");
+    if (!titleInput || !slugInput) {
+        return;
+    }
+
+    let slugTouched = slugInput.value.trim().length > 0;
+
+    const slugify = (value) => value
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+
+    slugInput.addEventListener("input", () => {
+        slugTouched = slugInput.value.trim().length > 0;
+    });
+
+    titleInput.addEventListener("input", () => {
+        if (slugTouched) {
+            return;
+        }
+        slugInput.value = slugify(titleInput.value);
+    });
+
+    const renderPreview = () => {
+        if (!contentInput || !preview) {
+            return;
+        }
+        const text = contentInput.value || "";
+        if (window.marked) {
+            preview.innerHTML = window.marked.parse(text);
+        } else {
+            preview.textContent = text;
+        }
+        const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+        if (wordCount) {
+            wordCount.textContent = `${words} words`;
+        }
+        const minutes = Math.max(1, Math.ceil(words / 220));
+        if (readTime) {
+            readTime.textContent = `${minutes} min read`;
+        }
+    };
+
+    if (contentInput) {
+        contentInput.addEventListener("input", renderPreview);
+        renderPreview();
+    }
+})();
+</script>
 {% endblock %}

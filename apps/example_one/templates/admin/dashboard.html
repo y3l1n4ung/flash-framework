@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard - Flash Blog{% endblock %}
+
+{% block content %}
+<section class="card">
+    <div class="card-header">
+        <div>
+            <div class="card-title">Admin Dashboard</div>
+            <div class="card-subtitle">Overview of users and content.</div>
+        </div>
+        <div class="article-actions">
+            <a href="/admin/users" class="btn btn-secondary">Manage Users</a>
+            <a href="/admin/moderation" class="btn">Moderation Queue</a>
+        </div>
+    </div>
+
+    <div class="grid grid-3">
+        <div class="card">
+            <div class="card-subtitle">Total Articles</div>
+            <h2>{{ stats.total_articles }}</h2>
+            <div class="meta">
+                <span><strong>{{ stats.published }}</strong> published</span>
+                <span><strong>{{ stats.drafts }}</strong> drafts</span>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-subtitle">Users</div>
+            <h2>{{ stats.total_users }}</h2>
+            <div class="meta">
+                <span><strong>{{ stats.active_users }}</strong> active</span>
+                <span><strong>{{ stats.staff_users }}</strong> staff</span>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-subtitle">Moderation</div>
+            <h2>{{ stats.pending_drafts }}</h2>
+            <div class="meta">
+                <span>drafts awaiting review</span>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

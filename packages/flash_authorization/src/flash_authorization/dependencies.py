@@ -41,7 +41,7 @@ async def handle_permission_denied(
     if not user.is_active and login_url:
         path = request.url.path
         query = request.url.query
-        full_path = f"{path}?{query}"
+        full_path = f"{path}?{query}" if query else path
         sep = "&" if "?" in login_url else "?"
         redirect_url = f"{login_url}{sep}{redirect_field_name}={full_path}"
         raise PermissionRedirectError(redirect_url)

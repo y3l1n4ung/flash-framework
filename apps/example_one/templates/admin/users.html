@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Users - Flash Blog{% endblock %}
+
+{% block content %}
+<section class="card">
+    <div class="card-header">
+        <div>
+            <div class="card-title">Users</div>
+            <div class="card-subtitle">Activate, deactivate, and monitor users.</div>
+        </div>
+        <a href="/admin/dashboard" class="btn btn-secondary">Back to Dashboard</a>
+    </div>
+
+    <div class="meta" style="margin-bottom: 1rem;">
+        <span><strong>{{ users|length }}</strong> users</span>
+    </div>
+
+    {% if messages.success %}
+        <div class="alert alert-success">{{ messages.success }}</div>
+    {% endif %}
+    {% if messages.error %}
+        <div class="alert alert-danger">{{ messages.error }}</div>
+    {% endif %}
+
+    <div class="stack">
+        {% for user_item in users %}
+            <div class="card article-row">
+                <div class="article-row-header">
+                    <div>
+                        <div class="article-row-title">{{ user_item.username }}</div>
+                        <div class="article-row-meta">
+                            <span>Email: <strong>{{ user_item.email or "—" }}</strong></span>
+                            <span>Role:
+                                <strong>
+                                    {% if user_item.is_superuser %}Admin
+                                    {% elif user_item.is_staff %}Manager
+                                    {% else %}User
+                                    {% endif %}
+                                </strong>
+                            </span>
+                            <span>Status:
+                                <strong>{% if user_item.is_active %}Active{% else %}Inactive{% endif %}</strong>
+                            </span>
+                        </div>
+                    </div>
+                    <div class="article-actions">
+                        <form method="POST" action="/admin/users" style="display: inline;">
+                            <input type="hidden" name="user_id" value="{{ user_item.id }}">
+                            {% if user_item.is_active %}
+                                <button type="submit" name="action" value="deactivate" class="btn btn-secondary">Deactivate</button>
+                            {% else %}
+                                <button type="submit" name="action" value="activate" class="btn">Activate</button>
+                            {% endif %}
+                        </form>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

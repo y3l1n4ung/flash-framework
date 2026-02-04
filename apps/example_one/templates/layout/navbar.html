@@ -23,11 +23,27 @@
 
         <div class="nav-actions">
             {% if user and user.is_active %}
-                <span class="user-chip">{{ user.username }}</span>
                 <a href="/articles/new" class="btn">Write</a>
-                <form method="POST" action="/logout">
-                    <button type="submit" class="btn btn-secondary">Logout</button>
-                </form>
+                <details class="menu">
+                    <summary class="menu-trigger">
+                        {{ user.username }}
+                        ▾
+                    </summary>
+                    <div class="menu-content">
+                        {% if user.is_staff %}
+                            <a href="/admin/dashboard" class="menu-item">Admin dashboard</a>
+                            <a href="/admin/moderation" class="menu-item">Moderation</a>
+                            {% if user.is_superuser %}
+                                <a href="/admin/users" class="menu-item">User management</a>
+                            {% endif %}
+                            <div class="menu-divider"></div>
+                        {% endif %}
+                        <a href="/articles/?status=draft" class="menu-item">Your drafts</a>
+                        <a href="/articles/" class="menu-item">All articles</a>
+                        <div class="menu-divider"></div>
+                        <a href="/logout" class="menu-item">Sign out</a>
+                    </div>
+                </details>
             {% else %}
                 <a href="/login" class="btn btn-ghost">Login</a>
                 <a href="/register" class="btn">Register</a>

@@ -24,3 +24,7 @@ htmlcov/
 
 # OS
 .DS_Store
+
+# Example app data
+apps/example_one/blog.db
+apps/example_one/data/

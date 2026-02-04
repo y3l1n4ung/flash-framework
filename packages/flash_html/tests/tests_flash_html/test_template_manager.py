@@ -147,9 +147,9 @@ class TestTemplateManager:
         resolved_path = str(root_tpl.resolve())
         count = loader_paths.count(resolved_path)
 
-        assert (
-            count == 1
-        ), f"Path {resolved_path} should appear exactly once, found {count}"
+        assert count == 1, (
+            f"Path {resolved_path} should appear exactly once, found {count}"
+        )
 
         # Root template should be at index 0 (Highest priority) due to
         # scanning logic logic
