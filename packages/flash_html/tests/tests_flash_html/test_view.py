@@ -3,6 +3,7 @@ import inspect
 import pytest
 from fastapi import Depends, FastAPI, Request, Response
 from fastapi.testclient import TestClient
+from flash_authorization.dependencies import PermissionRedirectError
 from flash_html.views.base import View
 
 # --- Unit Tests: Core View Logic ---
@@ -25,6 +26,28 @@ class TestViewBase:
         with pytest.raises(TypeError) as excinfo:
             StrictView.as_view(non_existent_attr=123)
         assert "received an invalid keyword" in str(excinfo.value)
+
+    def test_as_view_invalid_method(self):
+        """Requirement: as_view() rejects invalid HTTP methods."""
+
+        class MethodView(View):
+            async def get(self) -> Response:
+                return Response("OK")
+
+        with pytest.raises(ValueError) as excinfo:
+            MethodView.as_view(method="invalid")
+        assert "invalid method" in str(excinfo.value)
+
+    def test_as_view_missing_handler_for_method(self):
+        """Requirement: as_view() errors when method override missing handler."""
+
+        class MethodView(View):
+            async def get(self) -> Response:
+                return Response("OK")
+
+        with pytest.raises(ValueError) as excinfo:
+            MethodView.as_view(method="post")
+        assert "has no 'post' handler" in str(excinfo.value)
 
 
 class TestFastAPIIntegration:
@@ -85,6 +108,17 @@ class TestFastAPIIntegration:
         response = client.get("/auth", headers={"X-Token": "secret-123"})
         assert response.text == "Token: secret-123"
 
+    def test_request_injection_when_declared(self, app: FastAPI, client: TestClient):
+        """Requirement: request is passed when handler declares it."""
+
+        class RequestView(View):
+            async def get(self, request: Request):
+                return Response(request.method)
+
+        app.add_api_route("/request", RequestView.as_view())
+        response = client.get("/request")
+        assert response.text == "GET"
+
     def test_path_parameters_validation(self, app: FastAPI, client: TestClient):
         """Requirement: FastAPI type hints for path params are enforced."""
 
@@ -114,6 +148,50 @@ class TestFastAPIIntegration:
 
         app.add_api_route("/multi", MultiView.as_view())
         assert client.get("/multi").text == "AB"
+
+    def test_injected_dependency_passed_with_kwargs_handler(
+        self,
+        app: FastAPI,
+        client: TestClient,
+    ):
+        """Requirement: injected params are passed when handler accepts **kwargs."""
+
+        def dep_value():
+            return "from-dep"
+
+        class InjectedMixin:
+            @classmethod
+            def resolve_dependencies(cls, params, **kwargs):
+                params.insert(
+                    0,
+                    inspect.Parameter(
+                        name="injected",
+                        kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                        annotation=str,
+                        default=Depends(dep_value),
+                    ),
+                )
+                super().resolve_dependencies(params, **kwargs)
+
+        class InjectedView(InjectedMixin, View):
+            async def get(self, **kwargs):
+                return Response(kwargs["injected"])
+
+        app.add_api_route("/injected-kwargs", InjectedView.as_view())
+        assert client.get("/injected-kwargs").text == "from-dep"
+
+    def test_permission_redirect_error(self, app: FastAPI, client: TestClient):
+        """Requirement: PermissionRedirectError returns a redirect."""
+
+        class RedirectView(View):
+            async def get(self):
+                redirect_url = "/login"
+                raise PermissionRedirectError(redirect_url)
+
+        app.add_api_route("/redirect", RedirectView.as_view())
+        response = client.get("/redirect", follow_redirects=False)
+        assert response.status_code == 302
+        assert response.headers["location"] == "/login"
 
     def test_injected_dependency_not_passed_to_handler(
         self,

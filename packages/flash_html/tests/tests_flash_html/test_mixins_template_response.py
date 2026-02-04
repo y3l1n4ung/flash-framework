@@ -89,6 +89,18 @@ class TestTemplateResponseMixin:
             mixin.render_to_response({})
         assert "Template engine not found" in str(exc.value)
 
+    def test_request_missing_error(self, manager):
+        """
+        Requirement: Raises RuntimeError if request is not set on the view.
+        """
+        mixin = TemplateResponseMixin()
+        mixin.template_name = "test.html"
+        mixin.template_engine = manager
+
+        with pytest.raises(RuntimeError) as exc:
+            mixin.render_to_response({})
+        assert "Request not set on view" in str(exc.value)
+
     def test_context_request_injection(self, manager):
         """
         Requirement: 'request' object is injected into the context for Jinja2.

@@ -2,7 +2,7 @@ from typing import ClassVar
 
 import pytest
 import pytest_asyncio
-from fastapi import FastAPI, Response
+from fastapi import FastAPI, Request, Response
 from flash_authorization.permissions import (
     AllowAny,
     BasePermission,
@@ -701,6 +701,37 @@ class TestDetailViewObjectPermissions:
         assert response.status_code == 200
         assert "Extra: Blog" in response.text
 
+    def test_detail_view_calls_object_permissions(
+        self,
+        app: FastAPI,
+        client,
+        test_user,
+    ):
+        """DetailView should call object permission checks on GET."""
+
+        class FlagPermission(BasePermission):
+            called = False
+
+            async def has_permission(self, request, user):  # noqa: ARG002
+                return True
+
+            async def has_object_permission(self, request, obj, user):  # noqa: ARG002
+                FlagPermission.called = True
+                return True
+
+        class OwnerArticleView(DetailView[Article]):
+            model = Article
+            template_name = "article_detail.html"
+            permission_classes: ClassVar[list[type[BasePermission]]] = [FlagPermission]
+
+        app.add_api_route("/flag/{pk}", OwnerArticleView.as_view())
+        app.state.test_user = test_user
+
+        response = client.get("/flag/1")
+
+        assert response.status_code == 200
+        assert FlagPermission.called is True
+
     def test_permission_error_responses_are_proper(self, app: FastAPI, client):
         """Permission denied responses return proper 403 status."""
 
@@ -718,3 +749,41 @@ class TestDetailViewObjectPermissions:
         assert (
             "detail" in response.json() or response.text
         )  # Either JSON detail or text
+
+    @pytest.mark.asyncio
+    async def test_detail_view_get_executes_permission_and_render(self, test_user):
+        class AllowObject(BasePermission):
+            async def has_permission(self, request, user):  # noqa: ARG002
+                return True
+
+            async def has_object_permission(self, request, obj, user):  # noqa: ARG002
+                return True
+
+        class MinimalDetailView(DetailView[Article]):
+            model = Article
+            template_name = "unused.html"
+            permission_classes: ClassVar[list[type[BasePermission]]] = [AllowObject]
+
+            async def get_object(self, *args, **kwargs):  # noqa: ARG002
+                return Article(
+                    id=1,
+                    title="Test",
+                    slug="test",
+                    content="content",
+                    author_id=test_user.id,
+                    published=True,
+                )
+
+            def render_to_response(self, context, **kwargs):  # noqa: ARG002
+                return Response("ok")
+
+        view = MinimalDetailView()
+        request = Request({"type": "http"})
+        request.state.user = test_user
+        view.request = request  # type: ignore[assignment]
+        view.kwargs = {}
+
+        response = await view.get()
+
+        assert response.status_code == 200
+        assert response.body == b"ok"

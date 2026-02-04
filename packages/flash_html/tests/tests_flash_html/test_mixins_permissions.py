@@ -1,9 +1,12 @@
+from types import SimpleNamespace
 from typing import ClassVar
 
+import pytest
 import pytest_asyncio
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from flash_authorization.permissions import BasePermission
 from flash_html.views.generic.detail import DetailView
+from flash_html.views.mixins.permission import PermissionMixin
 from sqlalchemy import insert
 
 from .models import Article
@@ -83,3 +86,56 @@ class TestDetailViewWithCustomPermission:
         response = client.get("/articles/1")
 
         assert response.status_code == 403
+
+
+class TestPermissionMixinUserPreference:
+    @pytest.mark.asyncio
+    async def test_prefers_self_user_over_request_state(self, test_user):
+        class PermissionView(PermissionMixin):
+            permission_classes: ClassVar[list[type[BasePermission]]] = [
+                TestArticleAuthorPermission
+            ]
+
+        view = PermissionView()
+        view.user = test_user
+
+        request = Request({"type": "http"})
+        request.state.user = SimpleNamespace(is_active=False, id=999)
+        view.request = request  # type: ignore[assignment]
+
+        article = Article(
+            id=1,
+            title="Test",
+            slug="test",
+            content="content",
+            author_id=test_user.id,
+            published=True,
+        )
+
+        # Should not raise, because self.user is preferred.
+        await view.check_object_permissions(article)
+
+    @pytest.mark.asyncio
+    async def test_fallbacks_to_request_state_user(self):
+        class PermissionView(PermissionMixin):
+            permission_classes: ClassVar[list[type[BasePermission]]] = [
+                TestArticleAuthorPermission
+            ]
+
+        view = PermissionView()
+
+        request = Request({"type": "http"})
+        request.state.user = SimpleNamespace(is_active=True, id=1)
+        view.request = request  # type: ignore[assignment]
+
+        article = Article(
+            id=1,
+            title="Test",
+            slug="test",
+            content="content",
+            author_id=1,
+            published=True,
+        )
+
+        # Should not raise, because it falls back to request.state.user.
+        await view.check_object_permissions(article)
