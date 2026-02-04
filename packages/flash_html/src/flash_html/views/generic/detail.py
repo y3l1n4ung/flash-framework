@@ -42,15 +42,7 @@ class DetailView(SingleObjectMixin[T], PermissionMixin, TemplateView, Generic[T]
         """
 
         self.object = await self.get_object()
-        if self.permission_classes and self.object:
-            user = self.request.state.user  # Use request.state directly, not dependency
-            permissions = self.get_permissions()
-            await self.check_object_permissions(
-                request=self.request,
-                obj=self.object,
-                permissions=permissions,
-                user=user,
-            )
+        await self.check_object_permissions(self.object)
         return await super().get(*args, **kwargs)
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:

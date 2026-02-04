@@ -1,11 +1,9 @@
 import inspect
 from typing import Any, Callable, ClassVar, Coroutine, cast
 
-from fastapi import Depends, Request, Response
+from fastapi import Request, Response
 from fastapi.responses import PlainTextResponse, RedirectResponse
 from flash_authorization.dependencies import PermissionRedirectError
-from flash_db.db import get_db
-from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class View:
@@ -105,6 +103,7 @@ class View:
                         break
 
         handler_param_names: set[str] = set()
+        handler_accepts_kwargs = False
 
         async def view(request: Request, *_arg, **kwargs: Any) -> Response:
             self = cls(**initkwargs)
@@ -124,6 +123,12 @@ class View:
             }
 
             call_kwargs = dict(kwargs)
+            if not handler_accepts_kwargs:
+                call_kwargs = {
+                    key: value
+                    for key, value in call_kwargs.items()
+                    if key in handler_param_names
+                }
             if "request" in handler_param_names:
                 call_kwargs["request"] = request
 
@@ -135,6 +140,9 @@ class View:
 
         if handler:
             sig = inspect.signature(handler)
+            handler_accepts_kwargs = any(
+                p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values()
+            )
             # Exclude 'self', '*args', and '**kwargs' from the FastAPI signature
             new_params = [
                 p
@@ -158,19 +166,6 @@ class View:
                     ),
                 )
             cls.resolve_dependencies(new_params, **initkwargs)
-
-            # Auto-inject DB session if the view defines a 'model' (DB-bound views)
-            # TODO: move to resolve dependencies
-            if "db" not in param_names and hasattr(cls, "model"):
-                new_params.insert(
-                    0,
-                    inspect.Parameter(
-                        name="db",
-                        kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
-                        annotation=AsyncSession,
-                        default=Depends(get_db),
-                    ),
-                )
 
             # Sort parameters: non-default values must come before default values
             new_params.sort(

@@ -1,3 +1,5 @@
+import inspect
+
 import pytest
 from fastapi import Depends, FastAPI, Request, Response
 from fastapi.testclient import TestClient
@@ -112,6 +114,37 @@ class TestFastAPIIntegration:
 
         app.add_api_route("/multi", MultiView.as_view())
         assert client.get("/multi").text == "AB"
+
+    def test_injected_dependency_not_passed_to_handler(
+        self,
+        app: FastAPI,
+        client: TestClient,
+    ):
+        """Requirement: Injected-only params do not leak into handlers."""
+
+        def dep_value():
+            return "injected"
+
+        class InjectedMixin:
+            @classmethod
+            def resolve_dependencies(cls, params, **kwargs):
+                params.insert(
+                    0,
+                    inspect.Parameter(
+                        name="injected",
+                        kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                        annotation=str,
+                        default=Depends(dep_value),
+                    ),
+                )
+                super().resolve_dependencies(params, **kwargs)
+
+        class InjectedView(InjectedMixin, View):
+            async def get(self):
+                return Response("OK")
+
+        app.add_api_route("/injected", InjectedView.as_view())
+        assert client.get("/injected").text == "OK"
 
     def test_view_isolation_safety(self, app: FastAPI, client: TestClient):
         """Requirement: Requests do not share state (thread/instance safety)."""

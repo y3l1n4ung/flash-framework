@@ -75,7 +75,22 @@ class PermissionMixin(ViewProtocol):
     def get_permissions(self) -> list[BasePermission]:
         return [perm() for perm in self.permission_classes]
 
-    async def check_object_permissions(
+    async def check_object_permissions(self, obj: Model | None) -> None:
+        """Enforce object-level permissions when an object is available."""
+        if not self.permission_classes or not obj:
+            return
+        user = getattr(self, "user", None)
+        if user is None:
+            user = self.request.state.user
+        permissions = self.get_permissions()
+        await self._check_object_permissions(
+            request=self.request,
+            obj=obj,
+            permissions=permissions,
+            user=user,
+        )
+
+    async def _check_object_permissions(
         self,
         request: Request,
         obj: Model,

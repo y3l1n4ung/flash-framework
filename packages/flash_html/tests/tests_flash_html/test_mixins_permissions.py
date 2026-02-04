@@ -2,7 +2,6 @@ from typing import ClassVar
 
 import pytest_asyncio
 from fastapi import FastAPI
-from flash_authentication import User
 from flash_authorization.permissions import BasePermission
 from flash_html.views.generic.detail import DetailView
 from sqlalchemy import insert
