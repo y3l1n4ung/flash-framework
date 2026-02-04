@@ -3,59 +3,47 @@
 {% block title %}{{ article.title }} - Flash Blog{% endblock %}
 
 {% block content %}
-<div class="container">
+<section class="card">
     {% if messages.success %}
-        <div class="alert alert-success">
-            {{ messages.success }}
-        </div>
+        <div class="alert alert-success">{{ messages.success }}</div>
     {% endif %}
-    
     {% if messages.error %}
-        <div class="alert alert-danger">
-            {{ messages.error }}
-        </div>
+        <div class="alert alert-danger">{{ messages.error }}</div>
     {% endif %}
-    
-    <div class="card">
-        <div class="card-header">
-            <h1>{{ article.title }}</h1>
-            <div class="metadata">
-                <div class="meta-item">
-                    <span class="meta-label">Author:</span> {{ article.author.username }}
-                </div>
-                <div class="meta-item">
-                    <span class="meta-label">Status:</span> 
-                    {% if article.published %}
-                        <span class="status-owner">Published</span>
-                    {% else %}
-                        <span class="status-locked">Draft</span>
-                    {% endif %}
-                </div>
-                <div class="meta-item">
-                    <span class="meta-label">Created:</span> {{ article.created_at.strftime('%B %d, %Y') }}
-                </div>
-                <div class="meta-item">
-                    <span class="meta-label">Last Updated:</span> {{ article.updated_at.strftime('%B %d, %Y') }}
-                </div>
-            </div>
+
+    <div class="card-header">
+        <div>
+            <h1 class="card-title">{{ article.title }}</h1>
+            {% set author_name = article.author.username if article.author else "User #" ~ article.author_id %}
+            <div class="card-subtitle">by {{ author_name }}</div>
         </div>
-        
-        <div style="padding: 1rem; border-top: 1px solid #e5e7eb;">
+        {% if article.published %}
+            <span class="badge badge-success">Published</span>
+        {% else %}
+            <span class="badge badge-draft">Draft</span>
+        {% endif %}
+    </div>
+
+    <div class="meta meta-block">
+        <div><strong>Slug:</strong> {{ article.slug }}</div>
+        <div><strong>Article ID:</strong> {{ article.id }}</div>
+    </div>
+
+    <div class="stack">
+        <div>
             {{ article.content | linebreaksbr }}
         </div>
-        
+
         {% if can_edit %}
-            <div style="margin-top: 2rem; display: flex; gap: 1rem;">
-                <a href="/articles/{{ article.id }}/edit" class="btn">Edit Article</a>
-                <form method="POST" action="/articles/{{ article.id }}/delete" onsubmit="return confirm('Are you sure you want to delete this article?')">
-                    <button type="submit" class="btn btn-secondary">Delete Article</button>
-                </form>
+            <div class="article-actions">
+                <a href="/articles/{{ article.slug }}/edit" class="btn">Edit Article</a>
+                <a href="/articles/" class="btn btn-secondary">Back to Articles</a>
+            </div>
+        {% else %}
+            <div class="article-actions">
+                <a href="/articles/" class="btn btn-secondary">Back to Articles</a>
             </div>
         {% endif %}
     </div>
-    
-    <div style="margin-top: 2rem;">
-        <a href="/articles" class="btn btn-secondary">← Back to Articles</a>
-    </div>
-</div>
+</section>
 {% endblock %}

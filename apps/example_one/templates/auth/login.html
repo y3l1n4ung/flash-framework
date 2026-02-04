@@ -3,47 +3,56 @@
 {% block title %}Login - Flash Blog{% endblock %}
 
 {% block content %}
-<div class="container">
-    <div class="card" style="max-width: 400px; margin: 0 auto;">
-        <h2 style="text-align: center; margin-bottom: 2rem;">Login to Your Account</h2>
-        
+<section class="card card-narrow">
+    <div class="stack">
+        <div>
+            <div class="card-title">Welcome back</div>
+            <div class="card-subtitle">Log in to keep writing and publishing.</div>
+        </div>
+
         {% if messages.error %}
-            <div class="alert alert-danger">
-                {{ messages.error }}
-            </div>
+            <div class="alert alert-danger">{{ messages.error }}</div>
         {% endif %}
-        
         {% if messages.success %}
-            <div class="alert alert-success">
-                {{ messages.success }}
-            </div>
+            <div class="alert alert-success">{{ messages.success }}</div>
         {% endif %}
-        
-        <form method="POST" action="/login">
+
+        <form method="POST" action="/login" class="stack">
             <input type="hidden" name="next" value="{{ request.query_params.get('next', '') }}">
-            <div style="margin-bottom: 1rem;">
-                <label for="username" style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Username:</label>
-                <input type="text" id="username" name="username" required
-                       style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px;">
+
+            <div class="field">
+                <label for="username" class="field-label">Username</label>
+                <input
+                    type="text"
+                    id="username"
+                    name="username"
+                    class="input"
+                    required
+                    autocomplete="username"
+                    placeholder="Your username"
+                >
             </div>
-            
-            <div style="margin-bottom: 1rem;">
-                <label for="password" style="display: block; margin-bottom: 0.5rem; font-weight: 600;">Password:</label>
-                <input type="password" id="password" name="password" required
-                       style="width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px;">
+
+            <div class="field">
+                <label for="password" class="field-label">Password</label>
+                <input
+                    type="password"
+                    id="password"
+                    name="password"
+                    class="input"
+                    required
+                    autocomplete="current-password"
+                    placeholder="Your password"
+                >
             </div>
-            
-            <button type="submit" class="btn" style="width: 100%;">
-                Login
-            </button>
+
+            <button type="submit" class="btn">Log in</button>
         </form>
-        
-        <div style="text-align: center; margin-top: 2rem;">
-            <p style="color: #6c757d;">
-                Don't have an account? 
-                <a href="/register" style="color: #2563eb; text-decoration: none;">Register here</a>
-            </p>
+
+        <div class="meta">
+            <span>Need an account?</span>
+            <a href="/register" class="btn btn-ghost">Create one</a>
         </div>
     </div>
-</div>
+</section>
 {% endblock %}

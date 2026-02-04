@@ -24,7 +24,7 @@ from flash_html.views.mixins import SingleObjectMixin
 from flash_html.views.mixins.permission import PermissionMixin
 from models import Article
 from permissions import ArticleOwnerPermission
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -59,17 +59,22 @@ def _form_value(form_data: Mapping[str, Any], key: str) -> str:
         return raw
     return ""
 
-class HomeView(SingleObjectMixin[Article], TemplateView):
+
+class HomeView(SingleObjectMixin[Article], PermissionMixin, TemplateView):
     """Home page view showing recent articles."""
 
     template_name = "dashboard.html"
     model = Article  # Required for SingleObjectMixin to auto-inject self.db
+    permission_classes: ClassVar[list] = [AllowAny]
 
-    async def get(self) -> Response:
+    async def get(
+        self,
+        *args,  # noqa: ARG002
+        **kwargs,  # noqa: ARG002
+    ) -> Response:
         """Handle GET request with database session."""
-        # Check database session is available
-        if not self.db:
-            return Response("Database session not available", status_code=500)
+        assert self.db
+        user = self.request.state.user
 
         # Get recent articles using auto-injected self.db
         articles = (
@@ -79,20 +84,34 @@ class HomeView(SingleObjectMixin[Article], TemplateView):
             .fetch(self.db)
         )
 
+        user_articles = []
+        if user and user.is_active:
+            user_articles = (
+                await Article.objects.filter(Article.author_id == user.id)
+                .order_by(Article.id.desc())
+                .limit(5)
+                .fetch(self.db)
+            )
+
         # Render template with context
-        context = self.get_context_data(recent_articles=articles)
+        context = self.get_context_data(
+            recent_articles=articles,
+            user_articles=user_articles,
+        )
         return self.render_to_response(context)
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
-        context["title"] = "Flash Blog - Home"
+        context["title"] = "Flash Blog"
         return context
 
 
-class ArticleListView(SingleObjectMixin[Article], View):
+class ArticleListView(PermissionMixin, SingleObjectMixin[Article], TemplateView):
     """List all published articles."""
 
     model = Article  # Required for SingleObjectMixin
+    permission_classes: ClassVar[list] = [AllowAny]
+    template_name = "articles/list.html"
 
     async def get(self) -> Response:
         """Get list of all published articles."""
@@ -100,22 +119,62 @@ class ArticleListView(SingleObjectMixin[Article], View):
         if not self.db:
             return Response("Database session not available", status_code=500)
 
-        articles = (
-            await Article.objects.filter(Article.published.is_(True))
-            .order_by(Article.id.desc())
-            .fetch(self.db)
-        )
+        status_filter = self.request.query_params.get("status", "").lower()
+        user = self.request.state.user
+        messages: dict[str, str] = {}
 
-        # We need to render this manually since ListView isn't implemented yet
-        template_manager = self.request.app.state.template_manager
-        context = {
-            "request": self.request,
-            "articles": articles,
-            "title": "All Articles",
-        }
-        template = template_manager.get_template("articles/list.html")
-        html_content = await template.render_async(context)
-        return Response(html_content, media_type="text/html")
+        if status_filter == "draft":
+            if user and user.is_active:
+                articles = (
+                    await Article.objects.filter(
+                        Article.author_id == user.id,
+                        Article.published.is_(False),
+                    )
+                    .order_by(Article.id.desc())
+                    .fetch(self.db)
+                )
+            else:
+                articles = []
+                messages["info"] = "Sign in to view your drafts."
+        elif status_filter == "published":
+            articles = (
+                await Article.objects.filter(Article.published.is_(True))
+                .order_by(Article.id.desc())
+                .fetch(self.db)
+            )
+        else:
+            published_articles = (
+                await Article.objects.filter(Article.published.is_(True))
+                .order_by(Article.id.desc())
+                .fetch(self.db)
+            )
+            if user and user.is_active:
+                draft_articles = (
+                    await Article.objects.filter(
+                        Article.author_id == user.id,
+                        Article.published.is_(False),
+                    )
+                    .order_by(Article.id.desc())
+                    .fetch(self.db)
+                )
+                article_map = {article.id: article for article in published_articles}
+                for article in draft_articles:
+                    article_map[article.id] = article
+                articles = sorted(
+                    article_map.values(),
+                    key=lambda article: article.id,
+                    reverse=True,
+                )
+            else:
+                articles = published_articles
+
+        context = self.get_context_data(
+            articles=articles,
+            title="Articles",
+            active_status=status_filter,
+            messages=messages,
+        )
+        return self.render_to_response(context)
 
 
 class ArticleDetailView(DetailView[Article]):
@@ -129,8 +188,27 @@ class ArticleDetailView(DetailView[Article]):
     ]  # Anyone can view published articles
 
     def get_queryset(self):
-        """Only return published articles for public view."""
-        return super().get_queryset().filter(Article.published.is_(True))
+        """Return published articles and owner's drafts when authenticated."""
+        queryset = super().get_queryset()
+        user = self.request.state.user
+        if user and user.is_active:
+            return queryset.filter(
+                or_(
+                    Article.published.is_(True),
+                    Article.author_id == user.id,
+                )
+            )
+        return queryset.filter(Article.published.is_(True))
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        context = super().get_context_data(**kwargs)
+        user = self.request.state.user
+        context["can_edit"] = bool(
+            user
+            and user.is_active
+            and (user.is_superuser or user.id == self.object.author_id)
+        )
+        return context
 
 
 class ArticleCreateView(PermissionMixin, TemplateView):
@@ -164,9 +242,9 @@ class ArticleCreateView(PermissionMixin, TemplateView):
             context["action"] = "Create"
             return self.render_to_response(context)
 
-        existing = await Article.objects.filter(
-            Article.slug == cleaned["slug"]
-        ).first(db)
+        existing = await Article.objects.filter(Article.slug == cleaned["slug"]).first(
+            db
+        )
         if existing:
             context = self.get_context_data(
                 form_data=cleaned,
@@ -247,9 +325,9 @@ class ArticleEditView(DetailView[Article]):
             context["form_data"] = cleaned
             return self.render_to_response(context)
 
-        existing = await Article.objects.filter(
-            Article.slug == cleaned["slug"]
-        ).first(db)
+        existing = await Article.objects.filter(Article.slug == cleaned["slug"]).first(
+            db
+        )
         if existing and existing.id != self.object.id:
             context = self.get_context_data(
                 messages={"error": "Slug already exists. Choose another."},
@@ -267,15 +345,16 @@ class ArticleEditView(DetailView[Article]):
         )
 
         return RedirectResponse(
-            url=f"/articles/{self.object.slug}",
+            url=f"/articles/{cleaned['slug']}",
             status_code=status.HTTP_303_SEE_OTHER,
         )
 
 
-class AboutView(TemplateView):
+class AboutView(PermissionMixin, TemplateView):
     """About page view."""
 
     template_name = "about.html"
+    permission_classes: ClassVar[list] = [AllowAny]
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
@@ -283,9 +362,10 @@ class AboutView(TemplateView):
         return context
 
 
-class LoginView(TemplateView):
+class LoginView(PermissionMixin, TemplateView):
     template_name = "auth/login.html"
     success_url = "/"
+    permission_classes: ClassVar[list] = [AllowAny]
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
@@ -294,7 +374,7 @@ class LoginView(TemplateView):
 
     async def get(self, *args: Any, **kwargs: Any) -> Response:
         next_url = self.request.query_params.get("next")
-        if self.request.state.user.is_authenticated:
+        if self.request.state.user.is_active:
             return RedirectResponse(
                 url=next_url or self.success_url,
                 status_code=status.HTTP_303_SEE_OTHER,
@@ -302,7 +382,11 @@ class LoginView(TemplateView):
 
         return await super().get(*args, **kwargs)
 
-    async def post(self, db: AsyncSession = Depends(get_db)) -> Response:
+    async def post(
+        self,
+        db: AsyncSession = Depends(get_db),
+        **kwargs: Any,  # noqa: ARG002
+    ) -> Response:
         form_data = await self.request.form()
         username = _form_value(form_data, "username")
         password = _form_value(form_data, "password")
@@ -329,9 +413,10 @@ class LoginView(TemplateView):
         return self.render_to_response(context)
 
 
-class RegisterView(TemplateView):
+class RegisterView(PermissionMixin, TemplateView):
     template_name = "auth/register.html"
     success_url = "/"
+    permission_classes: ClassVar[list] = [AllowAny]
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
@@ -339,13 +424,13 @@ class RegisterView(TemplateView):
         return context
 
     async def get(self, *args: Any, **kwargs: Any) -> Response:
-        if self.request.state.user.is_authenticated:
+        if self.request.state.user.is_active:
             return RedirectResponse(
                 url=self.success_url, status_code=status.HTTP_303_SEE_OTHER
             )
         return await super().get(*args, **kwargs)
 
-    async def post(self, db: AsyncSession = Depends(get_db)) -> Response:
+    async def post(self, db: AsyncSession = Depends(get_db), **kwargs: Any) -> Response:
         form_data = await self.request.form()
         username = _form_value(form_data, "username").strip()
         email = _form_value(form_data, "email").strip() or None
@@ -416,9 +501,11 @@ class RegisterView(TemplateView):
         return self.render_to_response(context)
 
 
-class LogoutView(TemplateView):
+class LogoutView(PermissionMixin, TemplateView):
     template_name = "auth/logout.html"
     success_url = "/login"
+    permission_classes: ClassVar[list] = [IsAuthenticated]
+    login_url = "/login"
 
     async def get(self, *args: Any, **kwargs: Any) -> Response:  # noqa: ARG002
         context = self.get_context_data(

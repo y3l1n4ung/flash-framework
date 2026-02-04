@@ -3,25 +3,21 @@
 {% block title %}Logout - Flash Blog{% endblock %}
 
 {% block content %}
-<div class="container" style="max-width: 400px; margin: 2rem auto;">
-    <div class="card">
-        <div class="card-header">
-            <h2>👋 Logout Successful</h2>
+<section class="card card-narrow">
+    <div class="stack">
+        <div>
+            <div class="card-title">Ready to sign out?</div>
+            <div class="card-subtitle">You can log back in anytime.</div>
         </div>
-        <div class="card-body">
-            {% if flash_message %}
-                <div class="alert alert-info">
-                    {{ flash_message }}
-                </div>
-            {% else %}
-                <p>You have been successfully logged out.</p>
-            {% endif %}
-            
-            <div style="text-align: center; margin-top: 2rem;">
-                <a href="/login" class="btn">Return to Login</a>
-            </div>
-        </div>
-    </div>
-</div>
 
+        {% if flash_message %}
+            <div class="alert alert-info">{{ flash_message }}</div>
+        {% endif %}
+
+        <form method="POST" action="/logout" class="article-actions">
+            <button type="submit" class="btn">Confirm logout</button>
+            <a href="/" class="btn btn-secondary">Back home</a>
+        </form>
+    </div>
+</section>
 {% endblock %}

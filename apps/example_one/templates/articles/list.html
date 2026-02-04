@@ -3,85 +3,88 @@
 {% block title %}Articles - Flash Blog{% endblock %}
 
 {% block content %}
-<div class="container">
-    {% if messages.success %}
-        <div class="alert alert-success">
-            {{ messages.success }}
+<section class="card">
+    <div class="card-header">
+        <div>
+            <div class="card-title">Articles</div>
+            <div class="card-subtitle">
+                Browse published posts and keep track of your drafts.
+            </div>
         </div>
-    {% endif %}
-    
-    {% if messages.error %}
-        <div class="alert alert-danger">
-            {{ messages.error }}
-        </div>
-    {% endif %}
-    
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
-        <h1>Articles</h1>
-        
-        <form method="GET" style="display: flex; gap: 1rem;">
-            <select name="status" onchange="this.form.submit()" style="padding: 0.5rem; border-radius: 4px; border: 1px solid #ddd;">
-                <option value="">All Articles</option>
-                <option value="published" {% if request.query_params.get('status') == 'published' %}selected{% endif %}>Published Only</option>
-                <option value="draft" {% if request.query_params.get('status') == 'draft' %}selected{% endif %}>Drafts Only</option>
-            </select>
-            
-            {% if user and user.is_active %}
-                <a href="/articles/new" class="btn">Write New Article</a>
-            {% endif %}
-        </form>
-        
-        {% if user and user.is_superuser %}
-            <a href="/admin/articles" class="btn btn-secondary">Admin Panel</a>
+        {% if user and user.is_active %}
+            <a href="/articles/new" class="btn">Write Article</a>
+        {% else %}
+            <a href="/login" class="btn btn-secondary">Sign in to write</a>
         {% endif %}
     </div>
-    
-    {% if articles %}
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 2rem;">
-            {% for article in articles %}
-                <div class="card">
-                    <div class="card-header">
-                        <h3><a href="/articles/{{ article.id }}" style="color: #333; text-decoration: none;">{{ article.title }}</a></h3>
-                        <div class="metadata">
-                            <span class="meta-item">
-                                <span class="meta-label">Author:</span> {{ article.author.username }}
-                            </span>
-                            <span class="meta-item">
-                                <span class="meta-label">Status:</span> 
-                                {% if article.published %}
-                                    <span style="color: #28a745; background: #d4edda; padding: 2px 6px; border-radius: 4px;">Published</span>
-                                {% else %}
-                                    <span style="color: #f8d7da; background: white; padding: 2px 6px; border-radius: 4px; border: 1px solid #f8d7da;">Draft</span>
-                                {% endif %}
-                            </span>
-                            <span class="meta-item">
-                                <span class="meta-label">Created:</span> {{ article.created_at.strftime('%Y-%m-%d') }}
-                            </span>
+
+    {% if messages.success %}
+        <div class="alert alert-success">{{ messages.success }}</div>
+    {% endif %}
+    {% if messages.error %}
+        <div class="alert alert-danger">{{ messages.error }}</div>
+    {% endif %}
+    {% if messages.info %}
+        <div class="alert alert-info">{{ messages.info }}</div>
+    {% endif %}
+
+    <div class="pill-group">
+        <a
+            href="/articles/"
+            class="pill{% if not active_status %} active{% endif %}"
+        >All</a>
+        <a
+            href="/articles/?status=published"
+            class="pill{% if active_status == 'published' %} active{% endif %}"
+        >Published</a>
+        <a
+            href="/articles/?status=draft"
+            class="pill{% if active_status == 'draft' %} active{% endif %}"
+        >Drafts</a>
+    </div>
+</section>
+
+{% if articles %}
+    <section class="grid grid-2">
+        {% for article in articles %}
+            {% set author_name = article.author.username if article.author else "User #" ~ article.author_id %}
+            <article class="card article-card">
+                <div class="stack">
+                    <div class="card-header compact">
+                        <div>
+                            <h3>
+                                <a href="/articles/{{ article.slug }}">{{ article.title }}</a>
+                            </h3>
+                            <div class="card-subtitle">by {{ author_name }}</div>
                         </div>
+                        {% if article.published %}
+                            <span class="badge badge-success">Published</span>
+                        {% else %}
+                            <span class="badge badge-draft">Draft</span>
+                        {% endif %}
                     </div>
-                    
-                    <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e5e7eb;">
-                        <p>{{ article.content[:200] }}{% if article.content|length > 200 %}...{% endif %}</p>
+                    <p>
+                        {{ article.content[:180] }}{% if article.content|length > 180 %}...{% endif %}
+                    </p>
+                    <div class="article-actions">
+                        <a href="/articles/{{ article.slug }}" class="btn btn-ghost">Read article</a>
+                        {% if user and user.is_active and user.id == article.author_id %}
+                            <a href="/articles/{{ article.slug }}/edit" class="btn btn-secondary">Edit</a>
+                        {% endif %}
                     </div>
                 </div>
-            {% endfor %}
-        </div>
-    {% else %}
-        <div class="card">
-            <h2>No articles found</h2>
-            <p>Start writing your first article!</p>
-            {% if user and user.is_active %}
-                <a href="/articles/new" class="btn">Write New Article</a>
-            {% endif %}
-        </div>
-    {% endif %}
-    
-    {% if articles and articles|length > 1 %}
-        <div class="pagination">
-            {% if page > 1 %}<a href="?page={{ page - 1 }}&status={{ request.query_params.get('status', '') }}">&laquo; Previous</a>{% endif %}
-            <span>Page {{ page }} of {{ total_pages }}</span>
-            {% if page < total_pages %}<a href="?page={{ page + 1 }}&status={{ request.query_params.get('status', '') }}">Next &raquo;</a>{% endif %}
-        </div>
-    {% endif %}
-</div>
+            </article>
+        {% endfor %}
+    </section>
+{% else %}
+    <div class="empty-state">
+        <h3>No articles found.</h3>
+        <p>Try changing the filter or start your first post.</p>
+        {% if user and user.is_active %}
+            <div class="article-actions section-actions center">
+                <a href="/articles/new" class="btn">Write your first article</a>
+            </div>
+        {% endif %}
+    </div>
+{% endif %}
 {% endblock %}

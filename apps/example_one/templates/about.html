@@ -3,46 +3,51 @@
 {% block title %}{{ title }} - Flash Blog{% endblock %}
 
 {% block content %}
-<div class="card">
+<section class="card">
     <div class="card-header">
-        <h1>{{ title }}</h1>
+        <div>
+            <div class="card-title">{{ title }}</div>
+            <div class="card-subtitle">
+                A Django-inspired experience, powered by FastAPI speed.
+            </div>
+        </div>
+        <a href="/articles/" class="btn btn-secondary">Browse Articles</a>
     </div>
-    
-    <div class="about-content">
-        <h2>About Flash Framework Blog</h2>
-        <p>
-            This blog application demonstrates the power and elegance of the Flash Framework - 
-            a Django-inspired web framework built on FastAPI. It showcases how modern Python web 
-            development can combine the best of both worlds: FastAPI's performance and type safety 
-            with Django's familiar patterns and developer productivity.
-        </p>
-        
-        <h3>Key Features Demonstrated</h3>
-        <ul>
-            <li><strong>Class-Based Views</strong>: Clean, reusable view components using TemplateView and DetailView</li>
-            <li><strong>Database Integration</strong>: Flash DB ORM with async support for high performance</li>
-            <li><strong>Permission System</strong>: Flexible authorization with object-level permissions</li>
-            <li><strong>Template Management</strong>: Automatic template discovery and rendering</li>
-            <li><strong>FastAPI Integration</strong>: Seamless integration with FastAPI's dependency injection</li>
-        </ul>
-        
-        <h3>Architecture Highlights</h3>
-        <p>
-            The Flash Framework follows Django's proven patterns while leveraging FastAPI's modern 
-            async capabilities. Views are organized as reusable classes that automatically handle 
-            HTTP method dispatching, database sessions, and template rendering. The permission system 
-            provides both view-level and object-level access control.
-        </p>
-        
-        <h3>Get Started</h3>
-        <p>
-            Explore the blog application to see these features in action:
-        </p>
-        <ul>
-            <li><a href="/articles/" class="btn">Browse All Articles</a></li>
-            <li><a href="/articles/new" class="btn">Create New Article</a></li>
-            <li><a href="/" class="btn btn-secondary">Back to Home</a></li>
+    <p>
+        This demo blog highlights how Flash Framework blends familiar patterns
+        with modern async performance. You can explore class-based views, a
+        clean template system, and object-level permissions in one cohesive app.
+    </p>
+</section>
+
+<section class="grid grid-2">
+    <div class="card">
+        <div class="card-title">Key Features</div>
+        <p class="card-subtitle">What this example is designed to showcase.</p>
+        <ul class="feature-list section-stack">
+            <li><strong>Class-Based Views</strong> for readable, reusable handlers.</li>
+            <li><strong>Async ORM</strong> queries with Flash DB for performance.</li>
+            <li><strong>Permission Mixins</strong> that keep edit flows secure.</li>
+            <li><strong>Template Discovery</strong> with clean data injection.</li>
         </ul>
     </div>
-</div>
+
+    <div class="card">
+        <div class="card-title">Architecture Highlights</div>
+        <p class="card-subtitle">
+            FastAPI's dependency injection meets Django-inspired ergonomics.
+        </p>
+        <div class="stack section-stack">
+            <p>
+                Views automatically receive database sessions, permission checks,
+                and templating helpers. That means you can focus on the user
+                experience without repeating boilerplate.
+            </p>
+            <div class="article-actions">
+                <a href="/articles/new" class="btn">Create New Article</a>
+                <a href="/" class="btn btn-ghost">Back to Home</a>
+            </div>
+        </div>
+    </div>
+</section>
 {% endblock %}

@@ -1,20 +1,36 @@
+{% set current_path = request.url.path if request else "" %}
 <nav class="navbar">
-    <div class="nav-container">
-        <a href="/" class="nav-brand">Flash Blog</a>
-        
+    <div class="nav-inner">
+        <a href="/" class="nav-brand">
+            Flash Blog
+            <span class="nav-badge">Example</span>
+        </a>
+
         <div class="nav-links">
+            <a
+                href="/"
+                class="nav-link{% if current_path == '/' %} active{% endif %}"
+            >Home</a>
+            <a
+                href="/articles/"
+                class="nav-link{% if current_path.startswith('/articles') %} active{% endif %}"
+            >Articles</a>
+            <a
+                href="/about"
+                class="nav-link{% if current_path.startswith('/about') %} active{% endif %}"
+            >About</a>
+        </div>
+
+        <div class="nav-actions">
             {% if user and user.is_active %}
-                {% if user.is_superuser %}
-                    <a href="/admin/dashboard" class="nav-link">Admin</a>
-                {% endif %}
-                <a href="/dashboard" class="nav-link">Dashboard</a>
-                <a href="/articles/new" class="nav-link">Write</a>
-                <form method="POST" action="/logout" style="display: inline;">
+                <span class="user-chip">{{ user.username }}</span>
+                <a href="/articles/new" class="btn">Write</a>
+                <form method="POST" action="/logout">
                     <button type="submit" class="btn btn-secondary">Logout</button>
                 </form>
             {% else %}
-                <a href="/login" class="nav-link">Login</a>
-                <a href="/register" class="nav-link">Register</a>
+                <a href="/login" class="btn btn-ghost">Login</a>
+                <a href="/register" class="btn">Register</a>
             {% endif %}
         </div>
     </div>
