@@ -171,7 +171,7 @@ class TestFastAPIIntegration:
                         default=Depends(dep_value),
                     ),
                 )
-                super().resolve_dependencies(params, **kwargs)
+                super().resolve_dependencies(params, **kwargs)  # pyright: ignore[reportAttributeAccessIssue] # ty:ignore[unresolved-attribute]
 
         class InjectedView(InjectedMixin, View):
             async def get(self, **kwargs):
@@ -215,7 +215,7 @@ class TestFastAPIIntegration:
                         default=Depends(dep_value),
                     ),
                 )
-                super().resolve_dependencies(params, **kwargs)
+                super().resolve_dependencies(params, **kwargs)  # pyright: ignore[reportAttributeAccessIssue] # ty:ignore[unresolved-attribute]
 
         class InjectedView(InjectedMixin, View):
             async def get(self):

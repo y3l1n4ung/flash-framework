@@ -28,10 +28,11 @@ from flash_html.views.generic.base import TemplateView
 from flash_html.views.generic.detail import DetailView
 from flash_html.views.mixins import SingleObjectMixin
 from flash_html.views.mixins.permission import PermissionMixin
-from models import Article
-from permissions import ArticleOwnerPermission
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from .models import Article
+from .permissions import ArticleOwnerPermission
 
 logger = logging.getLogger(__name__)
 
@@ -255,7 +256,7 @@ class ArticleListView(PermissionMixin, SingleObjectMixin[Article], TemplateView)
             show_trailing=show_trailing,
         )
         for article in articles:
-            article.read_time = _read_time_minutes(article.content)  # type: ignore[attr-defined]
+            article.read_time = _read_time_minutes(article.content)  # pyright: ignore[reportAttributeAccessIssue]
         return self.render_to_response(context)
 
 
@@ -386,16 +387,7 @@ class ArticleEditView(DetailView[Article]):
         self.object = await self.get_object()
 
         # Check permissions
-        if self.permission_classes and self.object:
-            user = self.request.state.user
-            permissions = self.get_permissions()
-            await self.check_object_permissions(
-                request=self.request,
-                obj=self.object,
-                permissions=permissions,
-                user=user,
-            )
-
+        await self.check_object_permissions(obj=self.object)
         # Update article (only if object exists)
         if not self.object:
             return Response("Article not found", status_code=404)

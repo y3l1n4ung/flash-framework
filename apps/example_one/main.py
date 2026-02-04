@@ -25,9 +25,10 @@ from flash_authorization.dependencies import PermissionRedirectError
 from flash_db import db as db_module
 from flash_db import init_db
 from flash_html.template_manager import TemplateManager
-from models import Article
 from starlette.middleware.sessions import SessionMiddleware
-from views import (
+
+from .models import Article
+from .views import (
     AboutView,
     AdminDashboardView,
     AdminModerationView,

@@ -8,7 +8,8 @@ from fastapi import Request
 from flash_authentication.models import User
 from flash_authentication.schemas import AnonymousUser
 from flash_authorization.permissions import BasePermission
-from models import Article
+
+from .models import Article
 
 
 class ArticleOwnerPermission(BasePermission):

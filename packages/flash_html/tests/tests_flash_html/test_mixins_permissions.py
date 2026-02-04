@@ -38,7 +38,6 @@ class TestDetailViewWithCustomPermission:
 
     @pytest_asyncio.fixture(autouse=True)
     async def setup_data(self, db_session, test_user):
-
         await db_session.execute(
             insert(Article).values(
                 {
@@ -96,12 +95,12 @@ class TestPermissionMixinUserPreference:
                 TestArticleAuthorPermission
             ]
 
-        view = PermissionView()
-        view.user = test_user
+        view = PermissionView()  # pyright: ignore[reportAbstractUsage]
+        view.user = test_user  # pyright: ignore[reportAttributeAccessIssue]  # ty:ignore[unresolved-attribute]
 
         request = Request({"type": "http"})
         request.state.user = SimpleNamespace(is_active=False, id=999)
-        view.request = request  # type: ignore[assignment]
+        view.request = request
 
         article = Article(
             id=1,
@@ -122,11 +121,11 @@ class TestPermissionMixinUserPreference:
                 TestArticleAuthorPermission
             ]
 
-        view = PermissionView()
+        view = PermissionView()  # pyright: ignore[reportAbstractUsage]
 
         request = Request({"type": "http"})
         request.state.user = SimpleNamespace(is_active=True, id=1)
-        view.request = request  # type: ignore[assignment]
+        view.request = request
 
         article = Article(
             id=1,
