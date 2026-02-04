@@ -1,5 +1,5 @@
 # packages/flash_html/src/flash_html/views/mixins/template.py
-from typing import Any, cast
+from typing import Any
 
 from fastapi import Request, Response
 
@@ -25,6 +25,7 @@ class TemplateResponseMixin:
     template_name: str | None = None
     template_engine: TemplateManager | None = None
     content_type: str | None = None
+    request: Request
 
     def get_template_names(self) -> list[str]:
         """
@@ -73,10 +74,12 @@ class TemplateResponseMixin:
         # Priority: Instance attribute (injected via as_view) -> App State
         engine = self.template_engine
 
-        if not engine and hasattr(self, "request"):
-            req = cast("Request", self.request)  # pyright: ignore[reportAttributeAccessIssue]
-            if hasattr(req.app.state, "template_manager"):
-                engine = req.app.state.template_manager
+        if (
+            not engine
+            and hasattr(self, "request")
+            and hasattr(self.request.app.state, "template_manager")
+        ):
+            engine = self.request.app.state.template_manager
 
         if not engine:
             msg = (

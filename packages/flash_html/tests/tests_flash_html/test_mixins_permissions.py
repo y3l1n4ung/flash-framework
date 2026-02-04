@@ -35,12 +35,7 @@ class TestDetailViewWithCustomPermission:
     """Test DetailView with custom permission."""
 
     @pytest_asyncio.fixture(autouse=True)
-    async def setup_data(self, db_session):
-        test_user = User(username="testuser", is_active=True)
-        test_user.set_password("password123")
-        db_session.add(test_user)
-        await db_session.commit()
-        await db_session.refresh(test_user)
+    async def setup_data(self, db_session, test_user):
 
         await db_session.execute(
             insert(Article).values(
@@ -56,7 +51,7 @@ class TestDetailViewWithCustomPermission:
         )
         await db_session.commit()
 
-    def test_custom_permission_works(self, app: FastAPI, client):
+    def test_custom_permission_works(self, app: FastAPI, client, test_user):
         """Custom permission works correctly."""
 
         class ArticleDetailView(DetailView[Article]):
@@ -67,6 +62,7 @@ class TestDetailViewWithCustomPermission:
             ]
 
         app.add_api_route("/articles/{pk}", ArticleDetailView.as_view())
+        app.state.test_user = test_user
 
         response = client.get("/articles/1")
 
