@@ -32,11 +32,15 @@ def init_db(
     **engine_kwargs: Any,
 ) -> None:
     """
-    Initialize async SQLAlchemy engine and session factory.
+    Initialize the asynchronous SQLAlchemy engine and session factory.
 
-    Supports:
-    - SQLite (aiosqlite)
-    - PostgreSQL (asyncpg)
+    Args:
+        database_url: The connection URL (e.g., 'sqlite+aiosqlite:///db.sqlite3').
+        echo: If True, SQLAlchemy will log all emitted SQL.
+        **engine_kwargs: Additional keyword arguments passed to `create_async_engine`.
+
+    Example:
+        >>> init_db("sqlite+aiosqlite:///db.sqlite3")
     """
     global _engine, _session_factory
 
@@ -73,7 +77,12 @@ def init_db(
 
 
 async def close_db() -> None:
-    """Dispose database engine."""
+    """
+    Dispose of the database engine and clean up resources.
+
+    Example:
+        >>> await close_db()
+    """
     if _engine is not None:
         await _engine.dispose()
 
@@ -87,7 +96,12 @@ def _require_session_factory() -> async_sessionmaker[AsyncSession]:
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """
-    Dependency-style async session generator.
+    Async generator that yields a database session.
+    Suitable for use as a FastAPI dependency.
+
+    Example:
+        >>> async for db in get_db():
+        ...     await db.execute(...)
     """
     factory = _require_session_factory()
     async with factory() as session:

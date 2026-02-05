@@ -117,6 +117,19 @@ latest_user = await User.objects.latest(db)
 users = await User.objects.only("name", "email").fetch(db)
 ```
 
+### Retrieving Dictionaries or Tuples
+
+- `values(*fields)`: Return a list of dictionaries.
+- `values_list(*fields, flat=False)`: Return a list of tuples (or flat list if `flat=True`).
+
+```python
+# Get a list of user names
+names = await User.objects.values_list(db, "name", flat=True)
+
+# Get dictionaries with specific fields
+users_data = await User.objects.values(db, "id", "name")
+```
+
 ### Creation Shortcuts
 
 - `get_or_create(defaults, **kwargs)`: Fetch an object or create it if it doesn't exist.
@@ -127,6 +140,46 @@ user, created = await User.objects.get_or_create(
     db,
     email="john@example.com",
     defaults={"name": "John Doe"}
+)
+```
+
+### Existence and Counting
+
+- `exists(*conditions)`: Check if any records match.
+- `count(*conditions)`: Count matching records.
+
+```python
+# Check if a user with this email exists
+if await User.objects.exists(db, User.email == "john@example.com"):
+    print("User exists!")
+
+# Count active users
+active_count = await User.objects.count(db, User.is_active == True)
+```
+
+### Latest and Earliest
+
+- `latest(field)`: Get the most recent record.
+- `earliest(field)`: Get the earliest record.
+
+```python
+# Get the most recently joined user
+latest_user = await User.objects.latest(db, field="created_at")
+```
+
+## Chaining Queries
+
+QuerySet methods can be chained together. The query is only executed when you call an "execution method" like `fetch()`, `first()`, `latest()`, etc.
+
+```python
+# Get up to 10 active users, ordered by join date, only loading names
+users = await (
+    User.objects.filter(User.is_active == True)
+    .exclude(User.is_staff == True)
+    .order_by(User.created_at.desc())
+    .only("name")
+    .limit(10)
+    .fetch(db)
 )
 ```
 

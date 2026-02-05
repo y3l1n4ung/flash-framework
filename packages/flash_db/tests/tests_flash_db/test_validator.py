@@ -34,3 +34,19 @@ class TestModelValidator:
 
         with pytest.raises(TypeError, match="is missing __tablename__"):
             ModelValidator.validate_model(MissingTablename)
+
+    def test_validate_model_missing_id_raises_typeerror(self):
+        """Test that a Model without 'id' raises TypeError."""
+        # We use a mock class and patch issubclass to trigger the 'id' check
+        # because any real subclass of flash_db.Model automatically inherits 'id'.
+        from unittest.mock import MagicMock, patch
+
+        mock_model = MagicMock(spec=type)
+        mock_model.__name__ = "MockModel"
+        mock_model.__tablename__ = "mock_table"
+        # Ensure it doesn't have an 'id' attribute
+        del mock_model.id
+
+        with patch("flash_db.validator.issubclass", return_value=True), \
+             pytest.raises(TypeError, match="has no 'id' field"):
+            ModelValidator.validate_model(mock_model) # type: ignore  # ty:ignore[unused-ignore-comment]

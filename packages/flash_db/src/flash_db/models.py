@@ -17,6 +17,15 @@ except ImportError:  # pragma: no cover
 
 
 class Model(AsyncAttrs, DeclarativeBase):
+    """
+    Base class for all database models.
+    Provides an automatic `objects` manager and an `id` primary key.
+
+    Example:
+        >>> class User(Model):
+        ...     __tablename__ = "users"
+        ...     name: Mapped[str] = mapped_column()
+    """
     __abstract__ = True
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     objects: ClassVar[ModelManager[Self]]  # type: ignore[invalid-type-arguments]
@@ -29,6 +38,14 @@ class Model(AsyncAttrs, DeclarativeBase):
 
 
 class TimestampMixin:
+    """
+    Mixin that adds `created_at` and `updated_at` fields to a model.
+
+    Example:
+        >>> class Post(Model, TimestampMixin):
+        ...     __tablename__ = "posts"
+        ...     title: Mapped[str] = mapped_column()
+    """
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=func.now(),
@@ -44,6 +61,14 @@ class TimestampMixin:
 
 
 class SoftDeleteMixin:
+    """
+    Mixin that adds a `deleted_at` field for logical record deletion.
+
+    Example:
+        >>> class Note(Model, SoftDeleteMixin):
+        ...     __tablename__ = "notes"
+        ...     text: Mapped[str] = mapped_column()
+    """
     deleted_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,

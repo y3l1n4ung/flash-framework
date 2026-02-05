@@ -140,5 +140,7 @@ Our goal for `flash_db` is to build a lightweight, yet powerful, async ORM that 
 - [ ] **Transaction Management:** Atomic transactions via decorator or context manager.
 - [x] **`get_or_create()` / `update_or_create()`:** Streamline create/update patterns.
 - [ ] **Model Validation Hooks:** `clean()` methods for data validation.
-- [x] **Advanced Querying:** `Q` Objects, `F` Expressions, and more `QuerySet` methods.
+- [x] **Advanced Querying:** `exclude()`, `distinct()`, `only()`, `defer()`, and more.
+- [ ] **Complex Lookups:** `Q` Objects, `F` Expressions, and Prefetching.
+- [ ] **Performance:** `bulk_create`, `bulk_update`.
 - [ ] **Signals:** `pre_save`, `post_save`, `pre_delete`, `post_delete`.
