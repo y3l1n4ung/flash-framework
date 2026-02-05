@@ -46,9 +46,11 @@ class QuerySet(Generic[T]):
             >>> articles = await Article.objects.filter(
             ...     title="Intro", id__gt=10
             ... ).fetch(db)
+            # SELECT * FROM articles WHERE title = 'Intro' AND id > 10;
             >>> articles = await Article.objects.filter(
             ...     Q(title="A") | Q(title="B")
             ... ).fetch(db)
+            # SELECT * FROM articles WHERE title = 'A' OR title = 'B';
         """
         if not conditions and not kwargs:
             return self
@@ -86,6 +88,7 @@ class QuerySet(Generic[T]):
 
         Example:
             >>> articles = await Article.objects.exclude(title="Outdated").fetch(db)
+            # SELECT * FROM articles WHERE title != 'Outdated';
         """
         if not conditions and not kwargs:
             return self
@@ -114,30 +117,50 @@ class QuerySet(Generic[T]):
     def distinct(self, *criterion: Any) -> QuerySet[T]:
         """
         Add DISTINCT criteria to the query.
+
+        Example:
+            >>> articles = await Article.objects.distinct().fetch(db)
+            # SELECT DISTINCT * FROM articles;
         """
         return QuerySet(self.model, self._stmt.distinct(*criterion))
 
     def order_by(self, *criterion: Any) -> QuerySet[T]:
         """
         Add ORDER BY criteria to the query.
+
+        Example:
+            >>> articles = await Article.objects.order_by("title").fetch(db)
+            # SELECT * FROM articles ORDER BY title ASC;
         """
         return QuerySet(self.model, self._stmt.order_by(*criterion))
 
     def limit(self, count: int) -> QuerySet[T]:
         """
         Limit the number of records returned.
+
+        Example:
+            >>> articles = await Article.objects.limit(10).fetch(db)
+            # SELECT * FROM articles LIMIT 10;
         """
         return QuerySet(self.model, self._stmt.limit(count))
 
     def offset(self, count: int) -> QuerySet[T]:
         """
         Apply an offset to the result set.
+
+        Example:
+            >>> articles = await Article.objects.offset(10).fetch(db)
+            # SELECT * FROM articles OFFSET 10;
         """
         return QuerySet(self.model, self._stmt.offset(count))
 
     def only(self, *fields: str) -> QuerySet[T]:
         """
         Load only the specified fields.
+
+        Example:
+            >>> articles = await Article.objects.only("title").fetch(db)
+            # SELECT id, title FROM articles;
         """
         from sqlalchemy.orm import load_only
 
@@ -147,6 +170,10 @@ class QuerySet(Generic[T]):
     def defer(self, *fields: str) -> QuerySet[T]:
         """
         Defer loading of the specified fields.
+
+        Example:
+            >>> articles = await Article.objects.defer("content").fetch(db)
+            # SELECT id, title, ... FROM articles; (content column excluded)
         """
         from sqlalchemy.orm import defer
 
@@ -157,7 +184,11 @@ class QuerySet(Generic[T]):
 
     def select_related(self, *fields: str) -> QuerySet[T]:
         """
-        Eagerly load related relationships to prevent N+1 queries.
+        Eagerly load related relationships to prevent N+1 queries using JOIN.
+
+        Example:
+            >>> articles = await Article.objects.select_related("author").fetch(db)
+            # SELECT * FROM articles JOIN authors ON articles.author_id = authors.id;
         """
         stmt = self._stmt
         for field in fields:
@@ -167,6 +198,11 @@ class QuerySet(Generic[T]):
     def prefetch_related(self, *fields: str) -> QuerySet[T]:
         """
         Eagerly load related relationships using separate queries (SELECT IN).
+
+        Example:
+            >>> articles = await Article.objects.prefetch_related("tags").fetch(db)
+            # SELECT * FROM articles;
+            # SELECT * FROM tags WHERE id IN (...);
         """
         stmt = self._stmt
         for field in fields:
@@ -176,6 +212,10 @@ class QuerySet(Generic[T]):
     async def fetch(self, db: AsyncSession) -> Sequence[T]:
         """
         Execute the query and return all matching records.
+
+        Example:
+            >>> articles = await Article.objects.all().fetch(db)
+            # SELECT * FROM articles;
         """
         result = await db.scalars(self._stmt)
         return result.unique().all()
@@ -194,7 +234,7 @@ class QuerySet(Generic[T]):
 
         Example:
             >>> data = await Article.objects.values(db, "title", "content")
-            >>> # [{'title': 'A', 'content': '...'}, ...]
+            # SELECT title, content FROM articles;
         """
         if not fields:
             # Select all columns if no fields specified
@@ -221,6 +261,10 @@ class QuerySet(Generic[T]):
         """
         Return a list of tuples for the specified fields.
         If flat=True and only one field is specified, return a flat list.
+
+        Example:
+            >>> data = await Article.objects.values_list(db, "title", flat=True)
+            # SELECT title FROM articles;
         """
         if not fields:
             # Select all columns if no fields specified
@@ -250,6 +294,10 @@ class QuerySet(Generic[T]):
     async def first(self, db: AsyncSession) -> T | None:
         """
         Execute the query and return the first matching record or None.
+
+        Example:
+            >>> article = await Article.objects.first(db)
+            # SELECT * FROM articles LIMIT 1;
         """
         result = await db.scalars(self._stmt.limit(1))
         return result.unique().one_or_none()
@@ -257,18 +305,30 @@ class QuerySet(Generic[T]):
     async def latest(self, db: AsyncSession, field: str = "created_at") -> T | None:
         """
         Return the latest object in the table based on the given field.
+
+        Example:
+            >>> article = await Article.objects.latest(db)
+            # SELECT * FROM articles ORDER BY created_at DESC LIMIT 1;
         """
         return await self.order_by(getattr(self.model, field).desc()).first(db)
 
     async def earliest(self, db: AsyncSession, field: str = "created_at") -> T | None:
         """
         Return the earliest object in the table based on the given field.
+
+        Example:
+            >>> article = await Article.objects.earliest(db)
+            # SELECT * FROM articles ORDER BY created_at ASC LIMIT 1;
         """
         return await self.order_by(getattr(self.model, field).asc()).first(db)
 
     async def count(self, db: AsyncSession) -> int:
         """
         Return the total number of records matching the query.
+
+        Example:
+            >>> count = await Article.objects.count(db)
+            # SELECT count(*) FROM articles;
         """
         count_stmt = select(func.count()).select_from(self._stmt.subquery())
         return await db.scalar(count_stmt) or 0
@@ -276,12 +336,22 @@ class QuerySet(Generic[T]):
     async def exists(self, db: AsyncSession) -> bool:
         """
         Check if any records exist matching the query.
+
+        Example:
+            >>> exists = await Article.objects.filter(title="Intro").exists(db)
+            # SELECT EXISTS (SELECT 1 FROM articles WHERE title = 'Intro');
         """
         return await self.count(db) > 0
 
     async def update(self, db: AsyncSession, **values: Any) -> int:
         """
         Perform a bulk update on all records matched by the query.
+
+        Example:
+            >>> count = await Article.objects.filter(
+            ...     title="Old"
+            ... ).update(db, title="New")
+            # UPDATE articles SET title = 'New' WHERE title = 'Old';
         """
         where_clause = self._stmt._where_criteria
         if not where_clause:
@@ -301,6 +371,10 @@ class QuerySet(Generic[T]):
     async def delete(self, db: AsyncSession) -> int:
         """
         Delete all records matched by the query.
+
+        Example:
+            >>> count = await Article.objects.filter(title="Trash").delete(db)
+            # DELETE FROM articles WHERE title = 'Trash';
         """
         where_clause = self._stmt._where_criteria
         if not where_clause:
