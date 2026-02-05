@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}Login - Flash Blog{% endblock %}
+
+{% block content %}
+<section class="card card-narrow">
+    <div class="stack">
+        <div>
+            <div class="card-title">Welcome back</div>
+            <div class="card-subtitle">Log in to keep writing and publishing.</div>
+        </div>
+
+        {% if messages.error %}
+            <div class="alert alert-danger">{{ messages.error }}</div>
+        {% endif %}
+        {% if messages.success %}
+            <div class="alert alert-success">{{ messages.success }}</div>
+        {% endif %}
+        {% if form.non_field_errors %}
+            <div class="alert alert-danger">{{ form.non_field_errors[0] }}</div>
+        {% endif %}
+
+        <form method="POST" action="/login" class="stack">
+            {% for field in form.fields %}
+                {% if field.input_type == "hidden" %}
+                    <input type="hidden" name="{{ field.name }}" value="{{ field.value or '' }}">
+                {% else %}
+                    <div class="field">
+                        <label for="{{ field.name }}" class="field-label">{{ field.label }}</label>
+                        <input
+                            type="{{ field.input_type }}"
+                            id="{{ field.name }}"
+                            name="{{ field.name }}"
+                            class="input"
+                            placeholder="{{ field.placeholder or '' }}"
+                            {% if field.input_type != "password" %}
+                                value="{{ field.value or '' }}"
+                            {% endif %}
+                            {% for attr, value in field.attrs.items() %}
+                                {{ attr }}="{{ value }}"
+                            {% endfor %}
+                        >
+                        {% if field.help_text %}
+                            <span class="field-hint">{{ field.help_text }}</span>
+                        {% endif %}
+                        {% if field.errors %}
+                            <div class="alert alert-danger">{{ field.errors[0] }}</div>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            {% endfor %}
+
+            <button type="submit" class="btn">Log in</button>
+        </form>
+
+        <div class="meta">
+            <span>Need an account?</span>
+            <a href="/register" class="btn btn-ghost">Create one</a>
+        </div>
+    </div>
+</section>
+{% endblock %}

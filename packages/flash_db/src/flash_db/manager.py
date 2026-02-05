@@ -13,6 +13,8 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
     from sqlalchemy.sql import ColumnElement
 
+    from .expressions import Q
+
 T = TypeVar("T", bound=Model)
 PrimaryKey = int | str | UUID
 
@@ -39,11 +41,85 @@ class ModelManager(Generic[T]):
         """
         return self._get_queryset()
 
-    def filter(self, *conditions: ColumnElement[bool]) -> QuerySet[T]:
+    def filter(
+        self,
+        *conditions: ColumnElement[bool] | Q,
+        **kwargs: object,
+    ) -> QuerySet[T]:
         """
         Return a filtered QuerySet based on provided conditions.
         """
-        return self._get_queryset().filter(*conditions)
+        return self._get_queryset().filter(*conditions, **kwargs)
+
+    def exclude(
+        self, *conditions: ColumnElement[bool] | Q, **kwargs: object
+    ) -> QuerySet[T]:
+        """
+        Return a QuerySet excluding records matching provided conditions.
+        """
+        return self._get_queryset().exclude(*conditions, **kwargs)
+
+    def distinct(self, *criterion: Any) -> QuerySet[T]:
+        """
+        Return a QuerySet with DISTINCT criteria.
+        """
+        return self._get_queryset().distinct(*criterion)
+
+    def order_by(self, *criterion: Any) -> QuerySet[T]:
+        """
+        Return a QuerySet with ORDER BY criteria.
+        """
+        return self._get_queryset().order_by(*criterion)
+
+    def limit(self, count: int) -> QuerySet[T]:
+        """
+        Return a QuerySet with LIMIT criteria.
+        """
+        return self._get_queryset().limit(count)
+
+    def offset(self, count: int) -> QuerySet[T]:
+        """
+        Return a QuerySet with OFFSET criteria.
+        """
+        return self._get_queryset().offset(count)
+
+    def only(self, *fields: str) -> QuerySet[T]:
+        """
+        Return a QuerySet loading only specified fields.
+        """
+        return self._get_queryset().only(*fields)
+
+    def defer(self, *fields: str) -> QuerySet[T]:
+        """
+        Return a QuerySet deferring specified fields.
+        """
+        return self._get_queryset().defer(*fields)
+
+    async def latest(self, db: AsyncSession, field: str = "created_at") -> T | None:
+        """
+        Return the latest object in the table based on the given field.
+        """
+        return await self._get_queryset().latest(db, field)
+
+    async def earliest(self, db: AsyncSession, field: str = "created_at") -> T | None:
+        """
+        Return the earliest object in the table based on the given field.
+        """
+        return await self._get_queryset().earliest(db, field)
+
+    async def values(self, db: AsyncSession, *fields: str) -> list[dict[str, Any]]:
+        """
+        Return a list of dictionaries for the specified fields.
+        """
+        return await self._get_queryset().values(db, *fields)
+
+    async def values_list(
+        self, db: AsyncSession, *fields: str, flat: bool = False
+    ) -> list[Any]:
+        """
+        Return a list of tuples for the specified fields.
+        """
+        return await self._get_queryset().values_list(db, *fields, flat=flat)
 
     async def get(
         self,
@@ -53,8 +129,15 @@ class ModelManager(Generic[T]):
         """
         Retrieve a single object matching the given conditions.
 
+        Args:
+            db: The database session.
+            *conditions: SQLAlchemy expressions or Q objects.
+
         Raises:
             ValueError: If no object matches or multiple objects match.
+
+        Example:
+            >>> user = await User.objects.get(db, User.id == 1)
         """
         stmt = select(self._model).where(*conditions).limit(2)
         result = await db.execute(stmt)
@@ -86,9 +169,30 @@ class ModelManager(Generic[T]):
         """
         return await self.get(db, getattr(self._model, pk_column) == pk)
 
+    async def exists(self, db: AsyncSession, *conditions: ColumnElement[bool]) -> bool:
+        """
+        Check if any records exist matching the given conditions.
+        """
+        return await self.filter(*conditions).exists(db)
+
+    async def count(self, db: AsyncSession, *conditions: ColumnElement[bool]) -> int:
+        """
+        Return the total number of records matching the given conditions.
+        """
+        return await self.filter(*conditions).count(db)
+
     async def create(self, db: AsyncSession, **fields: Any) -> T:
         """
         Create and persist a new model instance.
+
+        Args:
+            db: The database session.
+            **fields: Column values for the new instance.
+
+        Example:
+            >>> user = await User.objects.create(
+            ...     db, name="John Doe", email="john@example.com"
+            ... )
         """
         try:
             instance: T = self._model(**fields)
@@ -104,6 +208,81 @@ class ModelManager(Generic[T]):
             ) from e
         else:
             return instance
+
+    async def bulk_create(
+        self, db: AsyncSession, objs: list[dict[str, Any]]
+    ) -> list[T]:
+        """
+        Create multiple records in a single database round-trip.
+
+        Args:
+            db: The database session.
+            objs: A list of dictionaries, each representing column values
+                for a new record.
+
+        Example:
+            >>> users = await User.objects.bulk_create(db, [
+            ...     {"name": "Alice"},
+            ...     {"name": "Bob"},
+            ... ])
+        """
+        if not objs:
+            return []
+
+        from sqlalchemy import insert
+
+        stmt = insert(self._model).values(objs).returning(self._model)
+        try:
+            result = await db.execute(stmt)
+            await db.commit()
+            return list(result.scalars().all())
+        except SQLAlchemyError as e:
+            await db.rollback()
+            msg = f"Database error while bulk creating {self._model.__name__}: {e}"
+            raise RuntimeError(msg) from e
+
+    async def get_or_create(
+        self,
+        db: AsyncSession,
+        defaults: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> tuple[T, bool]:
+        """
+        Look up an object with the given kwargs, creating one if necessary.
+        Return a tuple of (object, created), where created is a boolean.
+        """
+        try:
+            conditions = [getattr(self._model, k) == v for k, v in kwargs.items()]
+            instance = await self.get(db, *conditions)
+        except ValueError:
+            params = {**kwargs, **(defaults or {})}
+            instance = await self.create(db, **params)
+            return instance, True
+        else:
+            return instance, False
+
+    async def update_or_create(
+        self,
+        db: AsyncSession,
+        defaults: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> tuple[T, bool]:
+        """
+        Look up an object with the given kwargs, updating one if exists with defaults,
+        otherwise creating one.
+        Return a tuple of (object, created), where created is a boolean.
+        """
+        try:
+            conditions = [getattr(self._model, k) == v for k, v in kwargs.items()]
+            instance = await self.get(db, *conditions)
+            if defaults:
+                instance = await self.update(db, pk=instance.id, **defaults)
+        except ValueError:
+            params = {**kwargs, **(defaults or {})}
+            instance = await self.create(db, **params)
+            return instance, True
+        else:
+            return instance, False
 
     async def update(self, db: AsyncSession, pk: Any, **fields: Any) -> T:
         """

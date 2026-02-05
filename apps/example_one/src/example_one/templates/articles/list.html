@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+
+{% block title %}Articles - Flash Blog{% endblock %}
+
+{% block content %}
+<section class="card">
+    <div class="card-header">
+        <div>
+            <div class="card-title">Articles</div>
+            <div class="card-subtitle">
+                Browse published posts and keep track of your drafts.
+            </div>
+        </div>
+        {% if user and user.is_active %}
+            <a href="/articles/new" class="btn">Write Article</a>
+        {% else %}
+            <a href="/login" class="btn btn-secondary">Sign in to write</a>
+        {% endif %}
+    </div>
+    <div class="meta">
+        <span><strong>{{ total_count }}</strong> results</span>
+        {% if query %}
+            <span>for "{{ query }}"</span>
+        {% endif %}
+        {% if active_status %}
+            <span>Status: <strong>{{ active_status }}</strong></span>
+        {% endif %}
+    </div>
+</section>
+
+<div class="list-layout">
+    <div class="list-main">
+        {% if messages.success %}
+            <div class="alert alert-success">{{ messages.success }}</div>
+        {% endif %}
+        {% if messages.error %}
+            <div class="alert alert-danger">{{ messages.error }}</div>
+        {% endif %}
+        {% if messages.info %}
+            <div class="alert alert-info">{{ messages.info }}</div>
+        {% endif %}
+
+        <form method="GET" class="toolbar">
+            <div class="input-group" style="flex: 1;">
+                <input
+                    type="text"
+                    name="q"
+                    value="{{ query }}"
+                    placeholder="Search articles by title or content"
+                    class="input"
+                >
+                <select name="status" class="select">
+                    <option value="" {% if not active_status %}selected{% endif %}>All</option>
+                    <option value="published" {% if active_status == 'published' %}selected{% endif %}>Published</option>
+                    <option value="draft" {% if active_status == 'draft' %}selected{% endif %}>Drafts</option>
+                </select>
+            </div>
+            <button type="submit" class="btn btn-ghost">Search</button>
+        </form>
+
+        {% if articles %}
+            <div class="stack">
+                {% for article in articles %}
+                    {% set author_name = article.author.username if article.author else "User #" ~ article.author_id %}
+                    <article class="card article-row">
+                        <div class="article-row-header">
+                            <div>
+                                <div class="article-row-title">
+                                    <a href="/articles/{{ article.slug }}">{{ article.title }}</a>
+                                </div>
+                                <div class="article-row-meta">
+                                    <span>by <strong>{{ author_name }}</strong></span>
+                                    <span><strong>{{ article.read_time }}</strong> min read</span>
+                                    <span>Slug: <strong>{{ article.slug }}</strong></span>
+                                </div>
+                            </div>
+                            {% if article.published %}
+                                <span class="badge badge-success">Published</span>
+                            {% else %}
+                                <span class="badge badge-draft">Draft</span>
+                            {% endif %}
+                        </div>
+                        <p>
+                            {{ article.content[:220] }}{% if article.content|length > 220 %}...{% endif %}
+                        </p>
+                        <div class="article-actions">
+                            <a href="/articles/{{ article.slug }}" class="btn btn-ghost">Read article</a>
+                            {% if user and user.is_active and user.id == article.author_id %}
+                                <a href="/articles/{{ article.slug }}/edit" class="btn btn-secondary">Edit</a>
+                            {% endif %}
+                        </div>
+                    </article>
+                {% endfor %}
+            </div>
+
+            {% if total_pages > 1 %}
+                {% set status_param = "&status=" ~ active_status if active_status else "" %}
+                {% set query_param = "&q=" ~ query if query else "" %}
+                <div class="pagination">
+                    <div class="page-label">
+                        Page {{ page }} of {{ total_pages }}
+                    </div>
+                    <div class="article-actions">
+                        {% if page > 1 %}
+                            <a href="/articles/?page={{ page - 1 }}{{ status_param }}{{ query_param }}" class="btn btn-secondary">Previous</a>
+                        {% endif %}
+                        {% if show_leading %}
+                            <a href="/articles/?page=1{{ status_param }}{{ query_param }}" class="btn btn-page">1</a>
+                            <span class="page-label">…</span>
+                        {% endif %}
+                        {% for p in page_range %}
+                            <a
+                                href="/articles/?page={{ p }}{{ status_param }}{{ query_param }}"
+                                class="btn btn-page{% if p == page %} active{% endif %}"
+                            >{{ p }}</a>
+                        {% endfor %}
+                        {% if show_trailing %}
+                            <span class="page-label">…</span>
+                            <a href="/articles/?page={{ total_pages }}{{ status_param }}{{ query_param }}" class="btn btn-page">{{ total_pages }}</a>
+                        {% endif %}
+                        {% if page < total_pages %}
+                            <a href="/articles/?page={{ page + 1 }}{{ status_param }}{{ query_param }}" class="btn btn-secondary">Next</a>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endif %}
+        {% else %}
+            <div class="empty-state">
+                <h3>No articles found.</h3>
+                <p>Try changing the filter or start your first post.</p>
+                {% if user and user.is_active %}
+                    <div class="article-actions section-actions center">
+                        <a href="/articles/new" class="btn">Write your first article</a>
+                    </div>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+
+    {% set base_query = "?q=" ~ query if query else "" %}
+    <aside class="list-sidebar">
+        <div class="card">
+            <div class="card-title">Filters</div>
+            <div class="card-subtitle">Quickly narrow your feed.</div>
+            <div class="pill-group" style="margin-top: 1rem;">
+                <a
+                    href="/articles/{{ base_query }}"
+                    class="pill{% if not active_status %} active{% endif %}"
+                >All</a>
+                <a
+                    href="/articles/?status=published{% if query %}&q={{ query }}{% endif %}"
+                    class="pill{% if active_status == 'published' %} active{% endif %}"
+                >Published</a>
+                <a
+                    href="/articles/?status=draft{% if query %}&q={{ query }}{% endif %}"
+                    class="pill{% if active_status == 'draft' %} active{% endif %}"
+                >Drafts</a>
+            </div>
+        </div>
+
+        <div class="card" style="margin-top: 1.5rem;">
+            <div class="card-title">Stats</div>
+            <div class="card-subtitle">Live overview of this list.</div>
+            <div class="stat-grid" style="margin-top: 1rem;">
+                <div class="stat-item">
+                    <strong>{{ total_count }}</strong>
+                    articles in view
+                </div>
+                <div class="stat-item">
+                    <strong>{{ total_pages }}</strong>
+                    total pages
+                </div>
+                <div class="stat-item">
+                    <strong>{{ page }}</strong>
+                    current page
+                </div>
+            </div>
+        </div>
+    </aside>
+</div>
+{% endblock %}

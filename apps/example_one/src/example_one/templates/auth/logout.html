@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}Logout - Flash Blog{% endblock %}
+
+{% block content %}
+<section class="card card-narrow">
+    <div class="stack">
+        <div>
+            <div class="card-title">Ready to sign out?</div>
+            <div class="card-subtitle">You can log back in anytime.</div>
+        </div>
+
+        {% if flash_message %}
+            <div class="alert alert-info">{{ flash_message }}</div>
+        {% endif %}
+
+        {% if user and user.is_active %}
+            <form method="POST" action="/logout" class="article-actions">
+                <button type="submit" class="btn">Confirm logout</button>
+                <a href="/" class="btn btn-secondary">Back home</a>
+            </form>
+        {% else %}
+            <div class="article-actions">
+                <a href="/login" class="btn">Sign in</a>
+                <a href="/" class="btn btn-secondary">Back home</a>
+            </div>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

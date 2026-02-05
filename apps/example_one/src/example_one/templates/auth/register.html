@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}Register - Flash Blog{% endblock %}
+
+{% block content %}
+<section class="card card-narrow">
+    <div class="stack">
+        <div>
+            <div class="card-title">Create your account</div>
+            <div class="card-subtitle">Start drafting and publishing in minutes.</div>
+        </div>
+
+        {% if messages.error %}
+            <div class="alert alert-danger">{{ messages.error }}</div>
+        {% endif %}
+        {% if messages.success %}
+            <div class="alert alert-success">{{ messages.success }}</div>
+        {% endif %}
+        {% if form.non_field_errors %}
+            <div class="alert alert-danger">{{ form.non_field_errors[0] }}</div>
+        {% endif %}
+
+        <form method="post" class="stack">
+            {% for field in form.fields %}
+                <div class="field">
+                    <label for="{{ field.name }}" class="field-label">{{ field.label }}</label>
+                    <input
+                        type="{{ field.input_type }}"
+                        id="{{ field.name }}"
+                        name="{{ field.name }}"
+                        class="input"
+                        placeholder="{{ field.placeholder or '' }}"
+                        {% if field.input_type != "password" %}
+                            value="{{ field.value or '' }}"
+                        {% endif %}
+                        {% for attr, value in field.attrs.items() %}
+                            {{ attr }}="{{ value }}"
+                        {% endfor %}
+                    >
+                    {% if field.help_text %}
+                        <span class="field-hint">{{ field.help_text }}</span>
+                    {% endif %}
+                    {% if field.errors %}
+                        <div class="alert alert-danger">{{ field.errors[0] }}</div>
+                    {% endif %}
+                </div>
+            {% endfor %}
+
+            <button type="submit" class="btn">Create account</button>
+        </form>
+
+        <div class="meta">
+            <span>Already have an account?</span>
+            <a href="/login" class="btn btn-ghost">Sign in</a>
+        </div>
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+
+{% block title %}{{ action }} Article - Flash Blog{% endblock %}
+
+{% block content %}
+<section class="card">
+    <div class="card-header">
+        <div>
+            <div class="card-title">{{ action }} Article</div>
+            <div class="card-subtitle">
+                Share your idea with a clean, focused editor.
+            </div>
+        </div>
+        {% if form_data.published %}
+            <span class="badge badge-success">Published</span>
+        {% else %}
+            <span class="badge badge-draft">Draft</span>
+        {% endif %}
+    </div>
+
+    {% if messages.error %}
+        <div class="alert alert-danger">{{ messages.error }}</div>
+    {% endif %}
+
+    <div class="toolbar">
+        <div class="meta">
+            <span><strong>Markdown</strong> enabled</span>
+            <span id="word-count">0 words</span>
+            <span id="read-time">1 min read</span>
+        </div>
+        <div class="article-actions">
+            <a href="/articles/" class="btn btn-secondary">Back to list</a>
+        </div>
+    </div>
+
+    <form method="POST" class="stack">
+        <div class="field">
+            <label for="title" class="field-label">Title</label>
+            <input
+                type="text"
+                id="title"
+                name="title"
+                class="input"
+                required
+                placeholder="Give your story a clear, memorable title"
+                value="{{ form_data.title or '' }}"
+            >
+        </div>
+
+        <div class="field">
+            <label for="slug" class="field-label">Slug</label>
+            <input
+                type="text"
+                id="slug"
+                name="slug"
+                class="input"
+                required
+                placeholder="short-and-readable"
+                value="{{ form_data.slug or '' }}"
+            >
+            <span class="field-hint">Used in the URL: /articles/your-slug</span>
+        </div>
+
+        <div class="field">
+            <label class="field-label">Content</label>
+            <div class="editor-grid">
+                <div class="editor-panel">
+                    <h4>Editor</h4>
+                    <textarea
+                        id="content"
+                        name="content"
+                        class="textarea"
+                        required
+                        placeholder="Write something people will remember..."
+                    >{{ form_data.content or '' }}</textarea>
+                    <span class="field-hint">Markdown supported: headings, lists, code, and links.</span>
+                </div>
+                <div class="editor-panel">
+                    <h4>Preview</h4>
+                    <div id="content-preview" class="preview"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="field">
+            <label class="field-label">Publishing</label>
+            <label class="check-row">
+                <input type="checkbox" id="published" name="published" {% if form_data.published %}checked{% endif %}>
+                Publish immediately
+            </label>
+            <span class="field-hint">
+                Uncheck to save as a draft and continue editing later.
+            </span>
+        </div>
+
+        <div class="article-actions">
+            <button type="submit" class="btn">Save Article</button>
+            <a href="/articles/" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</section>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+(() => {
+    const titleInput = document.getElementById("title");
+    const slugInput = document.getElementById("slug");
+    const contentInput = document.getElementById("content");
+    const preview = document.getElementById("content-preview");
+    const wordCount = document.getElementById("word-count");
+    const readTime = document.getElementById("read-time");
+    if (!titleInput || !slugInput) {
+        return;
+    }
+
+    let slugTouched = slugInput.value.trim().length > 0;
+
+    const slugify = (value) => value
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+
+    slugInput.addEventListener("input", () => {
+        slugTouched = slugInput.value.trim().length > 0;
+    });
+
+    titleInput.addEventListener("input", () => {
+        if (slugTouched) {
+            return;
+        }
+        slugInput.value = slugify(titleInput.value);
+    });
+
+    const renderPreview = () => {
+        if (!contentInput || !preview) {
+            return;
+        }
+        const text = contentInput.value || "";
+        if (window.marked) {
+            preview.innerHTML = window.marked.parse(text);
+        } else {
+            preview.textContent = text;
+        }
+        const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+        if (wordCount) {
+            wordCount.textContent = `${words} words`;
+        }
+        const minutes = Math.max(1, Math.ceil(words / 220));
+        if (readTime) {
+            readTime.textContent = `${minutes} min read`;
+        }
+    };
+
+    if (contentInput) {
+        contentInput.addEventListener("input", renderPreview);
+        renderPreview();
+    }
+})();
+</script>
+{% endblock %}

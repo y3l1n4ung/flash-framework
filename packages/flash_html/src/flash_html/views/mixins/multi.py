@@ -11,6 +11,8 @@ from sqlalchemy.exc import (
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from .database import DatabaseMixin
+
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T", bound=Model)
@@ -19,7 +21,7 @@ SortDirection = Literal["asc", "desc"]
 OrderingInstruction = Tuple[str, SortDirection]
 
 
-class MultipleObjectMixin(Generic[T]):
+class MultipleObjectMixin(DatabaseMixin, Generic[T]):
     """
     Retrieve multiple objects from the database.
 

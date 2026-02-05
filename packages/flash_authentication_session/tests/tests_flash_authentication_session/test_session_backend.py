@@ -12,7 +12,6 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
-@pytest.mark.asyncio
 class TestSessionBackendUnit:
     """
     Unit tests for SessionAuthenticationBackend methods.
@@ -41,6 +40,7 @@ class TestSessionBackendUnit:
         }
         return Request(scope)
 
+    @pytest.mark.asyncio
     async def test_login_success(
         self,
         backend: SessionAuthenticationBackend,
@@ -74,6 +74,7 @@ class TestSessionBackendUnit:
         assert stored_session.user_id == test_user.id
         assert stored_session.ip_address == "127.0.0.1"
 
+    @pytest.mark.asyncio
     async def test_login_invalid_password(
         self,
         backend: SessionAuthenticationBackend,
@@ -95,6 +96,7 @@ class TestSessionBackendUnit:
         assert result.message == "Login Failed"
         assert SESSION_COOKIE_NAME not in request.session
 
+    @pytest.mark.asyncio
     async def test_login_inactive_user(
         self,
         backend: SessionAuthenticationBackend,
@@ -116,6 +118,7 @@ class TestSessionBackendUnit:
         assert "inactive" in result.errors[0]
         assert SESSION_COOKIE_NAME not in request.session
 
+    @pytest.mark.asyncio
     async def test_login_missing_session_middleware(
         self,
         backend: SessionAuthenticationBackend,
@@ -145,6 +148,7 @@ class TestSessionBackendUnit:
         assert result.message == "Configuration Error"
         assert "SessionMiddleware" in result.errors[0]
 
+    @pytest.mark.asyncio
     async def test_login_database_error(
         self,
         backend: SessionAuthenticationBackend,
@@ -174,6 +178,7 @@ class TestSessionBackendUnit:
         # Checks that the exception message was captured in errors
         assert len(result.errors) > 0
 
+    @pytest.mark.asyncio
     async def test_authenticate_valid_session(
         self,
         backend: SessionAuthenticationBackend,
@@ -198,6 +203,7 @@ class TestSessionBackendUnit:
         assert result.user.id == test_user.id
         assert result.extra["session"].session_key == session.session_key
 
+    @pytest.mark.asyncio
     async def test_authenticate_expired_session(
         self,
         backend: SessionAuthenticationBackend,
@@ -221,6 +227,7 @@ class TestSessionBackendUnit:
         assert result.success is False
         assert result.message == "Session Expired"
 
+    @pytest.mark.asyncio
     async def test_authenticate_invalid_token(
         self, backend: SessionAuthenticationBackend, db_session: AsyncSession
     ) -> None:
@@ -230,6 +237,7 @@ class TestSessionBackendUnit:
         assert result.success is False
         assert result.message == "Invalid Session"
 
+    @pytest.mark.asyncio
     async def test_authenticate_missing_dependencies(
         self, backend: SessionAuthenticationBackend, db_session: AsyncSession
     ) -> None:
@@ -239,6 +247,7 @@ class TestSessionBackendUnit:
         assert result_no_token.success is False
         assert result_no_token.message == "Internal Error"
 
+    @pytest.mark.asyncio
     async def test_authenticate_inactive_user(
         self,
         backend: SessionAuthenticationBackend,
@@ -258,6 +267,7 @@ class TestSessionBackendUnit:
         assert result.success is False
         assert result.message == "Account Inactive"
 
+    @pytest.mark.asyncio
     async def test_logout_success(
         self,
         backend: SessionAuthenticationBackend,
@@ -294,6 +304,7 @@ class TestSessionBackendUnit:
         count = await db_session.scalar(stmt)
         assert count == 0
 
+    @pytest.mark.asyncio
     async def test_logout_no_session(
         self, backend: SessionAuthenticationBackend, db_session: AsyncSession
     ) -> None:
@@ -305,6 +316,7 @@ class TestSessionBackendUnit:
 
         assert success is False
 
+    @pytest.mark.asyncio
     async def test_logout_missing_session_middleware(
         self, backend: SessionAuthenticationBackend, db_session: AsyncSession
     ) -> None:
@@ -323,6 +335,7 @@ class TestSessionBackendUnit:
 
         assert success is False
 
+    @pytest.mark.asyncio
     async def test_logout_database_error(
         self,
         backend: SessionAuthenticationBackend,

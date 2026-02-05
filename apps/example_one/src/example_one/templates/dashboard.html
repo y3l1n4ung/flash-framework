@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block title %}Home - Flash Blog{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <div>
+        <p class="eyebrow">Flash Framework Example</p>
+        <h1 class="hero-title">Ship thoughtful stories with a calm workflow.</h1>
+        <p class="hero-subtitle">
+            Flash Blog is a lightweight demo showing off class-based views,
+            async data access, and a clean authoring experience.
+        </p>
+        <div class="hero-actions">
+            <a href="/articles/" class="btn">Browse Articles</a>
+            {% if user and user.is_active %}
+                <a href="/articles/new" class="btn btn-secondary">Write New Article</a>
+            {% else %}
+                <a href="/register" class="btn btn-ghost">Create an Account</a>
+            {% endif %}
+        </div>
+    </div>
+    <div class="stack">
+        <div>
+            <div class="card-title">What you can do</div>
+            <p class="card-subtitle">
+                Draft, publish, and manage posts with granular permissions.
+            </p>
+        </div>
+        <div class="meta">
+            <div>
+                <strong>{{ recent_articles|length }}</strong> recent articles
+            </div>
+            {% if user and user.is_active %}
+                <div>
+                    <strong>{{ user_articles|length }}</strong> of your latest drafts
+                </div>
+            {% else %}
+                <div>
+                    <strong>1-click</strong> sign-in to start writing
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</section>
+
+<section class="grid grid-2">
+    <div class="card">
+        <div class="card-header">
+            <div>
+                <div class="card-title">Recent Articles</div>
+                <div class="card-subtitle">Fresh from the community.</div>
+            </div>
+            <a href="/articles/" class="btn btn-secondary">View all</a>
+        </div>
+        {% if recent_articles %}
+            <div class="list">
+                {% for article in recent_articles %}
+                    {% set author_name = article.author.username if article.author else "User #" ~ article.author_id %}
+                    <div class="list-item">
+                        <div>
+                            <div class="list-title">{{ article.title }}</div>
+                            <div class="list-meta">by {{ author_name }}</div>
+                        </div>
+                        <a href="/articles/{{ article.slug }}" class="btn btn-ghost">Read</a>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <h3>No articles yet.</h3>
+                <p>Be the first to share something worth reading.</p>
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <div>
+                <div class="card-title">Your Workspace</div>
+                <div class="card-subtitle">Quick links for your next move.</div>
+            </div>
+            {% if user and user.is_active %}
+                <a href="/articles/?status=draft" class="btn btn-secondary">View drafts</a>
+            {% else %}
+                <a href="/login" class="btn btn-secondary">Sign in</a>
+            {% endif %}
+        </div>
+        {% if user and user.is_active %}
+            {% if user_articles %}
+                <div class="list">
+                    {% for article in user_articles %}
+                        <div class="list-item">
+                            <div>
+                                <div class="list-title">{{ article.title }}</div>
+                                <div class="list-meta">Slug: {{ article.slug }}</div>
+                            </div>
+                            {% if article.published %}
+                                <span class="badge badge-success">Published</span>
+                            {% else %}
+                                <span class="badge badge-draft">Draft</span>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+                <div class="article-actions section-actions">
+                    <a href="/articles/new" class="btn">Write another</a>
+                    <a href="/articles/" class="btn btn-secondary">Manage posts</a>
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <h3>Your drafts will show up here.</h3>
+                    <p>Start with a headline and build your next story.</p>
+                    <div class="article-actions section-actions center">
+                        <a href="/articles/new" class="btn">Write your first post</a>
+                    </div>
+                </div>
+            {% endif %}
+        {% else %}
+            <div class="empty-state">
+                <h3>Sign in to unlock authoring tools.</h3>
+                <p>Create drafts, publish, and track your edits in one place.</p>
+                <div class="article-actions section-actions center">
+                    <a href="/register" class="btn">Create account</a>
+                    <a href="/login" class="btn btn-secondary">Sign in</a>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

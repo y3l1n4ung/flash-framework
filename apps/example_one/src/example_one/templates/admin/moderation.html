@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+
+{% block title %}Moderation Queue - Flash Blog{% endblock %}
+
+{% block content %}
+<section class="card">
+    <div class="card-header">
+        <div>
+            <div class="card-title">Moderation Queue</div>
+            <div class="card-subtitle">Review drafts and manage publish state.</div>
+        </div>
+        <a href="/admin/dashboard" class="btn btn-secondary">Back to Dashboard</a>
+    </div>
+
+    <div class="meta" style="margin-bottom: 1rem;">
+        <span><strong>{{ stats.drafts }}</strong> drafts</span>
+        <span><strong>{{ stats.published }}</strong> published</span>
+    </div>
+
+    <div class="article-actions" style="margin-bottom: 1.5rem;">
+        <form method="POST" action="/admin/moderation">
+            <input type="hidden" name="action" value="publish_all">
+            <button type="submit" class="btn">Publish all drafts</button>
+        </form>
+        <form method="POST" action="/admin/moderation">
+            <input type="hidden" name="action" value="unpublish_all">
+            <button type="submit" class="btn btn-secondary">Unpublish all</button>
+        </form>
+    </div>
+
+    {% if messages.success %}
+        <div class="alert alert-success">{{ messages.success }}</div>
+    {% endif %}
+    {% if messages.error %}
+        <div class="alert alert-danger">{{ messages.error }}</div>
+    {% endif %}
+
+    {% if articles %}
+        <div class="stack">
+            {% for article in articles %}
+                {% set author_name = article.author.username if article.author else "User #" ~ article.author_id %}
+                <div class="card article-row">
+                    <div class="article-row-header">
+                        <div>
+                            <div class="article-row-title">
+                                <a href="/articles/{{ article.slug }}">{{ article.title }}</a>
+                            </div>
+                            <div class="article-row-meta">
+                                <span>by <strong>{{ author_name }}</strong></span>
+                                <span>Slug: <strong>{{ article.slug }}</strong></span>
+                                <span>Status:
+                                    <strong>{% if article.published %}Published{% else %}Draft{% endif %}</strong>
+                                </span>
+                            </div>
+                        </div>
+                        <div class="article-actions">
+                            <form method="POST" action="/admin/moderation" style="display: inline;">
+                                <input type="hidden" name="article_id" value="{{ article.id }}">
+                                {% if article.published %}
+                                    <button type="submit" name="action" value="unpublish" class="btn btn-secondary">Unpublish</button>
+                                {% else %}
+                                    <button type="submit" name="action" value="publish" class="btn">Publish</button>
+                                {% endif %}
+                            </form>
+                            <a href="/articles/{{ article.slug }}/edit" class="btn btn-ghost">Edit</a>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty-state">
+            <h3>No drafts pending.</h3>
+            <p>Everything is already published.</p>
+        </div>
+    {% endif %}
+</section>
+{% endblock %}

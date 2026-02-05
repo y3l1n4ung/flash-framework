@@ -13,7 +13,6 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
-@pytest.mark.asyncio
 class TestSessionBackend:
     """Integration tests for the Session Authentication Backend."""
 
@@ -140,6 +139,7 @@ class TestSessionBackend:
         response = client.get("/verify")
         assert response.status_code == 401
 
+    @pytest.mark.asyncio
     async def test_session_cascade_delete(
         self, client: TestClient, test_user: User, db_session: AsyncSession
     ) -> None:
@@ -166,6 +166,7 @@ class TestSessionBackend:
         count_after = await db_session.scalar(stmt)
         assert count_after == 0
 
+    @pytest.mark.asyncio
     async def test_session_expiry_enforcement(
         self, client: TestClient, test_user: User, db_session: AsyncSession
     ) -> None:

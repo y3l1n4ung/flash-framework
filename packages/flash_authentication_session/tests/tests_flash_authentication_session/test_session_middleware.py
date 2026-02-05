@@ -29,7 +29,10 @@ async def middleware_app(db_session: AsyncSession) -> FastAPI:  # noqa: ARG001
     factory = db_module._require_session_factory()
 
     # Add the middleware
-    app.add_middleware(SessionAuthenticationMiddleware, session_maker=factory)  # ty:ignore[invalid-argument-type]
+    app.add_middleware(
+        SessionAuthenticationMiddleware,  # ty:ignore[invalid-argument-type]
+        session_maker=factory,
+    )
 
     @app.get("/me")
     def me(request: Request) -> dict:

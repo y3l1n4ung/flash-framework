@@ -36,7 +36,7 @@ async def test_init_db_sqlite_executes_fk_path():
     db.init_db("sqlite+aiosqlite:///:memory:")
 
     # session factory must be created
-    assert db._session_factory is not None
+    assert db._session_factory
 
 
 async def test_get_db_yields_session():
@@ -286,7 +286,7 @@ class TestModelManager:
         await create_article(db_session, title="Second")
 
         first = await Article.objects.all().first(db_session)
-        assert first is not None
+        assert first
         assert first.title == "First"
 
         # Empty queryset
@@ -367,8 +367,9 @@ class TestModelManager:
     async def test_db_initialization(self, db_session):
         """Verify database session works correctly."""
         article = await create_article(db_session, title="DB Test")
-        assert article.id is not None
-        assert article.created_at is not None
+        assert article
+        assert article.id
+        assert article.created_at
 
     async def test_queryset_bulk_update_with_valid_filter(self, db_session):
         """Verify bulk update executes correctly."""
@@ -472,7 +473,7 @@ class TestTimestampMixin:
     async def test_created_at_is_set(self, db_session):
         """Verify created_at is automatically set."""
         article = await create_article(db_session, title="Timestamp Test")
-        assert article.created_at is not None
+        assert article.created_at
 
     async def test_updated_at_on_update(self, db_session):
         """Verify updated_at changes on update."""
@@ -498,7 +499,7 @@ async def test_manager_error_handling_rollback(db_session, method_name, line_to_
     of rollback and raise logic.
     """
     # Ensure db_session fixture is properly initialized (even though we use mock)
-    assert db_session is not None
+    assert db_session
 
     # 1. Setup Mock
     mock_session = AsyncMock()

@@ -1,5 +1,5 @@
 # packages/flash_html/src/flash_html/views/mixins/template.py
-from typing import Any, cast
+from typing import Any
 
 from fastapi import Request, Response
 
@@ -25,6 +25,7 @@ class TemplateResponseMixin:
     template_name: str | None = None
     template_engine: TemplateManager | None = None
     content_type: str | None = None
+    request: Request
 
     def get_template_names(self) -> list[str]:
         """
@@ -73,10 +74,12 @@ class TemplateResponseMixin:
         # Priority: Instance attribute (injected via as_view) -> App State
         engine = self.template_engine
 
-        if not engine and hasattr(self, "request"):
-            req = cast("Request", self.request)  # pyright: ignore[reportAttributeAccessIssue]
-            if hasattr(req.app.state, "template_manager"):
-                engine = req.app.state.template_manager
+        if (
+            not engine
+            and hasattr(self, "request")
+            and hasattr(self.request.app.state, "template_manager")
+        ):
+            engine = self.request.app.state.template_manager
 
         if not engine:
             msg = (
@@ -91,12 +94,16 @@ class TemplateResponseMixin:
 
         # 2. Add Request to context (Required by Starlette/Jinja2Templates)
         # This allows templates to access {{ request }} and url_for()
-        context.setdefault("request", getattr(self, "request", None))
+        if not hasattr(self, "request") or self.request is None:
+            msg = "Request not set on view. Ensure the view is called via as_view()."
+            raise RuntimeError(msg)
+        context.setdefault("request", self.request)
 
         # 3. Render
         template_name = self.get_template_names()[0]
 
         return engine.templates.TemplateResponse(
+            self.request,
             name=template_name,
             context=context,
             media_type=self.content_type,

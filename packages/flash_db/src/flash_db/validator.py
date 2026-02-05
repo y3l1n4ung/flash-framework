@@ -42,10 +42,10 @@ class ModelValidator:
             )
 
         if not hasattr(model, "id"):
-            logger.warning(
-                "Model %s has no 'id' field. "
-                "This may cause issues with pk-based lookups.",
-                model.__name__,
+            msg = (
+                f"Model {model.__name__} has no 'id' field. "
+                f"flash_db requires an 'id' field for model operations."
             )
+            raise TypeError(msg)
 
         return model

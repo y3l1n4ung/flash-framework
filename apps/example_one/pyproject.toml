@@ -1,0 +1,28 @@
+[project]
+name = "example-one"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "flash-authentication-session",
+    "flash-authorization",
+    "flash-db",
+    "flash-html",
+    "flash-web-framework",
+    "markdown>=3.6",
+    "python-multipart>=0.0.22",
+]
+
+[tool.uv.sources]
+flash-db = { workspace = true }
+flash-html = { workspace = true }
+flash-authorization = { workspace = true }
+flash-authentication-session = { workspace = true }
+flash-web-framework = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "feedparser>=6.0.12",
+    "uvicorn>=0.40.0",
+]

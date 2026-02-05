@@ -1,3 +1,4 @@
+
 # Python
 __pycache__/
 *.py[cod]
@@ -24,3 +25,7 @@ htmlcov/
 
 # OS
 .DS_Store
+
+# Example app data
+*.db
+apps/example_one/src/example_one/data/

@@ -45,7 +45,7 @@ class TestTemplateResponseMixin:
         # We mock request because TemplateResponse expects it in context,
         # but we don't need it to be functional for this simple template.
         # Using a simple object or MagicMock is fine here as a placeholder.
-        mixin.request = Request({"type": "http"})  # type: ignore
+        mixin.request = Request({"type": "http"})
 
         response = mixin.render_to_response({"user": "World"})
 
@@ -66,7 +66,7 @@ class TestTemplateResponseMixin:
 
         # Create a request linked to that app
         request = Request({"type": "http", "app": app})
-        mixin.request = request  # type: ignore
+        mixin.request = request
 
         response = mixin.render_to_response({"user": "State"})
 
@@ -83,11 +83,23 @@ class TestTemplateResponseMixin:
         # Even with a request, if state is empty...
         app = FastAPI()  # Empty state
         request = Request({"type": "http", "app": app})
-        mixin.request = request  # type: ignore
+        mixin.request = request
 
         with pytest.raises(RuntimeError) as exc:
             mixin.render_to_response({})
         assert "Template engine not found" in str(exc.value)
+
+    def test_request_missing_error(self, manager):
+        """
+        Requirement: Raises RuntimeError if request is not set on the view.
+        """
+        mixin = TemplateResponseMixin()
+        mixin.template_name = "test.html"
+        mixin.template_engine = manager
+
+        with pytest.raises(RuntimeError) as exc:
+            mixin.render_to_response({})
+        assert "Request not set on view" in str(exc.value)
 
     def test_context_request_injection(self, manager):
         """
@@ -99,7 +111,7 @@ class TestTemplateResponseMixin:
 
         # Create a request object
         request = Request({"type": "http"})
-        mixin.request = request  # type: ignore
+        mixin.request = request
 
         context = {"user": "test"}
         # Render

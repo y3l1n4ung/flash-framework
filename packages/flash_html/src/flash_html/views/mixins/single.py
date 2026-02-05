@@ -11,12 +11,14 @@ from sqlalchemy.exc import (
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from .database import DatabaseMixin
+
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T", bound=Model)
 
 
-class SingleObjectMixin(Generic[T]):
+class SingleObjectMixin(DatabaseMixin, Generic[T]):
     """
     Retrieve a single object from the database.
 

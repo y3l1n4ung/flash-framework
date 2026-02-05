@@ -1,2 +1,1 @@
-def hello() -> str:
-    return "Hello from flash-authorization!"
+__all__ = []

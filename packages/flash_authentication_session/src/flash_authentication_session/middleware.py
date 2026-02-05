@@ -39,7 +39,11 @@ class SessionAuthenticationMiddleware:
         request.state.auth = None
 
         try:
-            token = request.cookies.get(SESSION_COOKIE_NAME, "")
+            token = ""
+            if "session" in request.scope:
+                token = request.session.get(SESSION_COOKIE_NAME, "")
+            if not token:
+                token = request.cookies.get(SESSION_COOKIE_NAME, "")
             async with self.session_maker() as db:
                 result = await self.backend.authenticate(db, token)
 
