@@ -565,6 +565,80 @@ class TestRelationships:
         assert "Tech" in [tag.name for tag in fetched_article.tags]
         assert "Python" in [tag.name for tag in fetched_article.tags]
 
+    async def test_prefetch_related(self, db_session):
+        """Test prefetch_related for many-to-many relationship."""
+        tag1 = await Tag.objects.create(db_session, name="FastAPI")
+        tag2 = await Tag.objects.create(db_session, name="SQLAlchemy")
+        await Article.objects.create(
+            db_session, title="Prefetch Test", tags=[tag1, tag2]
+        )
+
+        # Clear session to ensure we are testing eager loading, not session cache
+        db_session.expire_all()
+
+        # Eagerly load the 'tags' relationship using prefetch_related
+        fetched_article = (
+            await Article.objects.filter(Article.title == "Prefetch Test")
+            .prefetch_related("tags")
+            .first(db_session)
+        )
+
+        assert fetched_article
+        # This should NOT trigger a lazy load because of prefetch_related
+        assert len(fetched_article.tags) == 2
+        assert "FastAPI" in [tag.name for tag in fetched_article.tags]
+
+    async def test_prefetch_multiple_relationships(self, db_session):
+        """Test prefetching multiple relationships at once."""
+        tag = await Tag.objects.create(db_session, name="Multi")
+        article = await Article.objects.create(
+            db_session, title="Multi Prefetch", tags=[tag]
+        )
+        await Comment.objects.create(db_session, text="C1", article_id=article.id)
+
+        db_session.expire_all()
+
+        fetched = (
+            await Article.objects.filter(Article.title == "Multi Prefetch")
+            .prefetch_related("tags", "comments")
+            .first(db_session)
+        )
+
+        assert fetched
+        assert len(fetched.tags) == 1
+        assert len(fetched.comments) == 1
+
+    async def test_prefetch_empty_queryset(self, db_session):
+        """Test prefetch_related on a query that returns no results."""
+        results = (
+            await Article.objects.filter(Article.id == 99999)
+            .prefetch_related("tags")
+            .fetch(db_session)
+        )
+        assert len(results) == 0
+
+    async def test_prefetch_invalid_field(self):
+        """Test prefetch_related with an invalid field name."""
+        with pytest.raises(AttributeError):
+            Article.objects.prefetch_related("non_existent_field")
+
+    async def test_combined_eager_loading(self, db_session):
+        """Test combining load_related (JOIN) and prefetch_related (SELECT IN)."""
+        article = await Article.objects.create(db_session, title="Combined")
+        await Comment.objects.create(db_session, text="C", article_id=article.id)
+
+        db_session.expire_all()
+
+        fetched_article = (
+            await Article.objects.filter(Article.title == "Combined")
+            .load_related("comments")  # JOIN
+            .prefetch_related("tags")  # SELECT IN
+            .first(db_session)
+        )
+        assert fetched_article
+        assert len(fetched_article.comments) == 1
+        assert len(fetched_article.tags) == 0
+
 
 class TestUUIDPrimaryKey:
     async def test_create_and_get_with_uuid(self, db_session):

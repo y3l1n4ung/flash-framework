@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Any, Generic, Sequence, Type, TypeVar
 
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, selectinload
 
 from .models import Model
 
@@ -162,6 +162,15 @@ class QuerySet(Generic[T]):
         stmt = self._stmt
         for field in fields:
             stmt = stmt.options(joinedload(getattr(self.model, field)))
+        return QuerySet(self.model, stmt)
+
+    def prefetch_related(self, *fields: str) -> QuerySet[T]:
+        """
+        Eagerly load related relationships using separate queries (SELECT IN).
+        """
+        stmt = self._stmt
+        for field in fields:
+            stmt = stmt.options(selectinload(getattr(self.model, field)))
         return QuerySet(self.model, stmt)
 
     async def fetch(self, db: AsyncSession) -> Sequence[T]:

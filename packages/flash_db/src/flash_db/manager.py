@@ -95,6 +95,12 @@ class ModelManager(Generic[T]):
         """
         return self._get_queryset().defer(*fields)
 
+    def prefetch_related(self, *fields: str) -> QuerySet[T]:
+        """
+        Return a QuerySet with prefetch_related criteria.
+        """
+        return self._get_queryset().prefetch_related(*fields)
+
     async def latest(self, db: AsyncSession, field: str = "created_at") -> T | None:
         """
         Return the latest object in the table based on the given field.
