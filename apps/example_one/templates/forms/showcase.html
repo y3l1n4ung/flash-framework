@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block title %}Form Showcase - Flash Blog{% endblock %}
+
+{% block content %}
+<section class="card">
+    <div class="card-header">
+        <div>
+            <div class="card-title">Form Showcase</div>
+            <div class="card-subtitle">
+                Example of FastAPI-style FormView with multiple field types.
+            </div>
+        </div>
+    </div>
+
+    {% if messages.success %}
+        <div class="alert alert-success">{{ messages.success }}</div>
+    {% endif %}
+    {% if messages.error %}
+        <div class="alert alert-danger">{{ messages.error }}</div>
+    {% endif %}
+
+    <form method="post" class="stack">
+        {% for field in form.fields %}
+            <div class="field">
+                <label class="field-label" for="{{ field.name }}">
+                    {{ field.label }}
+                </label>
+
+                {% if field.input_type == "textarea" %}
+                    <textarea
+                        id="{{ field.name }}"
+                        name="{{ field.name }}"
+                        class="textarea"
+                        placeholder="{{ field.placeholder or '' }}"
+                        {% for attr, value in field.attrs.items() %}
+                            {{ attr }}="{{ value }}"
+                        {% endfor %}
+                    >{{ field.value or '' }}</textarea>
+                {% elif field.input_type == "select" %}
+                    <select id="{{ field.name }}" name="{{ field.name }}" class="input">
+                        {% for value, label in field.choices or [] %}
+                            <option value="{{ value }}" {% if field.value == value %}selected{% endif %}>
+                                {{ label }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                {% elif field.input_type == "checkbox" %}
+                    <label class="check-row">
+                        <input
+                            type="checkbox"
+                            id="{{ field.name }}"
+                            name="{{ field.name }}"
+                            {% if field.value %}checked{% endif %}
+                        >
+                        {{ field.label }}
+                    </label>
+                {% else %}
+                    <input
+                        type="{{ field.input_type }}"
+                        id="{{ field.name }}"
+                        name="{{ field.name }}"
+                        class="input"
+                        placeholder="{{ field.placeholder or '' }}"
+                        value="{{ field.value or '' }}"
+                        {% for attr, value in field.attrs.items() %}
+                            {{ attr }}="{{ value }}"
+                        {% endfor %}
+                    >
+                {% endif %}
+
+                {% if field.help_text %}
+                    <span class="field-hint">{{ field.help_text }}</span>
+                {% endif %}
+
+                {% if field.errors %}
+                    <div class="alert alert-danger">{{ field.errors[0] }}</div>
+                {% endif %}
+            </div>
+        {% endfor %}
+
+        <div class="article-actions">
+            <button type="submit" class="btn">Submit</button>
+            <a href="/" class="btn btn-secondary">Back home</a>
+        </div>
+    </form>
+</section>
+{% endblock %}

@@ -16,35 +16,39 @@
         {% if messages.success %}
             <div class="alert alert-success">{{ messages.success }}</div>
         {% endif %}
+        {% if form.non_field_errors %}
+            <div class="alert alert-danger">{{ form.non_field_errors[0] }}</div>
+        {% endif %}
 
         <form method="POST" action="/login" class="stack">
-            <input type="hidden" name="next" value="{{ request.query_params.get('next', '') }}">
-
-            <div class="field">
-                <label for="username" class="field-label">Username</label>
-                <input
-                    type="text"
-                    id="username"
-                    name="username"
-                    class="input"
-                    required
-                    autocomplete="username"
-                    placeholder="Your username"
-                >
-            </div>
-
-            <div class="field">
-                <label for="password" class="field-label">Password</label>
-                <input
-                    type="password"
-                    id="password"
-                    name="password"
-                    class="input"
-                    required
-                    autocomplete="current-password"
-                    placeholder="Your password"
-                >
-            </div>
+            {% for field in form.fields %}
+                {% if field.input_type == "hidden" %}
+                    <input type="hidden" name="{{ field.name }}" value="{{ field.value or '' }}">
+                {% else %}
+                    <div class="field">
+                        <label for="{{ field.name }}" class="field-label">{{ field.label }}</label>
+                        <input
+                            type="{{ field.input_type }}"
+                            id="{{ field.name }}"
+                            name="{{ field.name }}"
+                            class="input"
+                            placeholder="{{ field.placeholder or '' }}"
+                            {% if field.input_type != "password" %}
+                                value="{{ field.value or '' }}"
+                            {% endif %}
+                            {% for attr, value in field.attrs.items() %}
+                                {{ attr }}="{{ value }}"
+                            {% endfor %}
+                        >
+                        {% if field.help_text %}
+                            <span class="field-hint">{{ field.help_text }}</span>
+                        {% endif %}
+                        {% if field.errors %}
+                            <div class="alert alert-danger">{{ field.errors[0] }}</div>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            {% endfor %}
 
             <button type="submit" class="btn">Log in</button>
         </form>

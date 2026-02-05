@@ -37,13 +37,14 @@ from .views import (
     ArticleDetailView,
     ArticleEditView,
     ArticleListView,
+    FormShowcaseView,
     HomeView,
     LoginView,
     LogoutView,
     RegisterView,
 )
 
-init_db("sqlite+aiosqlite:///blog.db", echo=True)
+init_db("sqlite+aiosqlite:///blog.db", echo=False)
 
 
 @asynccontextmanager
@@ -138,6 +139,18 @@ def register_routes(app: FastAPI) -> None:
         methods=["GET"],
     )
 
+    # Form showcase
+    app.add_api_route(
+        "/forms",
+        FormShowcaseView.as_view(method="get"),
+        methods=["GET"],
+    )
+    app.add_api_route(
+        "/forms",
+        FormShowcaseView.as_view(method="post"),
+        methods=["POST"],
+    )
+
     # Admin
     app.add_api_route(
         "/admin/dashboard",
@@ -216,4 +229,6 @@ app.add_middleware(
 
 register_routes(app)
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True, log_level="info")
+    uvicorn.run(
+        "example_one.main:app", host="0.0.0.0", port=8000, reload=True, log_level="info"
+    )

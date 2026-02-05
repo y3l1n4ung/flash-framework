@@ -116,6 +116,10 @@ class View:
                     kwargs.pop("db")
             if "_permissions" in kwargs:
                 self.user = kwargs.pop("_permissions")  # type: ignore[attr-defined]
+            if "form" in kwargs:
+                self.form = kwargs["form"]  # type: ignore[attr-defined]
+                if "form" not in handler_param_names:
+                    kwargs.pop("form")
             # Merge path parameters and additional kwargs
             self.kwargs = {
                 **request.path_params,
