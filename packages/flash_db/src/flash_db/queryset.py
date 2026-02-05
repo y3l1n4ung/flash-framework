@@ -74,7 +74,7 @@ class QuerySet(Generic[T]):
         Execute the query and return the first matching record or None.
         """
         result = await db.scalars(self._stmt.limit(1))
-        return result.one_or_none()
+        return result.unique().one_or_none()
 
     async def count(self, db: AsyncSession) -> int:
         """

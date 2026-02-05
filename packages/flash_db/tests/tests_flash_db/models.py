@@ -1,7 +1,18 @@
+import uuid
 from typing import Any, Optional
 
 from flash_db.models import Model, TimestampMixin
-from sqlalchemy import JSON, Boolean, ForeignKey, Numeric, String, Text
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Column,
+    ForeignKey,
+    Numeric,
+    String,
+    Table,
+    Text,
+)
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql.type_api import UserDefinedType
 
@@ -13,6 +24,22 @@ class UnsupportedSQLType(UserDefinedType):
         return "UNSUPPORTED"
 
 
+# Association table for many-to-many relationship between Article and Tag
+article_tag_association = Table(
+    "article_tag_association",
+    Model.metadata,
+    Column("article_id", ForeignKey("articles.id"), primary_key=True),
+    Column("tag_id", ForeignKey("tags.id"), primary_key=True),
+)
+
+
+class Tag(Model):
+    """A tag that can be applied to multiple articles."""
+
+    __tablename__ = "tags"
+    name: Mapped[str] = mapped_column(String(50), unique=True)
+
+
 class Article(Model, TimestampMixin):
     __tablename__ = "articles"
 
@@ -22,6 +49,12 @@ class Article(Model, TimestampMixin):
     comments: Mapped[list["Comment"]] = relationship(
         "Comment",
         back_populates="article",
+        cascade="all, delete-orphan",
+    )
+    tags: Mapped[list["Tag"]] = relationship(
+        "Tag",
+        secondary=article_tag_association,
+        backref="articles",
     )
 
 
@@ -30,6 +63,18 @@ class Comment(Model):
     text: Mapped[str] = mapped_column()
     article_id: Mapped[int] = mapped_column(ForeignKey("articles.id"))
     article: Mapped["Article"] = relationship("Article", back_populates="comments")
+
+
+class Job(Model):
+    """A model with a UUID primary key."""
+
+    __tablename__ = "jobs"
+    id: Mapped[uuid.UUID] = mapped_column(  # pyright: ignore[reportIncompatibleVariableOverride]
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    title: Mapped[str] = mapped_column(String(100))
 
 
 class Profile(Model, TimestampMixin):
