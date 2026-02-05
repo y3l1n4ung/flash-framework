@@ -155,7 +155,7 @@ class QuerySet(Generic[T]):
             stmt = stmt.options(defer(getattr(self.model, field)))
         return QuerySet(self.model, stmt)
 
-    def load_related(self, *fields: str) -> QuerySet[T]:
+    def select_related(self, *fields: str) -> QuerySet[T]:
         """
         Eagerly load related relationships to prevent N+1 queries.
         """

@@ -539,7 +539,7 @@ class TestRelationships:
         # Eagerly load the 'comments' relationship
         fetched_article = (
             await Article.objects.filter(Article.title == "One-to-Many")
-            .load_related("comments")
+            .select_related("comments")
             .first(db_session)
         )
 
@@ -557,7 +557,7 @@ class TestRelationships:
         # Re-fetch the article to verify the relationship was saved
         fetched_article = (
             await Article.objects.filter(Article.title == "Many-to-Many")
-            .load_related("tags")
+            .select_related("tags")
             .first(db_session)
         )
         assert fetched_article
@@ -631,7 +631,7 @@ class TestRelationships:
 
         fetched_article = (
             await Article.objects.filter(Article.title == "Combined")
-            .load_related("comments")  # JOIN
+            .select_related("comments")  # JOIN
             .prefetch_related("tags")  # SELECT IN
             .first(db_session)
         )

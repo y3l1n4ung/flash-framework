@@ -157,7 +157,7 @@ class TestQuerySet:
     async def test_queryset_load_related_applies_joinedload(self, db_session):
         """Verify load_related adds relationship loading to the statement."""
         assert db_session
-        qs = Article.objects.all().load_related("comments")
+        qs = Article.objects.all().select_related("comments")
         assert "JOIN" in str(qs._stmt)
 
     async def test_queryset_update_raises_value_error_without_filter(self, db_session):
@@ -453,7 +453,7 @@ class TestQuerySetChaining:
         await create_article(db_session, title="Article1")
 
         # load_related returns a QuerySet that can be further chained
-        qs = Article.objects.all().load_related()
+        qs = Article.objects.all().select_related()
         results = await qs.fetch(db_session)
         assert len(results) > 0
 

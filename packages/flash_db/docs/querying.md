@@ -157,6 +157,24 @@ if await User.objects.exists(db, User.email == "john@example.com"):
 active_count = await User.objects.count(db, User.is_active == True)
 ```
 
+## Eager Loading (Preventing N+1)
+
+To efficiently load related objects, `flash_db` provides two methods:
+
+- `select_related(*fields)`: Uses a SQL `JOIN` to load related objects in the same query. Best for many-to-one or one-to-one relationships (similar to Django's `select_related`).
+- `prefetch_related(*fields)`: Uses separate `SELECT IN` queries to load related collections. Best for many-to-many or reverse foreign key relationships (similar to Django's `prefetch_related`).
+
+```python
+# Load articles with their authors via JOIN
+articles = await Article.objects.select_related("author").fetch(db)
+
+# Load articles with their tags via separate query
+articles = await Article.objects.prefetch_related("tags").fetch(db)
+
+# Combine both
+articles = await Article.objects.select_related("author").prefetch_related("tags").fetch(db)
+```
+
 ### Latest and Earliest
 
 - `latest(field)`: Get the most recent record.

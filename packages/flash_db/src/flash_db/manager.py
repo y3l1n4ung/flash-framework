@@ -95,6 +95,12 @@ class ModelManager(Generic[T]):
         """
         return self._get_queryset().defer(*fields)
 
+    def select_related(self, *fields: str) -> QuerySet[T]:
+        """
+        Return a QuerySet with select_related criteria.
+        """
+        return self._get_queryset().select_related(*fields)
+
     def prefetch_related(self, *fields: str) -> QuerySet[T]:
         """
         Return a QuerySet with prefetch_related criteria.
