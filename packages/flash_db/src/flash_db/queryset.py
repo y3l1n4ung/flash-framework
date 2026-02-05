@@ -35,6 +35,21 @@ class QuerySet(Generic[T]):
             return self
         return QuerySet(self.model, self._stmt.where(*conditions))
 
+    def exclude(self, *conditions: ColumnElement[bool]) -> QuerySet[T]:
+        """
+        Add NOT WHERE criteria to the query.
+        """
+        if not conditions:
+            return self
+        from sqlalchemy import not_
+        return QuerySet(self.model, self._stmt.where(not_(*conditions)))
+
+    def distinct(self, *criterion: Any) -> QuerySet[T]:
+        """
+        Add DISTINCT criteria to the query.
+        """
+        return QuerySet(self.model, self._stmt.distinct(*criterion))
+
     def order_by(self, *criterion: Any) -> QuerySet[T]:
         """
         Add ORDER BY criteria to the query.
@@ -52,6 +67,24 @@ class QuerySet(Generic[T]):
         Apply an offset to the result set.
         """
         return QuerySet(self.model, self._stmt.offset(count))
+
+    def only(self, *fields: str) -> QuerySet[T]:
+        """
+        Load only the specified fields.
+        """
+        from sqlalchemy.orm import load_only
+        cols = [getattr(self.model, f) for f in fields]
+        return QuerySet(self.model, self._stmt.options(load_only(*cols)))
+
+    def defer(self, *fields: str) -> QuerySet[T]:
+        """
+        Defer loading of the specified fields.
+        """
+        from sqlalchemy.orm import defer
+        stmt = self._stmt
+        for field in fields:
+            stmt = stmt.options(defer(getattr(self.model, field)))
+        return QuerySet(self.model, stmt)
 
     def load_related(self, *fields: str) -> QuerySet[T]:
         """
@@ -75,6 +108,18 @@ class QuerySet(Generic[T]):
         """
         result = await db.scalars(self._stmt.limit(1))
         return result.unique().one_or_none()
+
+    async def latest(self, db: AsyncSession, field: str = "created_at") -> T | None:
+        """
+        Return the latest object in the table based on the given field.
+        """
+        return await self.order_by(getattr(self.model, field).desc()).first(db)
+
+    async def earliest(self, db: AsyncSession, field: str = "created_at") -> T | None:
+        """
+        Return the earliest object in the table based on the given field.
+        """
+        return await self.order_by(getattr(self.model, field).asc()).first(db)
 
     async def count(self, db: AsyncSession) -> int:
         """

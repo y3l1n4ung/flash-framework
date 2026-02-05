@@ -64,6 +64,39 @@ class TestModelManagerUsage:
         # The generic exception should have triggered a rollback
         spied_rollback.assert_awaited_once()
 
+    async def test_get_or_create(self, db_session):
+        """Test get_or_create functionality."""
+        # Create new
+        article, created = await Article.objects.get_or_create(
+            db_session, title="GOC New", defaults={"content": "New Content"}
+        )
+        assert created is True
+        assert article.title == "GOC New"
+
+        # Get existing
+        article2, created = await Article.objects.get_or_create(
+            db_session, title="GOC New"
+        )
+        assert created is False
+        assert article2.id == article.id
+
+    async def test_update_or_create(self, db_session):
+        """Test update_or_create functionality."""
+        # Create new
+        article, created = await Article.objects.update_or_create(
+            db_session, title="UOC New", defaults={"content": "Initial"}
+        )
+        assert created is True
+        assert article.content == "Initial"
+
+        # Update existing
+        article2, created = await Article.objects.update_or_create(
+            db_session, title="UOC New", defaults={"content": "Updated"}
+        )
+        assert created is False
+        assert article2.id == article.id
+        assert article2.content == "Updated"
+
 
 class TestQuerySetUsage:
     async def test_chaining_filters(self, db_session):
@@ -77,6 +110,58 @@ class TestQuerySetUsage:
             .fetch(db_session)
         )
         assert len(articles) == 1
+
+    async def test_exclude(self, db_session):
+        """Test excluding records."""
+        await Article.objects.create(db_session, title="A")
+        await Article.objects.create(db_session, title="B")
+        articles = await Article.objects.exclude(Article.title == "A").fetch(db_session)
+        assert len(articles) == 1
+        assert articles[0].title == "B"
+
+    async def test_distinct(self, db_session):
+        """Test distinct results."""
+        await Article.objects.create(db_session, title="A", content="Same")
+        await Article.objects.create(db_session, title="B", content="Same")
+        articles = (
+            await Article.objects.filter(Article.content == "Same").distinct().fetch(db_session)
+        )
+        assert len(articles) == 2
+
+    async def test_only_defer(self, db_session):
+        """Test only and defer for selective column loading."""
+        await Article.objects.create(db_session, title="Only", content="Defer")
+
+        # Only title
+        article = (
+            await Article.objects.filter(Article.title == "Only")
+            .only("title")
+            .first(db_session)
+        )
+        assert article is not None
+        assert article.title == "Only"
+
+        # Defer content
+        article2 = (
+            await Article.objects.filter(Article.title == "Only")
+            .defer("content")
+            .first(db_session)
+        )
+        assert article2 is not None
+        assert article2.title == "Only"
+
+    async def test_latest_earliest(self, db_session):
+        """Test latest and earliest records."""
+        await Article.objects.create(db_session, title="Old")
+        await Article.objects.create(db_session, title="New")
+
+        latest = await Article.objects.all().latest(db_session, field="id")
+        assert latest is not None
+        assert latest.title == "New"
+
+        earliest = await Article.objects.all().earliest(db_session, field="id")
+        assert earliest is not None
+        assert earliest.title == "Old"
 
     async def test_or_queries(self, db_session):
         """Test OR queries using SQLAlchemy's or_()."""

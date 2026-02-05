@@ -82,3 +82,51 @@ async def delete_user(user_id: int, db: AsyncSession = Depends(get_db)):
         raise HTTPException(404, "User not found")
 ```
 
+## Advanced Querying
+
+### Filter and Exclude
+
+- `filter(*conditions)`: Records matching conditions.
+- `exclude(*conditions)`: Records *not* matching conditions.
+
+```python
+# All users except those named "John"
+users = await User.objects.exclude(User.name == "John").fetch(db)
+```
+
+### Ordering and Limits
+
+- `order_by(*criterion)`: Order results.
+- `limit(count)`: Limit number of results.
+- `offset(count)`: Skip a number of results.
+- `latest(field)`: Get the most recent record.
+- `earliest(field)`: Get the earliest record.
+
+```python
+# Get the most recently created user
+latest_user = await User.objects.latest(db)
+```
+
+### Selective Column Loading
+
+- `only(*fields)`: Load only specified columns.
+- `defer(*fields)`: Exclude specified columns from initial load.
+
+```python
+# Load only name and email to save memory
+users = await User.objects.only("name", "email").fetch(db)
+```
+
+### Creation Shortcuts
+
+- `get_or_create(defaults, **kwargs)`: Fetch an object or create it if it doesn't exist.
+- `update_or_create(defaults, **kwargs)`: Update an object or create it if it doesn't exist.
+
+```python
+user, created = await User.objects.get_or_create(
+    db,
+    email="john@example.com",
+    defaults={"name": "John Doe"}
+)
+```
+

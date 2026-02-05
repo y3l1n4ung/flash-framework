@@ -45,6 +45,30 @@ class ModelManager(Generic[T]):
         """
         return self._get_queryset().filter(*conditions)
 
+    def exclude(self, *conditions: ColumnElement[bool]) -> QuerySet[T]:
+        """
+        Return a QuerySet excluding records matching provided conditions.
+        """
+        return self._get_queryset().exclude(*conditions)
+
+    def distinct(self, *criterion: Any) -> QuerySet[T]:
+        """
+        Return a QuerySet with DISTINCT criteria.
+        """
+        return self._get_queryset().distinct(*criterion)
+
+    def only(self, *fields: str) -> QuerySet[T]:
+        """
+        Return a QuerySet loading only specified fields.
+        """
+        return self._get_queryset().only(*fields)
+
+    def defer(self, *fields: str) -> QuerySet[T]:
+        """
+        Return a QuerySet deferring specified fields.
+        """
+        return self._get_queryset().defer(*fields)
+
     async def get(
         self,
         db: AsyncSession,
@@ -104,6 +128,47 @@ class ModelManager(Generic[T]):
             ) from e
         else:
             return instance
+
+    async def get_or_create(
+        self,
+        db: AsyncSession,
+        defaults: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> tuple[T, bool]:
+        """
+        Look up an object with the given kwargs, creating one if necessary.
+        Return a tuple of (object, created), where created is a boolean.
+        """
+        try:
+            conditions = [getattr(self._model, k) == v for k, v in kwargs.items()]
+            instance = await self.get(db, *conditions)
+            return instance, False
+        except ValueError:
+            params = {**kwargs, **(defaults or {})}
+            instance = await self.create(db, **params)
+            return instance, True
+
+    async def update_or_create(
+        self,
+        db: AsyncSession,
+        defaults: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> tuple[T, bool]:
+        """
+        Look up an object with the given kwargs, updating one if exists with defaults,
+        otherwise creating one.
+        Return a tuple of (object, created), where created is a boolean.
+        """
+        try:
+            conditions = [getattr(self._model, k) == v for k, v in kwargs.items()]
+            instance = await self.get(db, *conditions)
+            if defaults:
+                instance = await self.update(db, pk=instance.id, **defaults)
+            return instance, False
+        except ValueError:
+            params = {**kwargs, **(defaults or {})}
+            instance = await self.create(db, **params)
+            return instance, True
 
     async def update(self, db: AsyncSession, pk: Any, **fields: Any) -> T:
         """

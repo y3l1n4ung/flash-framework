@@ -133,32 +133,12 @@ Flash DB is fully asynchronous, and it requires you to manage the database sessi
 
 This explicit approach ensures that the session is correctly handled and closed, which is crucial in an async environment.
 
-## TODO: Next Steps for `flash_db`
+## Roadmap
 
-To evolve `flash_db` and align it more closely with the comprehensive capabilities found in Django's ORM, the following tasks are planned:
+Our goal for `flash_db` is to build a lightweight, yet powerful, async ORM that feels intuitive to Django developers.
 
-1.  **Implement Transaction Management:** Introduce a robust mechanism (e.g., a decorator or context manager) to facilitate database transactions, allowing multiple operations to be grouped into a single atomic unit. This will ensure data integrity across complex operations.
-
-    ```python
-    # Conceptual example of desired implementation
-    @transaction
-    async def create_user_and_profile(db: AsyncSession):
-        user = await User.objects.create(db, name="Jane Doe", email="jane.doe@example.com")
-        await Profile.objects.create(db, user=user, bio="A bio.")
-    ```
-
-2.  **Add `get_or_create()` Method:** Develop a `get_or_create()` method for the `ModelManager` to simplify fetching an object if it exists, or creating it if it doesn't.
-
-    ```python
-    # Conceptual example
-    user, created = await User.objects.get_or_create(db, email="jane.doe@example.com", defaults={"name": "Jane Doe"})
-    ```
-
-3.  **Add `update_or_create()` Method:** Implement an `update_or_create()` method to either update an existing object or create a new one based on given criteria, similar to Django's ORM.
-
-4.  **Enhance `QuerySet` with More Methods:** Expand the `QuerySet` API to include additional Django-like functionalities:
-    *   `exclude()`: To filter out records that match specific conditions.
-    *   `distinct()`: To retrieve unique rows from the query results.
-    *   **Aggregation Functions:** Integrate common aggregation functions (e.g., `Count`, `Sum`, `Avg`) to enable more complex data analysis directly through the `QuerySet`.
-
-5.  **Explore Simplified Session Management:** Investigate ways to potentially abstract away explicit session passing in common scenarios (e.g., via a dependency injection decorator), aiming to reduce boilerplate while maintaining the asynchronous nature and control over database sessions.
+- [ ] **Transaction Management:** Atomic transactions via decorator or context manager.
+- [x] **`get_or_create()` / `update_or_create()`:** Streamline create/update patterns.
+- [ ] **Model Validation Hooks:** `clean()` methods for data validation.
+- [x] **Advanced Querying:** `Q` Objects, `F` Expressions, and more `QuerySet` methods.
+- [ ] **Signals:** `pre_save`, `post_save`, `pre_delete`, `post_delete`.
