@@ -9,7 +9,6 @@ from flash_scheduler.schemas import (
 )
 
 # Apply asyncio marker to all tests in this module
-pytestmark = pytest.mark.asyncio
 
 
 class MockListener(EventListener):
@@ -78,6 +77,7 @@ def test_event_initialization():
     assert event.payload == {"meta": "data"}
 
 
+@pytest.mark.asyncio
 async def test_event_manager_add_remove_listener():
     """Test the registration and unregistration of listeners."""
     manager = EventManager()
@@ -94,6 +94,7 @@ async def test_event_manager_add_remove_listener():
     assert listener not in manager._listeners
 
 
+@pytest.mark.asyncio
 async def test_event_manager_dispatch_to_single_listener():
     """Verify that dispatch sends the event to a registered listener."""
     manager = EventManager()
@@ -107,6 +108,7 @@ async def test_event_manager_dispatch_to_single_listener():
     assert listener.received_events[0] == event
 
 
+@pytest.mark.asyncio
 async def test_event_manager_dispatch_to_multiple_listeners():
     """Verify that dispatch sends the event to all registered listeners concurrently."""
     manager = EventManager()
@@ -122,6 +124,7 @@ async def test_event_manager_dispatch_to_multiple_listeners():
         assert listener.received_events[0] == event
 
 
+@pytest.mark.asyncio
 async def test_event_manager_error_isolation(caplog):
     """
     Ensure that a failing listener does not prevent other listeners
@@ -145,6 +148,7 @@ async def test_event_manager_error_isolation(caplog):
     assert "Error in event listener" in caplog.text
 
 
+@pytest.mark.asyncio
 async def test_dispatch_with_no_listeners():
     """Ensure dispatching with no listeners is a safe no-op."""
     manager = EventManager()

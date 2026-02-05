@@ -23,7 +23,12 @@ scripts:
     description: Format code
 
   ty:
-    run: ty check src/
+    run: |
+      if [ -d src ]; then
+        ty check src/
+      else
+        ty check .
+      fi
     description: Run type checking
 
 command_defaults:

@@ -47,6 +47,8 @@ class TestModelValidator:
         # Ensure it doesn't have an 'id' attribute
         del mock_model.id
 
-        with patch("flash_db.validator.issubclass", return_value=True), \
-             pytest.raises(TypeError, match="has no 'id' field"):
-            ModelValidator.validate_model(mock_model) # type: ignore  # ty:ignore[unused-ignore-comment]
+        with (
+            patch("flash_db.validator.issubclass", return_value=True),
+            pytest.raises(TypeError, match="has no 'id' field"),
+        ):
+            ModelValidator.validate_model(mock_model)  # type: ignore  # ty:ignore[unused-ignore-comment]

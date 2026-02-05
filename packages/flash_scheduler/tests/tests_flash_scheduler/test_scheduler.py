@@ -11,8 +11,6 @@ from flash_scheduler.scheduler import FlashScheduler, create_trigger
 from flash_scheduler.schemas import IntervalTriggerConfig, JobDefinition
 from flash_scheduler.stores.memory import MemoryJobStore
 
-pytestmark = pytest.mark.asyncio
-
 
 class EventCollector(EventListener):
     """Captures events for assertions."""
@@ -54,6 +52,7 @@ async def scheduler_with_events(scheduler):
     yield scheduler, collector
 
 
+@pytest.mark.asyncio
 class TestSchedulerLifecycle:
     """Tests for scheduler startup and shutdown behavior."""
 
@@ -123,6 +122,7 @@ class TestSchedulerLifecycle:
             await scheduler.start()
 
 
+@pytest.mark.asyncio
 class TestTaskDecorator:
     """Tests for @task decorator and deferred registration."""
 
@@ -207,6 +207,7 @@ class TestTaskDecorator:
         assert job_def.kwargs == {"key": "value"}
 
 
+@pytest.mark.asyncio
 class TestJobManagement:
     """Tests for adding, updating, and removing jobs."""
 
@@ -442,6 +443,7 @@ class TestJobManagement:
         await scheduler.shutdown()
 
 
+@pytest.mark.asyncio
 class TestJobExecution:
     """Tests for job execution flow and event dispatch."""
 
@@ -541,6 +543,7 @@ class TestJobExecution:
         await scheduler.shutdown()
 
 
+@pytest.mark.asyncio
 class TestConcurrencyControl:
     """Tests for concurrent execution prevention."""
 
@@ -632,6 +635,7 @@ class TestConcurrencyControl:
         assert len(collector.by_type(SchedulerEvent.JOB_SUBMITTED)) == 0
 
 
+@pytest.mark.asyncio
 class TestExecutionValidation:
     """Tests for execution-time validation."""
 
@@ -681,6 +685,7 @@ class TestExecutionValidation:
         await scheduler.shutdown()
 
 
+@pytest.mark.asyncio
 class TestEventDispatching:
     """Tests for event type selection and dispatch."""
 
@@ -732,6 +737,7 @@ class TestEventDispatching:
         assert len(errors) > 0
 
 
+@pytest.mark.asyncio
 class TestErrorHandling:
     """Tests for error recovery and resilience."""
 

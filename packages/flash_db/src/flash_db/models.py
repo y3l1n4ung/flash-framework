@@ -26,6 +26,7 @@ class Model(AsyncAttrs, DeclarativeBase):
         ...     __tablename__ = "users"
         ...     name: Mapped[str] = mapped_column()
     """
+
     __abstract__ = True
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     objects: ClassVar[ModelManager[Self]]  # type: ignore[invalid-type-arguments]
@@ -46,6 +47,7 @@ class TimestampMixin:
         ...     __tablename__ = "posts"
         ...     title: Mapped[str] = mapped_column()
     """
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=func.now(),
@@ -69,6 +71,7 @@ class SoftDeleteMixin:
         ...     __tablename__ = "notes"
         ...     text: Mapped[str] = mapped_column()
     """
+
     deleted_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,

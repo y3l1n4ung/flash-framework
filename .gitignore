@@ -28,4 +28,4 @@ htmlcov/
 
 # Example app data
 *.db
-apps/example_one/data/
+apps/example_one/src/example_one/data/

@@ -103,6 +103,7 @@ class TemplateResponseMixin:
         template_name = self.get_template_names()[0]
 
         return engine.templates.TemplateResponse(
+            self.request,
             name=template_name,
             context=context,
             media_type=self.content_type,
