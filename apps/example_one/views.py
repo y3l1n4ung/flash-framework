@@ -24,6 +24,8 @@ from flash_authorization.permissions import (
     IsSuperUser,
 )
 from flash_db import get_db
+from flash_html.forms import BaseForm
+from flash_html.views.forms import FormView
 from flash_html.views.generic.base import TemplateView
 from flash_html.views.generic.detail import DetailView
 from flash_html.views.mixins import SingleObjectMixin
@@ -31,6 +33,7 @@ from flash_html.views.mixins.permission import PermissionMixin
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from .forms import ProfileForm
 from .models import Article
 from .permissions import ArticleOwnerPermission
 
@@ -437,6 +440,26 @@ class AboutView(PermissionMixin, TemplateView):
         context = super().get_context_data(**kwargs)
         context["title"] = "About Our Blog"
         return context
+
+
+class FormShowcaseView(PermissionMixin, FormView):
+    template_name = "forms/showcase.html"
+    permission_classes: ClassVar[list] = [AllowAny]
+    form_class = ProfileForm
+    success_url = "/forms"
+
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        context = super().get_context_data(**kwargs)
+        context.setdefault("messages", {})
+        context["title"] = "Form Showcase"
+        return context
+
+    async def form_valid(self, _form: BaseForm) -> Response:
+        context = self.get_context_data(
+            form=_form,
+            messages={"success": "Profile form submitted successfully."},
+        )
+        return self.render_to_response(context)
 
 
 class LoginView(PermissionMixin, TemplateView):

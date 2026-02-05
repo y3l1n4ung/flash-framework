@@ -107,7 +107,9 @@ class TestMultipleObjectMixinCore:
 
         class HTMLTestProductListView(MultipleObjectMixin[HTMLTestProduct]):
             model = HTMLTestProduct
-            queryset = HTMLTestProduct.objects.filter(HTMLTestProduct.published.is_(True))
+            queryset = HTMLTestProduct.objects.filter(
+                HTMLTestProduct.published.is_(True)
+            )
 
         mixin = HTMLTestProductListView()
         qs = mixin.get_queryset()
@@ -242,7 +244,9 @@ class TestGetObjects:
 
         class PublishedListView(MultipleObjectMixin[HTMLTestProduct]):
             model = HTMLTestProduct
-            queryset = HTMLTestProduct.objects.filter(HTMLTestProduct.published.is_(True))
+            queryset = HTMLTestProduct.objects.filter(
+                HTMLTestProduct.published.is_(True)
+            )
 
         mixin = setup_mixin(PublishedListView)
         data = await mixin.get_objects(limit=10, offset=0)

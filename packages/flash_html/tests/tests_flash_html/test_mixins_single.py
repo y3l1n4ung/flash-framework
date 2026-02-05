@@ -112,7 +112,9 @@ class TestSingleObjectMixinCore:
         class HTMLTestProductDetail(SingleObjectMixin[HTMLTestProduct]):
             model = HTMLTestProduct
             # Define a specific queryset on the class level
-            queryset = HTMLTestProduct.objects.filter(HTMLTestProduct.published.is_(True))
+            queryset = HTMLTestProduct.objects.filter(
+                HTMLTestProduct.published.is_(True)
+            )
 
         mixin = HTMLTestProductDetail()
         qs = mixin.get_queryset()
@@ -220,7 +222,9 @@ class TestGetObject:
             model = HTMLTestProduct
 
         # Provide correct PK but a completely wrong slug
-        mixin = setup_mixin(HTMLTestProductDetail, pk=product.id, slug="wrong-slug-here")
+        mixin = setup_mixin(
+            HTMLTestProductDetail, pk=product.id, slug="wrong-slug-here"
+        )
 
         # This should still succeed because it looks up by PK first
         obj = await mixin.get_object()
@@ -518,7 +522,9 @@ class TestQuerysetOverrides:
 
         class OnlyPublishedDetail(SingleObjectMixin[HTMLTestProduct]):
             model = HTMLTestProduct
-            queryset = HTMLTestProduct.objects.filter(HTMLTestProduct.published.is_(True))
+            queryset = HTMLTestProduct.objects.filter(
+                HTMLTestProduct.published.is_(True)
+            )
 
         # Should find published product
         mixin = setup_mixin(OnlyPublishedDetail, pk=product.id)

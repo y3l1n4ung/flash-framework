@@ -687,26 +687,31 @@ class TestDetailViewObjectPermissions:
         class OwnerHTMLTestArticleView(DetailView[HTMLTestArticle]):
             model = HTMLTestArticle
             template_name = "article_detail.html"
-            permission_classes: ClassVar[list[type[BasePermission]]] = [IsHTMLTestArticleAuthor]
+            permission_classes: ClassVar[list[type[BasePermission]]] = [
+                IsHTMLTestArticleAuthor
+            ]
 
         app.add_api_route("/owner/{pk}", OwnerHTMLTestArticleView.as_view())
-
-        # Mock authenticated user as test_user (owner of article 1)
         app.state.test_user = test_user
         response = client.get("/owner/1")
 
         assert response.status_code == 200
-        assert "HTMLTestArticle: Test User" in response.text and "HTMLTestArticle by 1" in response.text
+        assert "HTMLTestArticle: Test User" in response.text
+        assert "HTMLTestArticle by 1" in response.text
 
     def test_is_owner_blocks_non_owner(
         self, app: FastAPI, client: TestClient, blog_user
     ):
-        """IsHTMLTestArticleAuthor permission blocks non-author from accessing object."""
+        """
+        IsHTMLTestArticleAuthor permission blocks non-author from accessing object.
+        """
 
         class OwnerHTMLTestArticleView(DetailView[HTMLTestArticle]):
             model = HTMLTestArticle
             template_name = "article_detail.html"
-            permission_classes: ClassVar[list[type[BasePermission]]] = [IsHTMLTestArticleAuthor]
+            permission_classes: ClassVar[list[type[BasePermission]]] = [
+                IsHTMLTestArticleAuthor
+            ]
 
         app.add_api_route("/owner/{pk}", OwnerHTMLTestArticleView.as_view())
 
@@ -724,11 +729,15 @@ class TestDetailViewObjectPermissions:
         class ExtraContextHTMLTestArticleView(DetailView[HTMLTestArticle]):
             model = HTMLTestArticle
             template_name = "extra.html"  # Uses extra template
-            permission_classes: ClassVar[list[type[BasePermission]]] = [IsHTMLTestArticleAuthor]
+            permission_classes: ClassVar[list[type[BasePermission]]] = [
+                IsHTMLTestArticleAuthor
+            ]
 
         app.add_api_route(
             "/extra-context/{pk}",
-            ExtraContextHTMLTestArticleView.as_view(extra_context={"name": "HTMLTestBlog"}),
+            ExtraContextHTMLTestArticleView.as_view(
+                extra_context={"name": "HTMLTestBlog"}
+            ),
         )
 
         # Mock authenticated user as test_user (owner)

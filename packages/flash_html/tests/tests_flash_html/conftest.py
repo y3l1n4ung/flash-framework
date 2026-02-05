@@ -57,7 +57,8 @@ def manager(tmp_path):
     (tpl_dir / "product_detail.html").write_text("Product: {{ htmltestproduct.name }}")
     (tpl_dir / "blog_detail.html").write_text("Post: {{ htmltestblog.title }}")
     (tpl_dir / "article_detail.html").write_text(
-        "HTMLTestArticle: {{ htmltestarticle.title }} by {{ htmltestarticle.author_id }}"
+        "HTMLTestArticle: {{ htmltestarticle.title }} "
+        "by {{ htmltestarticle.author_id }}"
     )
     (tpl_dir / "custom.html").write_text("Custom: {{ object.name }}")
     (tpl_dir / "extra.html").write_text("Extra: {{ name }}")
