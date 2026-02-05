@@ -165,8 +165,10 @@ class Field:
         return {key: value for key, value in metadata.items() if value is not None}
 
     def get_form_parameter(self):
-        default = ... if self.required else None
-        return Form(default, **self.get_form_metadata())
+        # We always use None as default for FastAPI dependency injection
+        # so that GET requests don't fail with 422.
+        # Field validation still happens inside form.is_valid().
+        return Form(None, **self.get_form_metadata())
 
     def validate(self, value: Any) -> None:
         if self.required and (value is None or value == ""):
@@ -187,9 +189,12 @@ class Field:
                 message = "Enter a valid value."
                 raise ValidationError(message)
 
-        if self.choices is not None and value not in {key for key, _ in self.choices}:
-            message = "Select a valid choice."
-            raise ValidationError(message)
+        if self.choices is not None:
+            if not self.required and (value is None or value == ""):
+                return
+            if value not in {key for key, _ in self.choices}:
+                message = "Select a valid choice."
+                raise ValidationError(message)
 
     def clean(self, value: Any) -> Any:
         value = self.to_python(value)

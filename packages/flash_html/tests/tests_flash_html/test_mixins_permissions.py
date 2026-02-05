@@ -9,10 +9,10 @@ from flash_html.views.generic.detail import DetailView
 from flash_html.views.mixins.permission import PermissionMixin
 from sqlalchemy import insert
 
-from .models import Article
+from .models import HTMLTestArticle
 
 
-class TestArticleAuthorPermission(BasePermission):
+class TestHTMLTestArticleAuthorPermission(BasePermission):
     """Allow access only to the author of the article."""
 
     async def has_permission(
@@ -25,7 +25,7 @@ class TestArticleAuthorPermission(BasePermission):
     async def has_object_permission(
         self,
         request,  # noqa: ARG002
-        obj: Article,
+        obj: HTMLTestArticle,
         user,
     ) -> bool:
         user_id = obj.author_id
@@ -39,10 +39,10 @@ class TestDetailViewWithCustomPermission:
     @pytest_asyncio.fixture(autouse=True)
     async def setup_data(self, db_session, test_user):
         await db_session.execute(
-            insert(Article).values(
+            insert(HTMLTestArticle).values(
                 {
                     "id": 1,
-                    "title": "Test Article",
+                    "title": "Test HTMLTestArticle",
                     "slug": "test-article",
                     "content": "Test content",
                     "author_id": test_user.id,
@@ -55,32 +55,32 @@ class TestDetailViewWithCustomPermission:
     def test_custom_permission_works(self, app: FastAPI, client, test_user):
         """Custom permission works correctly."""
 
-        class ArticleDetailView(DetailView[Article]):
-            model = Article
+        class HTMLTestArticleDetailView(DetailView[HTMLTestArticle]):
+            model = HTMLTestArticle
             template_name = "article_detail.html"
             permission_classes: ClassVar[list[type[BasePermission]]] = [
-                TestArticleAuthorPermission
+                TestHTMLTestArticleAuthorPermission
             ]
 
-        app.add_api_route("/articles/{pk}", ArticleDetailView.as_view())
+        app.add_api_route("/articles/{pk}", HTMLTestArticleDetailView.as_view())
         app.state.test_user = test_user
 
         response = client.get("/articles/1")
 
         assert response.status_code == 200
-        assert "Test Article" in response.text
+        assert "Test HTMLTestArticle" in response.text
 
     def test_unauthenticated_blocked(self, app: FastAPI, client):
         """Unauthenticated users are blocked by custom permission."""
 
-        class ArticleDetailView(DetailView[Article]):
-            model = Article
+        class HTMLTestArticleDetailView(DetailView[HTMLTestArticle]):
+            model = HTMLTestArticle
             template_name = "article_detail.html"
             permission_classes: ClassVar[list[type[BasePermission]]] = [
-                TestArticleAuthorPermission
+                TestHTMLTestArticleAuthorPermission
             ]
 
-        app.add_api_route("/articles/{pk}", ArticleDetailView.as_view())
+        app.add_api_route("/articles/{pk}", HTMLTestArticleDetailView.as_view())
 
         response = client.get("/articles/1")
 
@@ -92,7 +92,7 @@ class TestPermissionMixinUserPreference:
     async def test_prefers_self_user_over_request_state(self, test_user):
         class PermissionView(PermissionMixin):
             permission_classes: ClassVar[list[type[BasePermission]]] = [
-                TestArticleAuthorPermission
+                TestHTMLTestArticleAuthorPermission
             ]
 
         view = PermissionView()  # pyright: ignore[reportAbstractUsage]
@@ -102,7 +102,7 @@ class TestPermissionMixinUserPreference:
         request.state.user = SimpleNamespace(is_active=False, id=999)
         view.request = request
 
-        article = Article(
+        article = HTMLTestArticle(
             id=1,
             title="Test",
             slug="test",
@@ -118,7 +118,7 @@ class TestPermissionMixinUserPreference:
     async def test_fallbacks_to_request_state_user(self):
         class PermissionView(PermissionMixin):
             permission_classes: ClassVar[list[type[BasePermission]]] = [
-                TestArticleAuthorPermission
+                TestHTMLTestArticleAuthorPermission
             ]
 
         view = PermissionView()  # pyright: ignore[reportAbstractUsage]
@@ -127,7 +127,7 @@ class TestPermissionMixinUserPreference:
         request.state.user = SimpleNamespace(is_active=True, id=1)
         view.request = request
 
-        article = Article(
+        article = HTMLTestArticle(
             id=1,
             title="Test",
             slug="test",

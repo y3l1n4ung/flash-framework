@@ -14,10 +14,10 @@ from flash_html.views.generic.base import TemplateView
 from flash_html.views.generic.detail import DetailView
 from sqlalchemy import insert
 
-from .models import Article, Blog, Product
+from .models import HTMLTestArticle, HTMLTestBlog, HTMLTestProduct
 
 
-class IsArticleAuthor(BasePermission):
+class IsHTMLTestArticleAuthor(BasePermission):
     """Allow access only to the author of the article."""
 
     async def has_permission(
@@ -30,7 +30,7 @@ class IsArticleAuthor(BasePermission):
     async def has_object_permission(
         self,
         request,  # noqa: ARG002
-        obj: Article,
+        obj: HTMLTestArticle,
         user,
     ):
         return obj.author_id == user.id
@@ -40,7 +40,7 @@ class TestDetailView:
     @pytest_asyncio.fixture(autouse=True)
     async def setup_data(self, db_session):
         await db_session.execute(
-            insert(Product).values(
+            insert(HTMLTestProduct).values(
                 [
                     {
                         "id": 1,
@@ -53,7 +53,7 @@ class TestDetailView:
             ),
         )
         await db_session.execute(
-            insert(Blog).values(
+            insert(HTMLTestBlog).values(
                 [
                     {
                         "id": 1,
@@ -71,8 +71,8 @@ class TestDetailView:
     ):
         """Basic GET request with PK lookup and template rendering."""
 
-        class StandardView(DetailView[Product]):
-            model = Product
+        class StandardView(DetailView[HTMLTestProduct]):
+            model = HTMLTestProduct
             template_name = "product_detail.html"
 
         app.add_api_route("/standard/{pk}", StandardView.as_view())
@@ -89,8 +89,8 @@ class TestDetailView:
     ):
         """Hits: self.get_context_data(**kwargs) with as_view(extra_context)."""
 
-        class PromoView(DetailView[Product]):
-            model = Product
+        class PromoView(DetailView[HTMLTestProduct]):
+            model = HTMLTestProduct
             template_name = "extra.html"
 
         app.add_api_route(
@@ -105,11 +105,11 @@ class TestDetailView:
     ):
         """Slug-based lookup via URL parameter."""
 
-        class BlogView(DetailView[Blog]):
-            model = Blog
+        class HTMLTestBlogView(DetailView[HTMLTestBlog]):
+            model = HTMLTestBlog
             template_name = "blog_detail.html"
 
-        app.add_api_route("/blog/{slug}", BlogView.as_view())
+        app.add_api_route("/blog/{slug}", HTMLTestBlogView.as_view())
         response = client.get("/blog/first-post")
         assert "Post: First Post" in response.text
 
@@ -120,8 +120,8 @@ class TestDetailView:
     ):
         """PK takes priority when both PK and slug are in URL."""
 
-        class HybridView(DetailView[Product]):
-            model = Product
+        class HybridView(DetailView[HTMLTestProduct]):
+            model = HTMLTestProduct
             template_name = "product_detail.html"
 
         app.add_api_route("/hybrid/{pk}/{slug}", HybridView.as_view())
@@ -134,8 +134,8 @@ class TestDetailView:
     ):
         """404 response when object not found."""
 
-        class MissingView(DetailView[Product]):
-            model = Product
+        class MissingView(DetailView[HTMLTestProduct]):
+            model = HTMLTestProduct
             template_name = "product_detail.html"
 
         app.add_api_route("/missing/{pk}", MissingView.as_view())
@@ -146,8 +146,8 @@ class TestDetailView:
     ):
         """Custom context_object_name is used instead of model name."""
 
-        class CustomNameView(DetailView[Product]):
-            model = Product
+        class CustomNameView(DetailView[HTMLTestProduct]):
+            model = HTMLTestProduct
             template_name = "item_test.html"
             context_object_name = "item"
 
@@ -162,8 +162,8 @@ class TestDetailView:
     ):
         """Override get() to add custom business logic."""
 
-        class RestrictedView(DetailView[Product]):
-            model = Product
+        class RestrictedView(DetailView[HTMLTestProduct]):
+            model = HTMLTestProduct
             template_name = "product_detail.html"
 
             async def get(self, **kwargs):
@@ -185,8 +185,8 @@ class TestDetailView:
     ):
         """Path parameters from URL pattern are injected into get() method."""
 
-        class NestedView(DetailView[Product]):
-            model = Product
+        class NestedView(DetailView[HTMLTestProduct]):
+            model = HTMLTestProduct
             template_name = "product_detail.html"
 
             async def get(self, org: str, team: str, **_kwargs):
@@ -220,8 +220,8 @@ class TestDetailView:
         Covers line 53 when context_object_name is None.
         """
 
-        class FallbackNameView(DetailView[Product]):
-            model = Product
+        class FallbackNameView(DetailView[HTMLTestProduct]):
+            model = HTMLTestProduct
             template_name = "product_detail.html"
 
         app.add_api_route("/fallback/{pk}", FallbackNameView.as_view())
@@ -242,8 +242,8 @@ class TestDetailView:
         merge.
         """
 
-        class KwargMergeView(DetailView[Product]):
-            model = Product
+        class KwargMergeView(DetailView[HTMLTestProduct]):
+            model = HTMLTestProduct
             template_name = "product_detail.html"
 
             async def get(self, *, category: str, **kwargs):
@@ -264,8 +264,8 @@ class TestDetailView:
             return await super().get(**kwargs)
         """
 
-        class DelegateView(DetailView[Product]):
-            model = Product
+        class DelegateView(DetailView[HTMLTestProduct]):
+            model = HTMLTestProduct
             template_name = "product_detail.html"
 
         app.add_api_route("/delegate/{pk}", DelegateView.as_view())
@@ -281,7 +281,7 @@ class TestDetailViewContextData:
     @pytest_asyncio.fixture(autouse=True)
     async def setup_data(self, db_session):
         await db_session.execute(
-            insert(Product).values(
+            insert(HTMLTestProduct).values(
                 [
                     {
                         "id": 1,
@@ -299,8 +299,8 @@ class TestDetailViewContextData:
     ):
         """Object is added to context with model name in lowercase."""
 
-        class DefaultContextView(DetailView[Product]):
-            model = Product
+        class DefaultContextView(DetailView[HTMLTestProduct]):
+            model = HTMLTestProduct
             template_name = "product_detail.html"
 
         app.add_api_route("/default-context/{pk}", DefaultContextView.as_view())
@@ -314,8 +314,8 @@ class TestDetailViewContextData:
     ):
         """Object is added to context with custom context_object_name."""
 
-        class CustomContextView(DetailView[Product]):
-            model = Product
+        class CustomContextView(DetailView[HTMLTestProduct]):
+            model = HTMLTestProduct
             template_name = "item_test.html"
             context_object_name = "item"
 
@@ -330,8 +330,8 @@ class TestDetailViewContextData:
     ):
         """get_context_data() produces consistent output across multiple calls."""
 
-        class ConsistencyView(DetailView[Product]):
-            model = Product
+        class ConsistencyView(DetailView[HTMLTestProduct]):
+            model = HTMLTestProduct
             template_name = "product_detail.html"
 
         app.add_api_route("/consistency/{pk}", ConsistencyView.as_view())
@@ -357,8 +357,8 @@ class TestDetailViewContextData:
         so model.__name__.lower() is used.
         """
 
-        class DirectContextView(DetailView[Product]):
-            model = Product
+        class DirectContextView(DetailView[HTMLTestProduct]):
+            model = HTMLTestProduct
             template_name = "product_detail.html"
             context_object_name = None
 
@@ -373,9 +373,9 @@ class TestDetailViewContextData:
         context = view.get_context_data()
 
         # Verify that 'product' (lowercase model name) is in context
-        assert "product" in context
-        assert context["product"].id == 1
-        assert context["product"].name == "Laptop"
+        assert "htmltestproduct" in context
+        assert context["htmltestproduct"].id == 1
+        assert context["htmltestproduct"].name == "Laptop"
 
 
 class TestDetailViewIntegration:
@@ -384,7 +384,7 @@ class TestDetailViewIntegration:
     @pytest_asyncio.fixture(autouse=True)
     async def setup_data(self, db_session):
         await db_session.execute(
-            insert(Product).values(
+            insert(HTMLTestProduct).values(
                 [
                     {
                         "id": 1,
@@ -409,12 +409,12 @@ class TestDetailViewIntegration:
     ):
         """DetailView respects custom queryset with filters."""
 
-        class PublishedOnlyView(DetailView[Product]):
-            model = Product
+        class PublishedOnlyView(DetailView[HTMLTestProduct]):
+            model = HTMLTestProduct
             template_name = "product_detail.html"
 
             def get_queryset(self):
-                return self.model.objects.filter(Product.published.is_(True))
+                return self.model.objects.filter(HTMLTestProduct.published.is_(True))
 
         app.add_api_route("/published/{pk}", PublishedOnlyView.as_view())
 
@@ -432,8 +432,8 @@ class TestDetailViewIntegration:
     ):
         """Response has correct content-type header."""
 
-        class TypeCheckView(DetailView[Product]):
-            model = Product
+        class TypeCheckView(DetailView[HTMLTestProduct]):
+            model = HTMLTestProduct
             template_name = "product_detail.html"
 
         app.add_api_route("/type/{pk}", TypeCheckView.as_view())
@@ -445,17 +445,17 @@ class TestDetailViewIntegration:
     def test_detail_view_with_multiple_models(self, app: FastAPI, client: TestClient):
         """Multiple DetailViews for different models work independently."""
 
-        class ProductDetailView(DetailView[Product]):
-            model = Product
+        class HTMLTestProductDetailView(DetailView[HTMLTestProduct]):
+            model = HTMLTestProduct
             template_name = "product_detail.html"
 
-        class ProductDetailAltView(DetailView[Product]):
-            model = Product
+        class HTMLTestProductDetailAltView(DetailView[HTMLTestProduct]):
+            model = HTMLTestProduct
             template_name = "item_test.html"
             context_object_name = "item"
 
-        app.add_api_route("/products/{pk}", ProductDetailView.as_view())
-        app.add_api_route("/items/{pk}", ProductDetailAltView.as_view())
+        app.add_api_route("/products/{pk}", HTMLTestProductDetailView.as_view())
+        app.add_api_route("/items/{pk}", HTMLTestProductDetailAltView.as_view())
 
         # Both routes work with different context names
         response1 = client.get("/products/1")
@@ -471,8 +471,8 @@ class TestDetailViewIntegration:
     ):
         """Extra context and object context are merged correctly."""
 
-        class MergedContextView(DetailView[Product]):
-            model = Product
+        class MergedContextView(DetailView[HTMLTestProduct]):
+            model = HTMLTestProduct
             template_name = "extra.html"
 
         app.add_api_route(
@@ -489,8 +489,8 @@ class TestDetailViewIntegration:
     ):
         """Custom slug_field configuration is respected."""
 
-        class CustomSlugView(DetailView[Product]):
-            model = Product
+        class CustomSlugView(DetailView[HTMLTestProduct]):
+            model = HTMLTestProduct
             template_name = "product_detail.html"
             slug_field = "slug"
             slug_url_kwarg = "product_slug"
@@ -506,8 +506,8 @@ class TestDetailViewIntegration:
     ):
         """object attribute is None before get() is called."""
 
-        class ObjectStateView(DetailView[Product]):
-            model = Product
+        class ObjectStateView(DetailView[HTMLTestProduct]):
+            model = HTMLTestProduct
             template_name = "product_detail.html"
 
             async def get(self, **kwargs):
@@ -522,8 +522,8 @@ class TestDetailViewIntegration:
     def test_detail_view_with_async_override(self, app: FastAPI, client: TestClient):
         """Async method override in DetailView subclass works correctly."""
 
-        class AsyncOverrideView(DetailView[Product]):
-            model = Product
+        class AsyncOverrideView(DetailView[HTMLTestProduct]):
+            model = HTMLTestProduct
             template_name = "product_detail.html"
 
             async def get(self, **kwargs):
@@ -547,11 +547,11 @@ class TestDetailViewPermissions:
     @pytest_asyncio.fixture(autouse=True)
     async def setup_data(self, db_session):
         await db_session.execute(
-            insert(Product).values(
+            insert(HTMLTestProduct).values(
                 [
                     {
                         "id": 1,
-                        "name": "Public Product",
+                        "name": "Public HTMLTestProduct",
                         "slug": "public-product",
                         "published": True,
                     },
@@ -563,28 +563,28 @@ class TestDetailViewPermissions:
     def test_allow_any_permission(self, app: FastAPI, client: TestClient):
         """AllowAny permission permits access to everyone."""
 
-        class PublicProductView(DetailView[Product]):
-            model = Product
+        class PublicHTMLTestProductView(DetailView[HTMLTestProduct]):
+            model = HTMLTestProduct
             template_name = "product_detail.html"
             permission_classes: ClassVar[list[type[BasePermission]]] = [AllowAny]
 
-        app.add_api_route("/public/{pk}", PublicProductView.as_view())
+        app.add_api_route("/public/{pk}", PublicHTMLTestProductView.as_view())
         response = client.get("/public/1")
 
         assert response.status_code == 200
-        assert "Product: Public Product" in response.text
+        assert "Product: Public HTMLTestProduct" in response.text
 
     def test_is_authenticated_permission_no_user(
         self, app: FastAPI, client: TestClient
     ):
         """IsAuthenticated blocks access when user is not authenticated."""
 
-        class AuthenticatedProductView(DetailView[Product]):
-            model = Product
+        class AuthenticatedHTMLTestProductView(DetailView[HTMLTestProduct]):
+            model = HTMLTestProduct
             template_name = "product_detail.html"
             permission_classes: ClassVar[list[type[BasePermission]]] = [IsAuthenticated]
 
-        app.add_api_route("/auth/{pk}", AuthenticatedProductView.as_view())
+        app.add_api_route("/auth/{pk}", AuthenticatedHTMLTestProductView.as_view())
         response = client.get("/auth/1")
 
         # Should return 403 for unauthenticated access
@@ -593,32 +593,32 @@ class TestDetailViewPermissions:
     def test_permission_override_via_as_view(self, app: FastAPI, client: TestClient):
         """Permissions can be overridden via as_view() call."""
 
-        class ProductView(DetailView[Product]):
-            model = Product
+        class HTMLTestProductView(DetailView[HTMLTestProduct]):
+            model = HTMLTestProduct
             template_name = "product_detail.html"
             permission_classes: ClassVar[list[type[BasePermission]]] = [IsAuthenticated]
 
         # Override with AllowAny for this route
         app.add_api_route(
-            "/override/{pk}", ProductView.as_view(permission_classes=[AllowAny])
+            "/override/{pk}", HTMLTestProductView.as_view(permission_classes=[AllowAny])
         )
         response = client.get("/override/1")
 
         assert response.status_code == 200
-        assert "Product: Public Product" in response.text
+        assert "Product: Public HTMLTestProduct" in response.text
 
     def test_multiple_permission_classes(self, app: FastAPI, client: TestClient):
         """Multiple permission classes work together."""
 
-        class ProtectedProductView(DetailView[Product]):
-            model = Product
+        class ProtectedHTMLTestProductView(DetailView[HTMLTestProduct]):
+            model = HTMLTestProduct
             template_name = "product_detail.html"
             permission_classes: ClassVar[list[type[BasePermission]]] = [
                 IsAuthenticated,
                 IsStaffUser,
             ]
 
-        app.add_api_route("/multi/{pk}", ProtectedProductView.as_view())
+        app.add_api_route("/multi/{pk}", ProtectedHTMLTestProductView.as_view())
         response = client.get("/multi/1")
 
         # Should be blocked - not authenticated, not staff
@@ -629,16 +629,16 @@ class TestDetailViewPermissions:
     ):
         """Empty permission_classes allows access."""
 
-        class DefaultProductView(DetailView[Product]):
-            model = Product
+        class DefaultHTMLTestProductView(DetailView[HTMLTestProduct]):
+            model = HTMLTestProduct
             template_name = "product_detail.html"
             permission_classes: ClassVar[list] = []
 
-        app.add_api_route("/empty/{pk}", DefaultProductView.as_view())
+        app.add_api_route("/empty/{pk}", DefaultHTMLTestProductView.as_view())
         response = client.get("/empty/1")
 
         assert response.status_code == 200
-        assert "Product: Public Product" in response.text
+        assert "Product: Public HTMLTestProduct" in response.text
 
 
 class TestDetailViewObjectPermissions:
@@ -648,11 +648,11 @@ class TestDetailViewObjectPermissions:
     async def setup_data(self, db_session, test_user, admin_user, blog_user):
         # Create articles with different authors
         await db_session.execute(
-            insert(Article).values(
+            insert(HTMLTestArticle).values(
                 [
                     {
                         "id": 1,
-                        "title": "Test User's Article",
+                        "title": "Test User's HTMLTestArticle",
                         "slug": "test-user-article",
                         "content": "Content by test user",
                         "author_id": test_user.id,
@@ -660,7 +660,7 @@ class TestDetailViewObjectPermissions:
                     },
                     {
                         "id": 2,
-                        "title": "Blog User's Article",
+                        "title": "HTMLTestBlog User's HTMLTestArticle",
                         "slug": "blog-user-article",
                         "content": "Content by blog user",
                         "author_id": blog_user.id,
@@ -668,7 +668,7 @@ class TestDetailViewObjectPermissions:
                     },
                     {
                         "id": 3,
-                        "title": "Admin's Article",
+                        "title": "Admin's HTMLTestArticle",
                         "slug": "admin-article",
                         "content": "Content by admin",
                         "author_id": admin_user.id,
@@ -682,33 +682,33 @@ class TestDetailViewObjectPermissions:
     def test_is_owner_permission_works(
         self, app: FastAPI, client: TestClient, test_user
     ):
-        """IsArticleAuthor permission allows owner to access their object."""
+        """IsHTMLTestArticleAuthor permission allows owner to access their object."""
 
-        class OwnerArticleView(DetailView[Article]):
-            model = Article
+        class OwnerHTMLTestArticleView(DetailView[HTMLTestArticle]):
+            model = HTMLTestArticle
             template_name = "article_detail.html"
-            permission_classes: ClassVar[list[type[BasePermission]]] = [IsArticleAuthor]
+            permission_classes: ClassVar[list[type[BasePermission]]] = [IsHTMLTestArticleAuthor]
 
-        app.add_api_route("/owner/{pk}", OwnerArticleView.as_view())
+        app.add_api_route("/owner/{pk}", OwnerHTMLTestArticleView.as_view())
 
         # Mock authenticated user as test_user (owner of article 1)
         app.state.test_user = test_user
         response = client.get("/owner/1")
 
         assert response.status_code == 200
-        assert "Article: Test User" in response.text and "Article by 1" in response.text
+        assert "HTMLTestArticle: Test User" in response.text and "HTMLTestArticle by 1" in response.text
 
     def test_is_owner_blocks_non_owner(
         self, app: FastAPI, client: TestClient, blog_user
     ):
-        """IsArticleAuthor permission blocks non-author from accessing object."""
+        """IsHTMLTestArticleAuthor permission blocks non-author from accessing object."""
 
-        class OwnerArticleView(DetailView[Article]):
-            model = Article
+        class OwnerHTMLTestArticleView(DetailView[HTMLTestArticle]):
+            model = HTMLTestArticle
             template_name = "article_detail.html"
-            permission_classes: ClassVar[list[type[BasePermission]]] = [IsArticleAuthor]
+            permission_classes: ClassVar[list[type[BasePermission]]] = [IsHTMLTestArticleAuthor]
 
-        app.add_api_route("/owner/{pk}", OwnerArticleView.as_view())
+        app.add_api_route("/owner/{pk}", OwnerHTMLTestArticleView.as_view())
 
         # Mock authenticated user as blog_user (not owner of article 1)
         app.state.test_user = blog_user
@@ -721,14 +721,14 @@ class TestDetailViewObjectPermissions:
     ):
         """Permissions work with extra context passed via as_view()."""
 
-        class ExtraContextArticleView(DetailView[Article]):
-            model = Article
+        class ExtraContextHTMLTestArticleView(DetailView[HTMLTestArticle]):
+            model = HTMLTestArticle
             template_name = "extra.html"  # Uses extra template
-            permission_classes: ClassVar[list[type[BasePermission]]] = [IsArticleAuthor]
+            permission_classes: ClassVar[list[type[BasePermission]]] = [IsHTMLTestArticleAuthor]
 
         app.add_api_route(
             "/extra-context/{pk}",
-            ExtraContextArticleView.as_view(extra_context={"name": "Blog"}),
+            ExtraContextHTMLTestArticleView.as_view(extra_context={"name": "HTMLTestBlog"}),
         )
 
         # Mock authenticated user as test_user (owner)
@@ -736,7 +736,7 @@ class TestDetailViewObjectPermissions:
         response = client.get("/extra-context/1")
 
         assert response.status_code == 200
-        assert "Extra: Blog" in response.text
+        assert "Extra: HTMLTestBlog" in response.text
 
     def test_detail_view_calls_object_permissions(
         self,
@@ -756,12 +756,12 @@ class TestDetailViewObjectPermissions:
                 FlagPermission.called = True
                 return True
 
-        class OwnerArticleView(DetailView[Article]):
-            model = Article
+        class OwnerHTMLTestArticleView(DetailView[HTMLTestArticle]):
+            model = HTMLTestArticle
             template_name = "article_detail.html"
             permission_classes: ClassVar[list[type[BasePermission]]] = [FlagPermission]
 
-        app.add_api_route("/flag/{pk}", OwnerArticleView.as_view())
+        app.add_api_route("/flag/{pk}", OwnerHTMLTestArticleView.as_view())
         app.state.test_user = test_user
 
         response = client.get("/flag/1")
@@ -774,12 +774,12 @@ class TestDetailViewObjectPermissions:
     ):
         """Permission denied responses return proper 403 status."""
 
-        class ProtectedArticleView(DetailView[Article]):
-            model = Article
+        class ProtectedHTMLTestArticleView(DetailView[HTMLTestArticle]):
+            model = HTMLTestArticle
             template_name = "article_detail.html"
             permission_classes: ClassVar[list[type[BasePermission]]] = [IsAuthenticated]
 
-        app.add_api_route("/protected/{pk}", ProtectedArticleView.as_view())
+        app.add_api_route("/protected/{pk}", ProtectedHTMLTestArticleView.as_view())
 
         # No user authenticated - should get 403
         response = client.get("/protected/1")
@@ -798,13 +798,13 @@ class TestDetailViewObjectPermissions:
             async def has_object_permission(self, request, obj, user):  # noqa: ARG002
                 return True
 
-        class MinimalDetailView(DetailView[Article]):
-            model = Article
+        class MinimalDetailView(DetailView[HTMLTestArticle]):
+            model = HTMLTestArticle
             template_name = "unused.html"
             permission_classes: ClassVar[list[type[BasePermission]]] = [AllowObject]
 
             async def get_object(self, *args, **kwargs):  # noqa: ARG002
-                return Article(
+                return HTMLTestArticle(
                     id=1,
                     title="Test",
                     slug="test",

@@ -37,7 +37,6 @@ from .views import (
     ArticleDetailView,
     ArticleEditView,
     ArticleListView,
-    FormShowcaseView,
     HomeView,
     LoginView,
     LogoutView,

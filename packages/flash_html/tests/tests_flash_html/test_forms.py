@@ -132,10 +132,10 @@ class TestTemplateIntegration:
             max_length=4,
             description="Name",
         )
-        param = field.get_form_parameter()
-        assert param.min_length == 2
-        assert param.max_length == 4
-        assert param.description == "Name"
+        metadata = field.get_form_metadata()
+        assert metadata["min_length"] == 2
+        assert metadata["max_length"] == 4
+        assert metadata["description"] == "Name"
 
     def test_bound_field_metadata(self):
         class MetaForm(BaseForm):
@@ -144,9 +144,9 @@ class TestTemplateIntegration:
                 help_text="Tell us about yourself.",
                 attrs={"rows": 5},
             )
-            contact = EmailField()
+            contact = EmailField(required=False)
             website = URLField(required=False)
-            status = ChoiceField(choices=[("a", "A")])
+            status = ChoiceField(choices=[("a", "A")], required=False)
 
         form = MetaForm(data={"bio": "Hi"})
         assert form.is_valid() is True

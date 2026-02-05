@@ -5,14 +5,14 @@ from flash_html.views.mixins.multi import MultipleObjectMixin
 from sqlalchemy import insert
 from sqlalchemy.exc import DatabaseError, IntegrityError, OperationalError
 
-from .models import Product
+from .models import HTMLTestProduct
 
 
 @pytest_asyncio.fixture
 async def products_data(db_session):
     """Setup test products."""
     await db_session.execute(
-        insert(Product).values(
+        insert(HTMLTestProduct).values(
             [
                 {"id": 1, "name": "Laptop", "slug": "laptop-pro", "published": True},
                 {"id": 2, "name": "Phone", "slug": "phone-max", "published": False},
@@ -70,10 +70,10 @@ class TestMultipleObjectMixinCore:
     def test_valid_subclass_with_model(self):
         """Subclass with model attribute succeeds."""
 
-        class ProductListView(MultipleObjectMixin[Product]):
-            model = Product
+        class HTMLTestProductListView(MultipleObjectMixin[HTMLTestProduct]):
+            model = HTMLTestProduct
 
-        assert ProductListView.model == Product
+        assert HTMLTestProductListView.model == HTMLTestProduct
 
     def test_model_validator_failure_re_raised(self, monkeypatch):
         """If ModelValidator.validate_model() raises TypeError, it gets re-raised."""
@@ -87,31 +87,31 @@ class TestMultipleObjectMixinCore:
 
         with pytest.raises(TypeError) as excinfo:
 
-            class ProductListView(MultipleObjectMixin[Product]):
-                model = Product
+            class HTMLTestProductListView(MultipleObjectMixin[HTMLTestProduct]):
+                model = HTMLTestProduct
 
         assert "Model validation failed" in str(excinfo.value)
 
     def test_get_queryset_default(self):
         """get_queryset() returns model.objects.all() by default."""
 
-        class ProductListView(MultipleObjectMixin[Product]):
-            model = Product
+        class HTMLTestProductListView(MultipleObjectMixin[HTMLTestProduct]):
+            model = HTMLTestProduct
 
-        mixin = ProductListView()
+        mixin = HTMLTestProductListView()
         qs = mixin.get_queryset()
         assert qs is not None
 
     def test_get_queryset_with_custom_queryset(self):
         """get_queryset() returns custom queryset if set."""
 
-        class ProductListView(MultipleObjectMixin[Product]):
-            model = Product
-            queryset = Product.objects.filter(Product.published.is_(True))
+        class HTMLTestProductListView(MultipleObjectMixin[HTMLTestProduct]):
+            model = HTMLTestProduct
+            queryset = HTMLTestProduct.objects.filter(HTMLTestProduct.published.is_(True))
 
-        mixin = ProductListView()
+        mixin = HTMLTestProductListView()
         qs = mixin.get_queryset()
-        assert qs == ProductListView.queryset
+        assert qs == HTMLTestProductListView.queryset
 
 
 class TestResolveOrdering:
@@ -159,10 +159,10 @@ class TestGetObjects:
         """Fetch objects successfully."""
         # Verify products_data fixture is available even though we create mock data
 
-        class ProductListView(MultipleObjectMixin[Product]):
-            model = Product
+        class HTMLTestProductListView(MultipleObjectMixin[HTMLTestProduct]):
+            model = HTMLTestProduct
 
-        mixin = setup_mixin(ProductListView)
+        mixin = setup_mixin(HTMLTestProductListView)
         data = await mixin.get_objects(limit=10, offset=0)
 
         assert data["total_count"] == 5
@@ -177,10 +177,10 @@ class TestGetObjects:
         """Pagination returns correct subset."""
         # Verify products_data fixture is available
 
-        class ProductListView(MultipleObjectMixin[Product]):
-            model = Product
+        class HTMLTestProductListView(MultipleObjectMixin[HTMLTestProduct]):
+            model = HTMLTestProduct
 
-        mixin = setup_mixin(ProductListView)
+        mixin = setup_mixin(HTMLTestProductListView)
         data = await mixin.get_objects(limit=2, offset=2)
 
         assert len(data["object_list"]) == 2
@@ -194,10 +194,10 @@ class TestGetObjects:
         """Objects are ordered correctly."""
         # Verify products_data fixture is available
 
-        class ProductListView(MultipleObjectMixin[Product]):
-            model = Product
+        class HTMLTestProductListView(MultipleObjectMixin[HTMLTestProduct]):
+            model = HTMLTestProduct
 
-        mixin = setup_mixin(ProductListView)
+        mixin = setup_mixin(HTMLTestProductListView)
         data = await mixin.get_objects(limit=10, offset=0, ordering=[("id", "desc")])
 
         assert data["object_list"][0].id == 5
@@ -208,11 +208,11 @@ class TestGetObjects:
         """Uses paginate_by when limit not provided."""
         # Verify products_data fixture is available
 
-        class ProductListView(MultipleObjectMixin[Product]):
-            model = Product
+        class HTMLTestProductListView(MultipleObjectMixin[HTMLTestProduct]):
+            model = HTMLTestProduct
             paginate_by = 2
 
-        mixin = setup_mixin(ProductListView)
+        mixin = setup_mixin(HTMLTestProductListView)
         data = await mixin.get_objects(offset=0)
 
         assert len(data["object_list"]) == 2
@@ -226,11 +226,11 @@ class TestGetObjects:
     ):
         """Explicit limit parameter overrides paginate_by."""
 
-        class ProductListView(MultipleObjectMixin[Product]):
-            model = Product
+        class HTMLTestProductListView(MultipleObjectMixin[HTMLTestProduct]):
+            model = HTMLTestProduct
             paginate_by = 2
 
-        mixin = setup_mixin(ProductListView)
+        mixin = setup_mixin(HTMLTestProductListView)
         data = await mixin.get_objects(limit=3, offset=0)
 
         assert len(data["object_list"]) == 3
@@ -240,9 +240,9 @@ class TestGetObjects:
     async def test_get_objects_with_custom_queryset(self, setup_mixin, products_data):  # noqa: ARG002
         """Custom queryset filtering is respected."""
 
-        class PublishedListView(MultipleObjectMixin[Product]):
-            model = Product
-            queryset = Product.objects.filter(Product.published.is_(True))
+        class PublishedListView(MultipleObjectMixin[HTMLTestProduct]):
+            model = HTMLTestProduct
+            queryset = HTMLTestProduct.objects.filter(HTMLTestProduct.published.is_(True))
 
         mixin = setup_mixin(PublishedListView)
         data = await mixin.get_objects(limit=10, offset=0)
@@ -258,11 +258,11 @@ class TestGetObjects:
     ):
         """get_queryset() override is called."""
 
-        class CustomListView(MultipleObjectMixin[Product]):
-            model = Product
+        class CustomListView(MultipleObjectMixin[HTMLTestProduct]):
+            model = HTMLTestProduct
 
             def get_queryset(self):
-                return self.model.objects.filter(Product.published.is_(True))
+                return self.model.objects.filter(HTMLTestProduct.published.is_(True))
 
         mixin = setup_mixin(CustomListView)
         data = await mixin.get_objects(limit=10, offset=0)
@@ -274,11 +274,11 @@ class TestGetObjects:
     async def test_get_objects_empty_list_allow_empty_true(self, setup_mixin):
         """Empty result returns empty list when allow_empty=True."""
 
-        class ProductListView(MultipleObjectMixin[Product]):
-            model = Product
+        class HTMLTestProductListView(MultipleObjectMixin[HTMLTestProduct]):
+            model = HTMLTestProduct
             allow_empty = True
 
-        mixin = setup_mixin(ProductListView)
+        mixin = setup_mixin(HTMLTestProductListView)
         data = await mixin.get_objects(limit=10, offset=0)
 
         assert data["object_list"] == []
@@ -293,8 +293,8 @@ class TestGetObjects:
         """Empty result raises 404 when allow_empty=False and no data."""
 
         # Create a filtered view that returns no results
-        class PublishedListView(MultipleObjectMixin[Product]):
-            model = Product
+        class PublishedListView(MultipleObjectMixin[HTMLTestProduct]):
+            model = HTMLTestProduct
             allow_empty = False
 
         mixin = setup_mixin(PublishedListView)
@@ -303,17 +303,17 @@ class TestGetObjects:
             await mixin.get_objects(limit=10, offset=1000)
 
         assert excinfo.value.status_code == 404
-        assert "Product" in excinfo.value.detail
+        assert "HTMLTestProduct" in excinfo.value.detail
 
     @pytest.mark.asyncio
     async def test_get_objects_auto_error_disabled(self, setup_mixin):
         """Empty result returns empty list when auto_error=False."""
 
-        class ProductListView(MultipleObjectMixin[Product]):
-            model = Product
+        class HTMLTestProductListView(MultipleObjectMixin[HTMLTestProduct]):
+            model = HTMLTestProduct
             allow_empty = False
 
-        mixin = setup_mixin(ProductListView)
+        mixin = setup_mixin(HTMLTestProductListView)
         data = await mixin.get_objects(limit=10, offset=0, auto_error=False)
 
         assert data["object_list"] == []
@@ -323,10 +323,10 @@ class TestGetObjects:
     async def test_get_objects_without_db_session(self):
         """RuntimeError raised when db session not assigned."""
 
-        class ProductListView(MultipleObjectMixin[Product]):
-            model = Product
+        class HTMLTestProductListView(MultipleObjectMixin[HTMLTestProduct]):
+            model = HTMLTestProduct
 
-        mixin = ProductListView()
+        mixin = HTMLTestProductListView()
         mixin.db = None
 
         with pytest.raises(
@@ -343,10 +343,10 @@ class TestGetObjects:
     ):
         """Invalid ordering field is skipped with warning."""
 
-        class ProductListView(MultipleObjectMixin[Product]):
-            model = Product
+        class HTMLTestProductListView(MultipleObjectMixin[HTMLTestProduct]):
+            model = HTMLTestProduct
 
-        mixin = setup_mixin(ProductListView)
+        mixin = setup_mixin(HTMLTestProductListView)
         data = await mixin.get_objects(
             limit=10,
             offset=0,
@@ -361,10 +361,10 @@ class TestGetObjects:
     async def test_get_objects_has_next_calculation(self, setup_mixin, products_data):  # noqa: ARG002
         """has_next flag calculated correctly."""
 
-        class ProductListView(MultipleObjectMixin[Product]):
-            model = Product
+        class HTMLTestProductListView(MultipleObjectMixin[HTMLTestProduct]):
+            model = HTMLTestProduct
 
-        mixin = setup_mixin(ProductListView)
+        mixin = setup_mixin(HTMLTestProductListView)
 
         # Page with more items after
         data = await mixin.get_objects(limit=2, offset=0)
@@ -386,10 +386,10 @@ class TestGetObjects:
     ):
         """has_previous flag calculated correctly."""
 
-        class ProductListView(MultipleObjectMixin[Product]):
-            model = Product
+        class HTMLTestProductListView(MultipleObjectMixin[HTMLTestProduct]):
+            model = HTMLTestProduct
 
-        mixin = setup_mixin(ProductListView)
+        mixin = setup_mixin(HTMLTestProductListView)
 
         # First page
         data = await mixin.get_objects(limit=2, offset=0)
@@ -407,8 +407,8 @@ class TestDatabaseExceptions:
     async def test_operational_error_returns_503(self, setup_mixin):
         """OperationalError raises HTTPException 503."""
 
-        class ProductListView(MultipleObjectMixin[Product]):
-            model = Product
+        class HTMLTestProductListView(MultipleObjectMixin[HTMLTestProduct]):
+            model = HTMLTestProduct
 
             def get_queryset(self):  # pyright: ignore[reportIncompatibleMethodOverride]
                 class MockQuerySet:
@@ -430,7 +430,7 @@ class TestDatabaseExceptions:
 
                 return MockQuerySet()
 
-        mixin = setup_mixin(ProductListView)
+        mixin = setup_mixin(HTMLTestProductListView)
 
         with pytest.raises(HTTPException) as excinfo:
             await mixin.get_objects(limit=10, offset=0)
@@ -442,8 +442,8 @@ class TestDatabaseExceptions:
     async def test_integrity_error_returns_500(self, setup_mixin):
         """IntegrityError raises HTTPException 500."""
 
-        class ProductListView(MultipleObjectMixin[Product]):
-            model = Product
+        class HTMLTestProductListView(MultipleObjectMixin[HTMLTestProduct]):
+            model = HTMLTestProduct
 
             def get_queryset(self):  # pyright: ignore[reportIncompatibleMethodOverride]
                 class MockQuerySet:
@@ -465,7 +465,7 @@ class TestDatabaseExceptions:
 
                 return MockQuerySet()
 
-        mixin = setup_mixin(ProductListView)
+        mixin = setup_mixin(HTMLTestProductListView)
 
         with pytest.raises(HTTPException) as excinfo:
             await mixin.get_objects(limit=10, offset=0)
@@ -477,8 +477,8 @@ class TestDatabaseExceptions:
     async def test_database_error_returns_500(self, setup_mixin):
         """DatabaseError raises HTTPException 500."""
 
-        class ProductListView(MultipleObjectMixin[Product]):
-            model = Product
+        class HTMLTestProductListView(MultipleObjectMixin[HTMLTestProduct]):
+            model = HTMLTestProduct
 
             def get_queryset(self):  # pyright: ignore[reportIncompatibleMethodOverride]
                 class MockQuerySet:
@@ -500,7 +500,7 @@ class TestDatabaseExceptions:
 
                 return MockQuerySet()
 
-        mixin = setup_mixin(ProductListView)
+        mixin = setup_mixin(HTMLTestProductListView)
 
         with pytest.raises(HTTPException) as excinfo:
             await mixin.get_objects(limit=10, offset=0)
@@ -512,8 +512,8 @@ class TestDatabaseExceptions:
     async def test_unexpected_exception_returns_500(self, setup_mixin):
         """Unexpected exception raises HTTPException 500."""
 
-        class ProductListView(MultipleObjectMixin[Product]):
-            model = Product
+        class HTMLTestProductListView(MultipleObjectMixin[HTMLTestProduct]):
+            model = HTMLTestProduct
 
             def get_queryset(self):  # pyright: ignore[reportIncompatibleMethodOverride]
                 class MockQuerySet:
@@ -535,7 +535,7 @@ class TestDatabaseExceptions:
 
                 return MockQuerySet()
 
-        mixin = setup_mixin(ProductListView)
+        mixin = setup_mixin(HTMLTestProductListView)
 
         with pytest.raises(HTTPException) as excinfo:
             await mixin.get_objects(limit=10, offset=0)

@@ -54,10 +54,10 @@ def manager(tmp_path):
     tpl_dir.mkdir(parents=True, exist_ok=True)
 
     # Explicit templates used for verification
-    (tpl_dir / "product_detail.html").write_text("Product: {{ product.name }}")
-    (tpl_dir / "blog_detail.html").write_text("Post: {{ blog.title }}")
+    (tpl_dir / "product_detail.html").write_text("Product: {{ htmltestproduct.name }}")
+    (tpl_dir / "blog_detail.html").write_text("Post: {{ htmltestblog.title }}")
     (tpl_dir / "article_detail.html").write_text(
-        "Article: {{ article.title }} by {{ article.author_id }}"
+        "HTMLTestArticle: {{ htmltestarticle.title }} by {{ htmltestarticle.author_id }}"
     )
     (tpl_dir / "custom.html").write_text("Custom: {{ object.name }}")
     (tpl_dir / "extra.html").write_text("Extra: {{ name }}")
