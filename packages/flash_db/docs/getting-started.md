@@ -1,18 +1,16 @@
 # Getting Started
 
-This guide covers the basic setup for `flash_db` in a FastAPI application.
-
 ## Installation
 
-Install the package from PyPI:
+Install `flash_db` using pip:
 
 ```bash
 pip install flash_db
 ```
 
-## Database Initialization
+## Configuration
 
-Use FastAPI's `lifespan` context manager to handle database startup and shutdown.
+Initialize the database connection within your application's lifespan.
 
 ```python title="main.py"
 from contextlib import asynccontextmanager
@@ -21,29 +19,29 @@ from flash_db import init_db, close_db
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Initialize the database on startup
+    # Initialize the database (e.g., using SQLite)
     init_db("sqlite+aiosqlite:///db.sqlite3")
     yield
-    # Close the database on shutdown
+    # Close connections on shutdown
     await close_db()
 
 app = FastAPI(lifespan=lifespan)
 ```
 
-## Database Session
+## Session Management
 
-Inject the database session into your FastAPI endpoints using `Depends(get_db)`.
+Inject the database session into route handlers using the `get_db` dependency.
 
 ```python
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from flash_db import get_db
 
-@app.get("/items/")
-async def read_items(db: AsyncSession = Depends(get_db)):
-    # The 'db' session is now available for database calls
-    # e.g., items = await Item.objects.all().fetch(db)
-    pass
+@app.get("/health")
+async def health_check(db: AsyncSession = Depends(get_db)):
+    """
+    Example endpoint verifying database connectivity.
+    """
+    # The 'db' session is an SQLAlchemy AsyncSession ready for use.
+    return {"status": "ok"}
 ```
-
-The `get_db` dependency provides an `AsyncSession` that is automatically managed for each request.
