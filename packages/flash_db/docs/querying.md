@@ -201,3 +201,32 @@ users = await (
 )
 ```
 
+## Complex Expressions
+
+For more advanced query logic, `flash_db` provides `Q` and `F` objects (available in `flash_db.expressions`).
+
+### Q Objects (Complex Filters)
+
+`Q` objects allow you to encapsulate and combine query conditions using bitwise operators (`&`, `|`, `~`).
+
+```python
+from flash_db.expressions import Q
+
+# Resolved manually for now (Integration with QuerySet.filter is upcoming)
+condition = (Q(name="John") | Q(name="Jane")) & ~Q(status="retired")
+resolved_condition = condition.resolve(User)
+
+users = await User.objects.filter(resolved_condition).fetch(db)
+```
+
+### F Expressions (Field References)
+
+`F` expressions allow you to reference model fields in queries, which is useful for updates or comparing two fields on the same record.
+
+```python
+from flash_db.expressions import F
+
+# Increment stock by 1 for all products
+await Product.objects.filter(id__isnull=False).update(db, stock=F("stock") + 1)
+```
+

@@ -12,7 +12,6 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
     from sqlalchemy.sql import ColumnElement, Select
 
-    from .expressions import Q
 
 T = TypeVar("T", bound=Model)
 
@@ -23,15 +22,27 @@ class QuerySet(Generic[T]):
 
     A QuerySet stores a SQLAlchemy `Select` statement and allows query
     conditions to be composed without executing the query immediately.
+    Queries are executed only when calling an execution method like `fetch()`,
+    `first()`, or `count()`.
+
+    Examples:
+        >>> qs = Article.objects.filter(title="Hello")
+
+        >>> qs = (Article.objects.filter(id__gt=10)
+        ...       .exclude(status="draft").order_by("-id"))
     """
 
-    def __init__(self, model: Type[T], stmt: Select[tuple[T]]):
+    def __init__(self, model: Type[T], stmt: Select):
         self.model: Type[T] = model
-        self._stmt: Select[tuple[T]] = stmt
+        self._stmt: Select = stmt
 
-    def filter(
-        self, *conditions: Q | ColumnElement[bool], **kwargs: object
-    ) -> QuerySet[T]:
+    def _clone(self, stmt: Select | None = None) -> QuerySet[T]:
+        """
+        Return a new QuerySet instance with the same model and result type.
+        """
+        return QuerySet(self.model, stmt if stmt is not None else self._stmt)
+
+    def filter(self, *conditions: ColumnElement[bool], **kwargs: object) -> QuerySet[T]:
         """
         Add WHERE criteria to the query.
 
@@ -56,32 +67,25 @@ class QuerySet(Generic[T]):
             return self
 
         stmt = self._stmt
-        from .expressions import Q
 
-        # Handle positional arguments (expressions or Q objects)
+        # Handle positional arguments (raw SQLAlchemy expressions)
         for cond in conditions:
-            if isinstance(cond, Q):
-                resolved = cond.resolve(self.model)
-                if resolved is not None:
-                    stmt = stmt.where(resolved)
-            else:
-                stmt = stmt.where(cond)
+            stmt = stmt.where(cond)
 
-        # Handle keyword arguments
+        # Handle keyword arguments (simple equality)
         for key, value in kwargs.items():
-            stmt = stmt.where(getattr(self.model, key) == value)
+            if hasattr(self.model, key):
+                stmt = stmt.where(getattr(self.model, key) == value)
 
-        return QuerySet(self.model, stmt)
+        return self._clone(stmt)
 
     def exclude(
-        self, *conditions: Q | ColumnElement[bool], **kwargs: object
+        self, *conditions: ColumnElement[bool], **kwargs: object
     ) -> QuerySet[T]:
         """
         Add NOT WHERE criteria to the query.
 
-        Args:
-            *conditions: Positional SQLAlchemy expressions or Q objects.
-            **kwargs: Keyword arguments for basic inequality checks.
+        Arguments work exactly like `filter()`, but the conditions are negated.
 
         Returns:
             A new QuerySet instance with the negation applied.
@@ -95,24 +99,18 @@ class QuerySet(Generic[T]):
 
         from sqlalchemy import not_
 
-        from .expressions import Q
-
         stmt = self._stmt
 
         # Handle positional arguments
         for cond in conditions:
-            if isinstance(cond, Q):
-                resolved = cond.resolve(self.model)
-                if resolved is not None:
-                    stmt = stmt.where(not_(resolved))
-            else:
-                stmt = stmt.where(not_(cond))
+            stmt = stmt.where(not_(cond))
 
         # Handle keyword arguments
         for key, value in kwargs.items():
-            stmt = stmt.where(getattr(self.model, key) != value)
+            if hasattr(self.model, key):
+                stmt = stmt.where(getattr(self.model, key) != value)
 
-        return QuerySet(self.model, stmt)
+        return self._clone(stmt)
 
     def distinct(self, *criterion: Any) -> QuerySet[T]:
         """
@@ -122,17 +120,20 @@ class QuerySet(Generic[T]):
             >>> articles = await Article.objects.distinct().fetch(db)
             # SELECT DISTINCT * FROM articles;
         """
-        return QuerySet(self.model, self._stmt.distinct(*criterion))
+        return self._clone(self._stmt.distinct(*criterion))
 
     def order_by(self, *criterion: Any) -> QuerySet[T]:
         """
         Add ORDER BY criteria to the query.
 
         Example:
-            >>> articles = await Article.objects.order_by("title").fetch(db)
+            >>> Article.objects.order_by("title")
             # SELECT * FROM articles ORDER BY title ASC;
+
+            >>> Article.objects.order_by(Article.id.desc())
+            # SELECT * FROM articles ORDER BY id DESC;
         """
-        return QuerySet(self.model, self._stmt.order_by(*criterion))
+        return self._clone(self._stmt.order_by(*criterion))
 
     def limit(self, count: int) -> QuerySet[T]:
         """
@@ -142,7 +143,7 @@ class QuerySet(Generic[T]):
             >>> articles = await Article.objects.limit(10).fetch(db)
             # SELECT * FROM articles LIMIT 10;
         """
-        return QuerySet(self.model, self._stmt.limit(count))
+        return self._clone(self._stmt.limit(count))
 
     def offset(self, count: int) -> QuerySet[T]:
         """
@@ -152,20 +153,20 @@ class QuerySet(Generic[T]):
             >>> articles = await Article.objects.offset(10).fetch(db)
             # SELECT * FROM articles OFFSET 10;
         """
-        return QuerySet(self.model, self._stmt.offset(count))
+        return self._clone(self._stmt.offset(count))
 
     def only(self, *fields: str) -> QuerySet[T]:
         """
         Load only the specified fields.
 
         Example:
-            >>> articles = await Article.objects.only("title").fetch(db)
+            >>> Article.objects.only("title", "id")
             # SELECT id, title FROM articles;
         """
         from sqlalchemy.orm import load_only
 
         cols = [getattr(self.model, f) for f in fields]
-        return QuerySet(self.model, self._stmt.options(load_only(*cols)))
+        return self._clone(self._stmt.options(load_only(*cols)))
 
     def defer(self, *fields: str) -> QuerySet[T]:
         """
@@ -180,11 +181,12 @@ class QuerySet(Generic[T]):
         stmt = self._stmt
         for field in fields:
             stmt = stmt.options(defer(getattr(self.model, field)))
-        return QuerySet(self.model, stmt)
+        return self._clone(stmt)
 
     def select_related(self, *fields: str) -> QuerySet[T]:
         """
-        Eagerly load related relationships to prevent N+1 queries using JOIN.
+        Eagerly load related relationships using SQL JOINs.
+        Best for 1-to-1 or Many-to-1 relationships.
 
         Example:
             >>> articles = await Article.objects.select_related("author").fetch(db)
@@ -193,11 +195,12 @@ class QuerySet(Generic[T]):
         stmt = self._stmt
         for field in fields:
             stmt = stmt.options(joinedload(getattr(self.model, field)))
-        return QuerySet(self.model, stmt)
+        return self._clone(stmt)
 
     def prefetch_related(self, *fields: str) -> QuerySet[T]:
         """
-        Eagerly load related relationships using separate queries (SELECT IN).
+        Eagerly load related relationships using separate queries.
+        Best for Many-to-Many or 1-to-Many relationships.
 
         Example:
             >>> articles = await Article.objects.prefetch_related("tags").fetch(db)
@@ -207,7 +210,7 @@ class QuerySet(Generic[T]):
         stmt = self._stmt
         for field in fields:
             stmt = stmt.options(selectinload(getattr(self.model, field)))
-        return QuerySet(self.model, stmt)
+        return self._clone(stmt)
 
     async def fetch(self, db: AsyncSession) -> Sequence[T]:
         """
@@ -217,8 +220,8 @@ class QuerySet(Generic[T]):
             >>> articles = await Article.objects.all().fetch(db)
             # SELECT * FROM articles;
         """
-        result = await db.scalars(self._stmt)
-        return result.unique().all()
+        result = await db.execute(self._stmt)
+        return result.scalars().unique().all()
 
     async def values(self, db: AsyncSession, *fields: str) -> list[dict[str, Any]]:
         """
@@ -233,11 +236,10 @@ class QuerySet(Generic[T]):
             A list of mappings (dictionaries).
 
         Example:
-            >>> data = await Article.objects.values(db, "title", "content")
-            # SELECT title, content FROM articles;
+            >>> data = await Article.objects.filter(id=1).values("title", "id")
+            # [{'id': 1, 'title': 'Hello'}]
         """
         if not fields:
-            # Select all columns if no fields specified
             stmt = select(*self.model.__table__.columns)
         else:
             cols = [getattr(self.model, f) for f in fields]
@@ -263,16 +265,16 @@ class QuerySet(Generic[T]):
         If flat=True and only one field is specified, return a flat list.
 
         Example:
-            >>> data = await Article.objects.values_list(db, "title", flat=True)
-            # SELECT title FROM articles;
+            >>> titles = await Article.objects.values_list(db, "title", flat=True)
+            # ['Hello', 'World']
         """
         if not fields:
-            # Select all columns if no fields specified
             stmt = select(*self.model.__table__.columns)
         else:
             cols = [getattr(self.model, f) for f in fields]
             stmt = select(*cols).select_from(self.model)
 
+            # SELECT * FROM articles ORDER BY created_at ASC LIMIT 1;
         if self._stmt._where_criteria:
             stmt = stmt.where(*self._stmt._where_criteria)
         if self._stmt._order_by_clauses:
@@ -299,8 +301,19 @@ class QuerySet(Generic[T]):
             >>> article = await Article.objects.first(db)
             # SELECT * FROM articles LIMIT 1;
         """
-        result = await db.scalars(self._stmt.limit(1))
+        stmt = self._stmt.limit(1)
+        result = await db.scalars(stmt)
         return result.unique().one_or_none()
+
+    async def last(self, db: AsyncSession) -> T | None:
+        """
+        Return the last record by primary key descending.
+
+        Example:
+            >>> await Article.objects.last(db)
+            # SELECT * FROM articles ORDER BY id DESC LIMIT 1;
+        """
+        return await self.order_by(self.model.id.desc()).first(db)
 
     async def latest(self, db: AsyncSession, field: str = "created_at") -> T | None:
         """
@@ -318,7 +331,6 @@ class QuerySet(Generic[T]):
 
         Example:
             >>> article = await Article.objects.earliest(db)
-            # SELECT * FROM articles ORDER BY created_at ASC LIMIT 1;
         """
         return await self.order_by(getattr(self.model, field).asc()).first(db)
 
@@ -336,10 +348,6 @@ class QuerySet(Generic[T]):
     async def exists(self, db: AsyncSession) -> bool:
         """
         Check if any records exist matching the query.
-
-        Example:
-            >>> exists = await Article.objects.filter(title="Intro").exists(db)
-            # SELECT EXISTS (SELECT 1 FROM articles WHERE title = 'Intro');
         """
         return await self.count(db) > 0
 
