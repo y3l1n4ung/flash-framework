@@ -1,7 +1,12 @@
+from typing import TYPE_CHECKING, Any, cast
+
 import pytest
 from flash_db.expressions import F, Q, Resolvable
 
 from .models import Product
+
+if TYPE_CHECKING:
+    from sqlalchemy.sql import ColumnElement
 
 pytestmark = pytest.mark.asyncio
 
@@ -11,7 +16,9 @@ class TestQueryResolutionLogic:
 
     async def test_q_object_resolves_with_annotations(self):
         """Should resolve Q conditions using active query annotations."""
-        ann = {"derived": Product.price}
+        ann: dict[str, "ColumnElement[Any]"] = {
+            "derived": cast("ColumnElement[Any]", Product.price)
+        }
         q = Q(derived__gt=100)
         resolved = q.resolve(Product, _annotations=ann)
         assert "products.price > " in str(resolved)

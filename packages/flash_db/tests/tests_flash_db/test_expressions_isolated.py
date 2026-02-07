@@ -94,11 +94,11 @@ def test_parse_lookup():
     from flash_db.expressions import parse_lookup
 
     col, lookup = parse_lookup(Product, "name")
-    assert col == Product.name
+    assert col == Product.name  # pyright: ignore[reportGeneralTypeIssues]
     assert lookup == "exact"
 
     col, lookup = parse_lookup(Product, "price__gt")
-    assert col == Product.price
+    assert col == Product.price  # pyright: ignore[reportGeneralTypeIssues]
     assert lookup == "gt"
 
 
@@ -213,3 +213,33 @@ def test_aggregate_resolution():
     max_agg = Max("price")
     assert str(min_agg.resolve(Product)) == "min(products.price)"
     assert str(max_agg.resolve(Product)) == "max(products.price)"
+
+
+def test_aggregate_resolve_from_annotations():
+    """Test that aggregates can resolve from existing annotations."""
+    from sqlalchemy import func
+
+    # Mock an annotation (e.g. a calculated field)
+    ann = {"val_ann": func.lower(Product.name)}
+
+    # Verify each aggregate type correctly identifies and wraps the annotation
+    assert (
+        str(Count("val_ann").resolve(Product, _annotations=ann))
+        == "count(lower(products.name))"
+    )
+    assert (
+        str(Sum("val_ann").resolve(Product, _annotations=ann))
+        == "sum(lower(products.name))"
+    )
+    assert (
+        str(Avg("val_ann").resolve(Product, _annotations=ann))
+        == "avg(lower(products.name))"
+    )
+    assert (
+        str(Max("val_ann").resolve(Product, _annotations=ann))
+        == "max(lower(products.name))"
+    )
+    assert (
+        str(Min("val_ann").resolve(Product, _annotations=ann))
+        == "min(lower(products.name))"
+    )

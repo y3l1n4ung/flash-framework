@@ -51,6 +51,11 @@ class Article(Model, TimestampMixin):
         back_populates="article",
         cascade="all, delete-orphan",
     )
+    reviews: Mapped[list["Review"]] = relationship(
+        "Review",
+        back_populates="article",
+        cascade="all, delete-orphan",
+    )
     tags: Mapped[list["Tag"]] = relationship(
         "Tag",
         secondary=article_tag_association,
@@ -63,6 +68,21 @@ class Comment(Model):
     text: Mapped[str] = mapped_column()
     article_id: Mapped[int] = mapped_column(ForeignKey("articles.id"))
     article: Mapped["Article"] = relationship("Article", back_populates="comments")
+
+
+class Review(Model):
+    __tablename__ = "reviews"
+    rating: Mapped[int] = mapped_column()
+    comment: Mapped[str] = mapped_column(Text)
+    article_id: Mapped[Optional[int]] = mapped_column(ForeignKey("articles.id"))
+    product_id: Mapped[Optional[int]] = mapped_column(ForeignKey("products.id"))
+
+    article: Mapped[Optional["Article"]] = relationship(
+        "Article", back_populates="reviews"
+    )
+    product: Mapped[Optional["Product"]] = relationship(
+        "Product", back_populates="reviews"
+    )
 
 
 class Job(Model):
@@ -99,3 +119,9 @@ class Product(Model):
     name: Mapped[str] = mapped_column(String(100))
     price: Mapped[float] = mapped_column(Numeric(10, 2))
     stock: Mapped[int] = mapped_column(default=0)
+
+    reviews: Mapped[list["Review"]] = relationship(
+        "Review",
+        back_populates="product",
+        cascade="all, delete-orphan",
+    )

@@ -103,6 +103,16 @@ class ModelManager(Generic[T]):
         """Return a QuerySet with prefetch_related queries configured."""
         return self._get_queryset().prefetch_related(*fields)
 
+    def annotate(self, **kwargs: ColumnElement[Any] | Resolvable) -> QuerySet[T]:
+        """Return a QuerySet with annotations applied."""
+        return self._get_queryset().annotate(**kwargs)
+
+    async def aggregate(
+        self, db: AsyncSession, **kwargs: ColumnElement[Any] | Resolvable
+    ) -> dict[str, Any]:
+        """Return a dictionary of aggregate values for the QuerySet."""
+        return await self._get_queryset().aggregate(db, **kwargs)
+
     async def first(self, db: AsyncSession) -> T | None:
         """Execute query and return the first matching instance or None."""
         return await self._get_queryset().first(db)

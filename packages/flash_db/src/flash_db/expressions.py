@@ -1,6 +1,14 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Protocol, cast, runtime_checkable
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Mapping,
+    Protocol,
+    cast,
+    runtime_checkable,
+)
 
 from sqlalchemy import and_, func, not_, or_
 
@@ -16,13 +24,15 @@ class Resolvable(Protocol):
     """Protocol for objects resolvable into SQLAlchemy expressions."""
 
     def resolve(
-        self, model: type[Model], _annotations: dict[str, Any] | None = None
-    ) -> Any:
+        self,
+        model: type[Model],
+        _annotations: Mapping[str, ColumnElement[Any]] | None = None,
+    ) -> ColumnElement[Any] | None:
         """Resolve the object into a SQLAlchemy expression."""
         ...
 
 
-def parse_lookup(model: type[Model], key: str) -> tuple[Any, str]:
+def parse_lookup(model: type[Model], key: str) -> tuple[ColumnElement[Any] | None, str]:
     """Parse a Django-style lookup key into (column, operator)."""
     parts = key.split("__")
     field_name = parts[0]
@@ -32,9 +42,9 @@ def parse_lookup(model: type[Model], key: str) -> tuple[Any, str]:
     return col, lookup
 
 
-def apply_lookup(col: Any, lookup: str, value: Any) -> Any:
+def apply_lookup(col: Any, lookup: str, value: Any) -> ColumnElement[bool]:
     """Apply a lookup operator to a SQLAlchemy column."""
-    operators = {
+    operators: dict[str, Callable[[Any, Any], ColumnElement[bool]]] = {
         "exact": lambda c, v: c == v,
         "iexact": lambda c, v: func.lower(c) == func.lower(v),
         "contains": lambda c, v: c.contains(v),
@@ -45,9 +55,9 @@ def apply_lookup(col: Any, lookup: str, value: Any) -> Any:
         "lte": lambda c, v: c <= v,
         "in": lambda c, v: c.in_(v),
         "startswith": lambda c, v: c.startswith(v),
-        "istartswith": lambda c, v: c.istartswith(v),
+        "istartswith": lambda c, v: func.lower(c).startswith(func.lower(v)),
         "endswith": lambda c, v: c.endswith(v),
-        "iendswith": lambda c, v: c.iendswith(v),
+        "iendswith": lambda c, v: func.lower(c).endswith(func.lower(v)),
         "isnull": lambda c, v: c.is_(None) if v else c.isnot(None),
     }
 
@@ -58,7 +68,7 @@ def apply_lookup(col: Any, lookup: str, value: Any) -> Any:
     return op(col, value)
 
 
-class Q:
+class Q(Resolvable):
     """Encapsulates a query condition that can be combined using bitwise operators.
 
     Q objects can be combined using & (AND), | (OR), and ~ (NOT).
@@ -104,8 +114,10 @@ class Q:
         return obj
 
     def resolve(
-        self, model: type[Model], _annotations: dict[str, Any] | None = None
-    ) -> ColumnElement[bool] | None:
+        self,
+        model: type[Model],
+        _annotations: Mapping[str, ColumnElement[Any]] | None = None,
+    ) -> ColumnElement[Any] | None:
         """Resolve the Q object into a SQLAlchemy expression.
 
         Args:
@@ -113,7 +125,7 @@ class Q:
             _annotations: Optional dictionary of active query annotations.
 
         Returns:
-            A SQLAlchemy boolean expression or None if empty.
+            A SQLAlchemy boolean expression.
         """
         expressions: list[ColumnElement[bool]] = []
         for child in self.children:
@@ -140,7 +152,8 @@ class Q:
                 else:
                     resolved_value = value
 
-                expressions.append(apply_lookup(col, lookup, resolved_value))
+                if col is not None:
+                    expressions.append(apply_lookup(col, lookup, resolved_value))
             else:
                 expressions.append(child)
 
@@ -151,19 +164,21 @@ class Q:
         return not_(clause) if self.negated else clause
 
 
-class Aggregate:
+class Aggregate(Resolvable):
     """Base class for SQL aggregate functions (Count, Sum, etc.)."""
 
     def __init__(self, field: str):
         self.field = field
 
     def resolve(
-        self, model: type[Model], _annotations: dict[str, Any] | None = None
-    ) -> Any:
+        self,
+        model: type[Model],
+        _annotations: Mapping[str, ColumnElement[Any]] | None = None,
+    ) -> ColumnElement[Any] | None:
         """Resolve the aggregate into a SQLAlchemy function expression."""
         raise NotImplementedError
 
-    def get_joins(self, model: type[Model]) -> list[Any]:
+    def get_joins(self, model: type[Model]) -> list[InstrumentedAttribute[Any]]:
         """Identify relationship attributes that must be joined for this aggregate."""
         from sqlalchemy.orm import RelationshipProperty
 
@@ -173,7 +188,7 @@ class Aggregate:
             and hasattr(attr, "property")
             and isinstance(attr.property, RelationshipProperty)
         ):
-            return [attr]
+            return [cast("InstrumentedAttribute[Any]", attr)]
         return []
 
 
@@ -181,10 +196,20 @@ class Count(Aggregate):
     """SQL COUNT aggregate function."""
 
     def resolve(
-        self, model: type[Model], _annotations: dict[str, Any] | None = None
-    ) -> Any:
+        self,
+        model: type[Model],
+        _annotations: Mapping[str, ColumnElement[Any]] | None = None,
+    ) -> ColumnElement[Any]:
         from sqlalchemy import func
         from sqlalchemy.orm import RelationshipProperty
+
+        # Check annotations first
+        col: ColumnElement[Any] | None = None
+        if _annotations and self.field in _annotations:
+            col = _annotations[self.field]
+
+        if col is not None:
+            return func.count(col)
 
         attr = getattr(model, self.field)
         if hasattr(attr, "property") and isinstance(
@@ -200,47 +225,83 @@ class Sum(Aggregate):
     """SQL SUM aggregate function."""
 
     def resolve(
-        self, model: type[Model], _annotations: dict[str, Any] | None = None
-    ) -> Any:
+        self,
+        model: type[Model],
+        _annotations: Mapping[str, ColumnElement[Any]] | None = None,
+    ) -> ColumnElement[Any]:
         from sqlalchemy import func
 
-        return func.sum(getattr(model, self.field))
+        col: ColumnElement[Any] | None = None
+        if _annotations and self.field in _annotations:
+            col = _annotations[self.field]
+
+        if col is None:
+            col = cast("ColumnElement[Any]", getattr(model, self.field))
+
+        return func.sum(col)
 
 
 class Avg(Aggregate):
     """SQL AVG aggregate function."""
 
     def resolve(
-        self, model: type[Model], _annotations: dict[str, Any] | None = None
-    ) -> Any:
+        self,
+        model: type[Model],
+        _annotations: Mapping[str, ColumnElement[Any]] | None = None,
+    ) -> ColumnElement[Any]:
         from sqlalchemy import func
 
-        return func.avg(getattr(model, self.field))
+        col: ColumnElement[Any] | None = None
+        if _annotations and self.field in _annotations:
+            col = _annotations[self.field]
+
+        if col is None:
+            col = cast("ColumnElement[Any]", getattr(model, self.field))
+
+        return func.avg(col)
 
 
 class Max(Aggregate):
     """SQL MAX aggregate function."""
 
     def resolve(
-        self, model: type[Model], _annotations: dict[str, Any] | None = None
-    ) -> Any:
+        self,
+        model: type[Model],
+        _annotations: Mapping[str, ColumnElement[Any]] | None = None,
+    ) -> ColumnElement[Any]:
         from sqlalchemy import func
 
-        return func.max(getattr(model, self.field))
+        col: ColumnElement[Any] | None = None
+        if _annotations and self.field in _annotations:
+            col = _annotations[self.field]
+
+        if col is None:
+            col = cast("ColumnElement[Any]", getattr(model, self.field))
+
+        return func.max(col)
 
 
 class Min(Aggregate):
     """SQL MIN aggregate function."""
 
     def resolve(
-        self, model: type[Model], _annotations: dict[str, Any] | None = None
-    ) -> Any:
+        self,
+        model: type[Model],
+        _annotations: Mapping[str, ColumnElement[Any]] | None = None,
+    ) -> ColumnElement[Any]:
         from sqlalchemy import func
 
-        return func.min(getattr(model, self.field))
+        col: ColumnElement[Any] | None = None
+        if _annotations and self.field in _annotations:
+            col = _annotations[self.field]
+
+        if col is None:
+            col = cast("ColumnElement[Any]", getattr(model, self.field))
+
+        return func.min(col)
 
 
-class F:
+class F(Resolvable):
     """Encapsulates a reference to a model field with arithmetic support."""
 
     name: str
@@ -270,8 +331,10 @@ class F:
         return new_f
 
     def resolve(
-        self, model: type[Model], _annotations: dict[str, Any] | None = None
-    ) -> Any:
+        self,
+        model: type[Model],
+        _annotations: Mapping[str, ColumnElement[Any]] | None = None,
+    ) -> ColumnElement[Any] | None:
         res = getattr(model, self.name)
         for op, other in self._ops:
             if hasattr(other, "resolve"):

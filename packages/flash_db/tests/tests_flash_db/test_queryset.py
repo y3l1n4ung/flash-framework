@@ -118,3 +118,177 @@ class TestQuerySet:
 
         titles = await Article.objects.values_list(db_session, "title", flat=True)
         assert "List" in titles
+
+    async def test_queryset_values_with_filter(self, db_session):
+        """Should honor filters when calling values()."""
+        await Article.objects.create(db_session, title="Match", content="C1")
+        await Article.objects.create(db_session, title="Other", content="C2")
+        await db_session.commit()
+
+        data = await Article.objects.filter(title="Match").values(db_session, "title")
+        assert len(data) == 1
+        assert data[0]["title"] == "Match"
+
+    async def test_queryset_values_list_branches(self, db_session):
+        """
+        Cover branches in values_list(): no fields, ordering, flat=True validation.
+        """
+        await Article.objects.create(db_session, title="B")
+        await Article.objects.create(db_session, title="A")
+        await db_session.commit()
+
+        # 1. No fields
+        data = await Article.objects.all().values_list(db_session)
+        assert len(data) >= 2
+
+        # 2. Ordering
+        titles = await Article.objects.order_by("title").values_list(
+            db_session, "title", flat=True
+        )
+        assert list(titles) == ["A", "B"]
+
+        # 3. flat=True validation error
+        with pytest.raises(ValueError, match="flat=True can only be used"):
+            await Article.objects.values_list(db_session, "title", "content", flat=True)
+
+    async def test_queryset_filter_empty_q(self, db_session):
+        """Should handle Q objects that resolve to None."""
+        from flash_db.expressions import Q
+
+        qs = Article.objects.filter(Q())
+        # Should return everything if Q() is empty
+        assert await qs.count(db_session) == 0
+
+    async def test_queryset_filter_invalid_field(self):
+        """Should ignore non-existent fields in keyword lookups."""
+        qs = Article.objects.filter(nonexistent=1)
+        # Should not crash, just not add any WHERE criteria
+        assert "WHERE" not in str(qs._stmt)
+
+    async def test_queryset_aggregate_with_existing_having(self, db_session):
+        """Should honor existing HAVING clause in aggregate()."""
+        from flash_db.expressions import Count
+
+        await Article.objects.create(db_session, title="A")
+        await db_session.commit()
+
+        qs = Article.objects.annotate(c=Count("id")).filter(c__gt=0)
+        res = await qs.aggregate(db_session, total=Count("id"))
+        assert res["total"] == 1
+
+    async def test_queryset_contains_aggregate_direct(self):
+        """Should correctly detect aggregates when passed directly to filter."""
+        from sqlalchemy import func
+
+        qs = Article.objects.annotate(n=func.count(Article.id)).filter(
+            func.count(Article.id) > 0
+        )
+        assert "HAVING" in str(qs._stmt)
+
+    async def test_queryset_exclude_empty(self):
+        """Should return self when exclude is called without args."""
+        qs = Article.objects.all()
+        assert qs.exclude() is qs
+
+    async def test_queryset_filter_empty(self):
+        """Should return self when filter is called without args."""
+        qs = Article.objects.all()
+        assert qs.filter() is qs
+
+    async def test_queryset_annotate_empty(self):
+        """Should return self when annotate is called without args."""
+        qs = Article.objects.all()
+        assert qs.annotate() is qs
+
+    async def test_queryset_values_list_with_annotation(self, db_session):
+        """Should support annotated fields in values_list()."""
+        from flash_db.expressions import Count
+
+        await Article.objects.create(db_session, title="A")
+        await db_session.commit()
+
+        data = await Article.objects.annotate(c=Count("id")).values_list(
+            db_session, "c"
+        )
+        assert len(data) == 1
+        assert data[0][0] == 1
+
+    async def test_queryset_exclude_with_q_aggregate(self, db_session):
+        """Should support Q objects with aggregates in exclude()."""
+        from flash_db.expressions import Count, Q
+
+        await Article.objects.create(db_session, title="A")
+        await db_session.commit()
+
+        qs = Article.objects.annotate(c=Count("id")).exclude(Q(c__gt=1))
+        assert "HAVING" in str(qs._stmt)
+        results = await qs.fetch(db_session)
+        assert len(results) == 1
+
+    async def test_queryset_values_with_having(self, db_session):
+        """Should honor HAVING clause when calling values()."""
+        from flash_db.expressions import Count
+
+        await Article.objects.create(db_session, title="A")
+        await db_session.commit()
+
+        data = (
+            await Article.objects.annotate(c=Count("id"))
+            .filter(c__gt=0)
+            .values(db_session, "c")
+        )
+        assert len(data) == 1
+        assert data[0]["c"] == 1
+
+    async def test_queryset_values_list_with_having(self, db_session):
+        """Should honor HAVING clause when calling values_list()."""
+        from flash_db.expressions import Count
+
+        await Article.objects.create(db_session, title="A")
+        await db_session.commit()
+
+        titles = (
+            await Article.objects.annotate(c=Count("id"))
+            .filter(c__gt=0)
+            .values_list(db_session, "title", flat=True)
+        )
+        assert list(titles) == ["A"]
+
+    async def test_queryset_exclude_with_aggregate(self, db_session):
+        """Should correctly handle aggregates in exclude()."""
+        from flash_db.expressions import Count
+
+        await Article.objects.create(db_session, title="A")
+        await db_session.commit()
+
+        # Should use HAVING NOT (...)
+        qs = Article.objects.annotate(c=Count("id")).exclude(c__gt=1)
+        assert "HAVING" in str(qs._stmt)
+        results = await qs.fetch(db_session)
+        assert len(results) == 1
+
+    async def test_queryset_exclude_with_positional_aggregate(self, db_session):
+        """Should handle positional aggregates in exclude()."""
+        from sqlalchemy import func
+
+        await Article.objects.create(db_session, title="A")
+        await db_session.commit()
+
+        qs = Article.objects.annotate(n=func.count(Article.id)).exclude(
+            func.count(Article.id) > 1,
+        )
+        assert "HAVING" in str(qs._stmt)
+        results = await qs.fetch(db_session)
+        assert len(results) == 1
+
+    async def test_queryset_exclude_invalid_field(self):
+        """Should ignore non-existent fields in exclude keyword lookups."""
+        qs = Article.objects.exclude(nonexistent=1)
+        assert "WHERE" not in str(qs._stmt)
+
+    async def test_queryset_contains_aggregate_direct_instance(self):
+        """Should return True for direct Aggregate instances."""
+        from flash_db.expressions import Count
+
+        qs = Article.objects.all()
+        assert qs._contains_aggregate(Count("id")) is True
