@@ -1,4 +1,5 @@
 import pytest
+from sqlalchemy.exc import IntegrityError
 
 from .models import Article
 
@@ -37,13 +38,12 @@ class TestBulkOperations:
         self, db_session
     ):
         """
-        Should raise RuntimeError (wrapping IntegrityError) on conflict
-        when ignore_conflicts=False.
+        Should raise IntegrityError on conflict when ignore_conflicts=False.
         """
         await Article.objects.create(db_session, title="Conflict")
 
         objs = [{"title": "Conflict"}]
-        with pytest.raises(RuntimeError, match="Database error while bulk creating"):
+        with pytest.raises(IntegrityError):
             await Article.objects.bulk_create(db_session, objs, ignore_conflicts=False)
 
     async def test_bulk_update_successfully_updates_multiple_fields_across_records(

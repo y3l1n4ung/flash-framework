@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast
 from uuid import UUID
 
 from sqlalchemy import delete, select, update
-from sqlalchemy.exc import SQLAlchemyError
 
 from .exceptions import DoesNotExistError, MultipleObjectsReturnedError
 from .expressions import Resolvable
@@ -191,22 +190,12 @@ class ModelManager(Generic[T]):
 
         Returns:
             The newly created and refreshed model instance.
-
-        Raises:
-            RuntimeError: If a database error occurs.
         """
-        try:
-            instance: T = self._model(**fields)
-            db.add(instance)
-            await db.commit()
-            await db.refresh(instance)
-
-        except SQLAlchemyError as e:
-            await db.rollback()
-            msg = f"Database error while creating {self._model.__name__}: {e}"
-            raise RuntimeError(msg) from e
-        else:
-            return instance
+        instance: T = self._model(**fields)
+        db.add(instance)
+        await db.flush()
+        await db.refresh(instance)
+        return instance
 
     async def bulk_create(
         self,
@@ -251,26 +240,18 @@ class ModelManager(Generic[T]):
             elif dialect_name == "mysql":
                 stmt = stmt.prefix_with("IGNORE")
 
-        try:
-            if getattr(bind.dialect, "insert_returning", False):
-                stmt = stmt.returning(self._model)
-                result = await db.execute(stmt)
-                await db.commit()
-                return list(result.scalars().all())
+        if getattr(bind.dialect, "insert_returning", False):
+            stmt = stmt.returning(self._model)
+            result = await db.execute(stmt)
+            return list(result.scalars().all())
 
-            logger.warning(
-                "Dialect %s does not support INSERT RETURNING. "
-                "Returned instances will lack DB-generated IDs.",
-                dialect_name,
-            )
-            await db.execute(stmt)
-            await db.commit()
-            return [self._model(**obj) for obj in objs]
-
-        except SQLAlchemyError as e:
-            await db.rollback()
-            msg = f"Database error while bulk creating {self._model.__name__}: {e}"
-            raise RuntimeError(msg) from e
+        logger.warning(
+            "Dialect %s does not support INSERT RETURNING. "
+            "Returned instances will lack DB-generated IDs.",
+            dialect_name,
+        )
+        await db.execute(stmt)
+        return [self._model(**obj) for obj in objs]
 
     async def bulk_update(
         self, db: AsyncSession, objs: list[T], fields: list[str]
@@ -287,7 +268,6 @@ class ModelManager(Generic[T]):
 
         Raises:
             ValueError: If any object is missing an 'id'.
-            RuntimeError: If a database error occurs.
         """
         if not objs or not fields:
             return 0
@@ -309,14 +289,8 @@ class ModelManager(Generic[T]):
             .values({f: bindparam(f) for f in fields})
         )
 
-        try:
-            result = await db.execute(stmt, update_data)
-            await db.commit()
-            return getattr(result, "rowcount", 0)
-        except SQLAlchemyError as e:
-            await db.rollback()
-            msg = f"Database error while bulk updating {self._model.__name__}: {e}"
-            raise RuntimeError(msg) from e
+        result = await db.execute(stmt, update_data)
+        return getattr(result, "rowcount", 0)
 
     async def get_or_create(
         self,
@@ -360,36 +334,30 @@ class ModelManager(Generic[T]):
         pk: PrimaryKey,
         **fields: ColumnElement[Any] | Resolvable | object,
     ) -> T:
-        """Update a single record by primary key."""
-        try:
-            pk_col = self._model.id
+        """Update a single record by primary key.
 
-            # Resolve any F expressions or other resolvables in the fields
-            resolved_fields = {
-                k: v.resolve(self._model) if isinstance(v, Resolvable) else v
-                for k, v in fields.items()
-            }
+        !!! warning
+            This method uses `RETURNING` which may not be supported by all
+            database dialects (e.g., MySQL).
+        """
 
-            stmt = (
-                update(self._model)
-                .where(pk_col == pk)
-                .values(resolved_fields)
-                .returning(self._model)
-            )
+        pk_col = self._model.id
 
-            result = await db.execute(stmt)
-            instance = result.scalar_one_or_none()
+        # Resolve any F expressions or other resolvables in the fields
+        resolved_fields = {
+            k: v.resolve(self._model) if isinstance(v, Resolvable) else v
+            for k, v in fields.items()
+        }
 
-            if instance is not None:
-                await db.commit()
+        stmt = (
+            update(self._model)
+            .where(pk_col == pk)
+            .values(resolved_fields)
+            .returning(self._model)
+        )
 
-        except SQLAlchemyError as e:
-            await db.rollback()
-            msg = f"Database error while updating {self._model.__name__}"
-            raise RuntimeError(msg) from e
-        except Exception:
-            await db.rollback()
-            raise
+        result = await db.execute(stmt)
+        instance = result.scalar_one_or_none()
 
         if instance is None:
             msg = f"{self._model.__name__} with id {pk} not found"
@@ -408,17 +376,8 @@ class ModelManager(Generic[T]):
         column = getattr(self._model, pk_column)
         stmt = delete(self._model).where(column == pk)
 
-        try:
-            result = await db.execute(stmt)
-            await db.commit()
-            count = getattr(result, "rowcount", 0)
-        except SQLAlchemyError as e:
-            await db.rollback()
-            msg = f"Database error while deleting {self._model.__name__}"
-            raise RuntimeError(msg) from e
-        except Exception:
-            await db.rollback()
-            raise
+        result = await db.execute(stmt)
+        count = getattr(result, "rowcount", 0)
 
         if raise_if_missing and count == 0:
             msg = f"{self._model.__name__} with id {pk} not found"

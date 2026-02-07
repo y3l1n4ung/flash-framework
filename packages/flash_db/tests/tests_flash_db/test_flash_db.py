@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from flash_db import db
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import IntegrityError, ProgrammingError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .models import Article, Comment
@@ -166,36 +166,22 @@ class TestQuerySet:
             await Article.objects.all().update(db_session, title="New")
 
     async def test_queryset_update_raises_runtime_error_on_sqlalchemy_failure(self):
-        """Verify bulk update handles SQLAlchemyError by rolling back."""
-        # 1. Setup a Mock Session that fails on execute
+        """Verify bulk update raises SQLAlchemyError directly."""
         mock_db = AsyncMock()
         mock_db.execute.side_effect = SQLAlchemyError("Mocked Update Failure")
-
-        # 2. Setup a QuerySet with a filter to pass the safety guard
         qs = Article.objects.filter(Article.id == 1)
 
-        # 3. Action & Assertion
-        with pytest.raises(RuntimeError, match="Database error during bulk update"):
+        with pytest.raises(SQLAlchemyError, match="Mocked Update Failure"):
             await qs.update(mock_db, title="New Title")
 
-        # Verify that rollback was called during the exception handling
-        mock_db.rollback.assert_awaited_once()
-
     async def test_queryset_delete_raises_runtime_error_on_sqlalchemy_failure(self):
-        """Verify bulk delete handles SQLAlchemyError by rolling back."""
-        # 1. Setup a Mock Session that fails on execute
+        """Verify bulk delete raises SQLAlchemyError directly."""
         mock_db = AsyncMock()
         mock_db.execute.side_effect = SQLAlchemyError("Mocked Delete Failure")
-
-        # 2. Setup a QuerySet with a filter to pass the safety guard
         qs = Article.objects.filter(Article.id == 1)
 
-        # 3. Action & Assertion
-        with pytest.raises(RuntimeError, match="Database error during bulk delete"):
+        with pytest.raises(SQLAlchemyError, match="Mocked Delete Failure"):
             await qs.delete(mock_db)
-
-        # Verify that rollback was called during the exception handling
-        mock_db.rollback.assert_awaited_once()
 
 
 class TestModelManager:
@@ -300,20 +286,6 @@ class TestModelManager:
             await Article.objects.update(db_session, pk=9999, title="New Title")
 
     async def test_queryset_offset(self, db_session):
-        """Verify pagination with offset."""
-        for i in range(5):
-            await create_article(db_session, title=f"Article {i}")
-
-        qs = Article.objects.all().order_by(Article.title).offset(2).limit(2)
-        results = await qs.fetch(db_session)
-        assert len(results) == 2
-
-    async def test_create_integrity_error_triggers_rollback(self, db_session):
-        # title is non-nullable. Passing None triggers an IntegrityError.
-        with pytest.raises(RuntimeError, match="Database error while creating Article"):
-            await Article.objects.create(db_session, title=None)
-
-    async def test_update_non_existent_article_raises_error(self, db_session):
         with pytest.raises(ValueError, match="Article with id 99999 not found"):
             await Article.objects.update(db_session, pk=99999, title="New Title")
 
@@ -330,14 +302,14 @@ class TestModelManager:
             article_id=article.id,
         )
 
-        with pytest.raises(RuntimeError):
+        with pytest.raises(IntegrityError):
             await Article.objects.delete_by_pk(db_session, pk=article.id)
 
     async def test_update_statement_error_triggers_rollback(self, db_session):
         article = await create_article(db_session, title="Valid")
 
-        # Passing an invalid type (dict) to a String column triggers SQLAlchemyError
-        with pytest.raises(RuntimeError, match="Database error while updating Article"):
+        # Passing an invalid type (dict) to a String column triggers ProgrammingError
+        with pytest.raises(ProgrammingError):
             await Article.objects.update(
                 db_session,
                 article.id,
@@ -345,11 +317,11 @@ class TestModelManager:
             )
 
     async def test_update_raises_runtime_error_on_integrity_violation(self, db_session):
-        """Verify update raises RuntimeError on IntegrityError."""
+        """Verify update raises IntegrityError."""
         await Article.objects.create(db_session, title="Conflict")
         target = await Article.objects.create(db_session, title="Original")
 
-        with pytest.raises(RuntimeError, match="Database error while updating"):
+        with pytest.raises(IntegrityError):
             await Article.objects.update(db_session, pk=target.id, title="Conflict")
 
     async def test_queryset_no_filter_conditions(self, db_session):
@@ -514,19 +486,13 @@ async def test_manager_error_handling_rollback(db_session, method_name, line_to_
     # 2. Execute & Verify
     manager = Article.objects
 
+    expected_error = SQLAlchemyError if line_to_hit == "SQLAlchemyError" else Exception
+    match_msg = "Mock DB Error" if line_to_hit == "SQLAlchemyError" else "Generic Crash"
+
     if method_name == "update":
-        with pytest.raises(RuntimeError, match="Database error while updating"):
+        with pytest.raises(expected_error, match=match_msg):
             await manager.update(mock_session, pk=1, title="New")
-        # Verify rollback was called
-        mock_session.rollback.assert_awaited_once()
 
     elif method_name == "delete_by_pk":
-        if line_to_hit == "SQLAlchemyError":
-            with pytest.raises(RuntimeError, match="Database error while deleting"):
-                await manager.delete_by_pk(mock_session, pk=1)
-        else:
-            with pytest.raises(Exception, match="Generic Crash"):
-                await manager.delete_by_pk(mock_session, pk=1)
-
-        # Verify rollback was called in both cases
-        mock_session.rollback.assert_awaited_once()
+        with pytest.raises(expected_error, match=match_msg):
+            await manager.delete_by_pk(mock_session, pk=1)

@@ -1,5 +1,3 @@
-from unittest.mock import patch
-
 import pytest
 from flash_db.exceptions import DoesNotExistError, MultipleObjectsReturnedError
 
@@ -54,21 +52,6 @@ class TestModelManager:
         updated = await Article.objects.update(db_session, pk=article.id, title="New")
         assert updated
         assert updated.title == "New"
-
-    async def test_update_rolls_back_on_commit_failure(self, db_session):
-        """Should trigger session rollback if the database commit fails."""
-        article = await Article.objects.create(db_session, title="Rollback Test")
-
-        with (
-            patch.object(
-                db_session, "rollback", wraps=db_session.rollback
-            ) as spied_rollback,
-            patch.object(db_session, "commit", side_effect=Exception("Commit failed")),
-            pytest.raises(Exception, match="Commit failed"),
-        ):
-            await Article.objects.update(db_session, pk=article.id, title="Failed New")
-
-        spied_rollback.assert_awaited_once()
 
     async def test_get_or_create_returns_new_instance_when_missing(self, db_session):
         """Should create record if missing and return (instance, True)."""

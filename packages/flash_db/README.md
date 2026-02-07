@@ -7,6 +7,7 @@ Flash DB is a lightweight async Django ORM alternative built on top of SQLAlchem
 - **Asynchronous from the ground up:** Built for `asyncio`.
 - **Django-like API:** `Model.objects` manager, lazy `QuerySet`s, and familiar method names.
 - **SQLAlchemy's power:** Leverage the full power of SQLAlchemy's expression language when needed.
+- **Transaction Management:** Manages database transactions as a context manager or decorator, with nested savepoint support.
 - **Type-safe:** Fully type-annotated for a better development experience with tools like MyPy.
 - **Simple setup:** Easy to integrate with FastAPI and other async frameworks.
 
@@ -57,17 +58,23 @@ class User(Model, TimestampMixin):
 
 ### 3. Create Records
 
-Use the `objects.create()` method on the model manager.
+Use the `objects.create()` method on the model manager. Operations require an explicit commit.
 
 ```python title="usage.py"
 # usage.py
-from flash_db import get_db
+from flash_db import get_db, atomic
 from .models import User
 
 async def create_user():
     async for db in get_db():
+        # Option 1: Explicit commit
         user = await User.objects.create(db, name="John Doe", email="john.doe@example.com")
+        await db.commit()
         print(f"Created user: {user.name}")
+
+        # Option 2: Atomic block (commits automatically on exit)
+        async with atomic(db):
+            await User.objects.create(db, name="Jane Doe", email="jane@example.com")
 ```
 
 ### 4. Query Data
@@ -117,6 +124,7 @@ Update records using the `update` method.
 async def update_user_email():
     async for db in get_db():
         await User.objects.filter(User.name == "John Doe").update(db, email="new.email@example.com")
+        await db.commit()
 ```
 
 ### 6. Delete Records
@@ -127,6 +135,7 @@ Delete records using the `delete` method.
 async def delete_user():
     async for db in get_db():
         await User.objects.filter(User.name == "John Doe").delete(db)
+        await db.commit()
 ```
 
 ## Async and Session Management
@@ -139,7 +148,7 @@ This explicit approach ensures that the session is correctly handled and closed,
 
 Our goal for `flash_db` is to build a lightweight, yet powerful, async ORM that feels intuitive to Django developers.
 
-- [ ] **Transaction Management:** Atomic transactions via decorator or context manager.
+- [x] **Transaction Management:** Atomic transactions via decorator or context manager.
 - [x] **`get_or_create()` / `update_or_create()`:** Streamline create/update patterns.
 - [ ] **Model Validation Hooks:** `clean()` methods for data validation.
 - [x] **Advanced Querying:** `exclude()`, `distinct()`, `only()`, `defer()`, and more.

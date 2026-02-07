@@ -35,12 +35,12 @@ class TestORMErrorHandling:
             await Product.objects.delete_by_pk(db_session, 99999, raise_if_missing=True)
 
     async def test_manager_delete_rolls_back_on_sqlalchemy_failure(self, db_session):
-        """Should ensure consistency by rolling back on SQL failure during delete."""
+        """Should ensure consistency by propagating SQL failure during delete."""
         p = await Product.objects.create(db_session, name="ToDel", price=1)
         pid = p.id
         with (
             patch.object(db_session, "execute", side_effect=SQLAlchemyError("Fail")),
-            pytest.raises(RuntimeError, match="Database error while deleting"),
+            pytest.raises(SQLAlchemyError, match="Fail"),
         ):
             await Product.objects.delete_by_pk(db_session, pid)
 
@@ -55,12 +55,12 @@ class TestORMErrorHandling:
             await Product.objects.delete_by_pk(db_session, pid)
 
     async def test_manager_update_rolls_back_on_sqlalchemy_failure(self, db_session):
-        """Should ensure consistency by rolling back on SQL failure during update."""
+        """Should ensure consistency by propagating SQL failure during update."""
         p = await Product.objects.create(db_session, name="ToUpd", price=1)
         pid = p.id
         with (
             patch.object(db_session, "execute", side_effect=SQLAlchemyError("Fail")),
-            pytest.raises(RuntimeError, match="Database error while updating"),
+            pytest.raises(SQLAlchemyError, match="Fail"),
         ):
             await Product.objects.update(db_session, pid, name="New")
 
@@ -75,19 +75,19 @@ class TestORMErrorHandling:
             await Product.objects.update(db_session, pid, name="New")
 
     async def test_bulk_create_wraps_sqlalchemy_failure(self, db_session):
-        """Should wrap SQLAlchemyError in RuntimeError during batch creation."""
+        """Should propagate SQLAlchemyError during batch creation."""
         with (
             patch.object(db_session, "execute", side_effect=SQLAlchemyError("Fail")),
-            pytest.raises(RuntimeError, match="Database error while bulk creating"),
+            pytest.raises(SQLAlchemyError, match="Fail"),
         ):
             await Product.objects.bulk_create(db_session, [{"name": "X"}])
 
     async def test_bulk_update_wraps_sqlalchemy_failure(self, db_session):
-        """Should wrap SQLAlchemyError in RuntimeError during batch updates."""
+        """Should propagate SQLAlchemyError during batch updates."""
         p = await Product.objects.create(db_session, name="P", price=1)
         with (
             patch.object(db_session, "execute", side_effect=SQLAlchemyError("Fail")),
-            pytest.raises(RuntimeError, match="Database error while bulk updating"),
+            pytest.raises(SQLAlchemyError, match="Fail"),
         ):
             await Product.objects.bulk_update(db_session, [p], ["name"])
 

@@ -30,7 +30,7 @@ from flash_html.views.generic.base import TemplateView
 from flash_html.views.generic.detail import DetailView
 from flash_html.views.mixins import SingleObjectMixin
 from flash_html.views.mixins.permission import PermissionMixin
-from sqlalchemy import or_, select
+from sqlalchemy import or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .forms import ProfileForm
@@ -354,6 +354,7 @@ class ArticleCreateView(PermissionMixin, TemplateView):
             author_id=author_id,
             published=cleaned["published"],
         )
+        await db.commit()
 
         # Redirect to article detail
         return RedirectResponse(
@@ -423,6 +424,7 @@ class ArticleEditView(DetailView[Article]):
             content=cleaned["content"],
             published=cleaned["published"],
         )
+        await db.commit()
 
         return RedirectResponse(
             url=f"/articles/{cleaned['slug']}",
@@ -555,7 +557,7 @@ class RegisterView(PermissionMixin, TemplateView):
             )
             return self.render_to_response(context)
 
-        existing = await db.scalar(select(User).where(User.username == username))
+        existing = await User.objects.filter(User.username == username).first(db)
         if existing:
             context = self.get_context_data(
                 messages={"error": "Username already exists."},
@@ -563,7 +565,7 @@ class RegisterView(PermissionMixin, TemplateView):
             return self.render_to_response(context)
 
         if email:
-            existing_email = await db.scalar(select(User).where(User.email == email))
+            existing_email = await User.objects.filter(User.email == email).first(db)
             if existing_email:
                 context = self.get_context_data(
                     messages={"error": "Email already in use."},
@@ -765,6 +767,8 @@ class AdminModerationView(PermissionMixin, TemplateView):
                     Article.published.is_(True)
                 ).update(db, published=False)
                 messages["success"] = f"Unpublished {updated} articles."
+
+            await db.commit()
             logger.info(
                 "Admin action: bulk moderation",
                 extra={"actor_id": actor.id, "action": action},
