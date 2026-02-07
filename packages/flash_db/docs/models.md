@@ -25,7 +25,7 @@ Mixins provide reusable field sets for common patterns.
 
 The `TimestampMixin` automatically manages `created_at` and `updated_at` fields.
 
-```python
+```python title="models.py"
 from flash_db import Model, TimestampMixin
 
 class Post(Model, TimestampMixin):
@@ -39,7 +39,7 @@ class Post(Model, TimestampMixin):
 
 The `SoftDeleteMixin` adds a `deleted_at` field to support non-destructive deletion workflows.
 
-```python
+```python title="models.py"
 from flash_db import Model, SoftDeleteMixin
 
 class Comment(Model, SoftDeleteMixin):

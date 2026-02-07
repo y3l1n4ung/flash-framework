@@ -32,7 +32,7 @@ app = FastAPI(lifespan=lifespan)
 
 Inject the database session into route handlers using the `get_db` dependency.
 
-```python
+```python title="routes.py"
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from flash_db import get_db

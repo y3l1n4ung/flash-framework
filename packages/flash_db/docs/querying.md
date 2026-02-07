@@ -6,7 +6,7 @@ This guide details how to perform database operations using the `flash_db` API.
 
 Use `objects.create()` to persist a new record.
 
-```python
+```python title="create.py"
 # Create and refresh a new model instance
 user = await User.objects.create(db, name="John Doe", email="john@example.com")
 ```
@@ -15,33 +15,38 @@ user = await User.objects.create(db, name="John Doe", email="john@example.com")
 
 Retrieve records using `all()`, `filter()`, or `get()`.
 
-```python
+```python title="read.py"
 # Fetch all records
 users = await User.objects.all().fetch(db)
+# SELECT * FROM users;
 
 # Filter by criteria
 active_users = await User.objects.filter(User.is_active == True).fetch(db)
+# SELECT * FROM users WHERE is_active = true;
 
 # Retrieve a single record (raises DoesNotExist or MultipleObjectsReturned)
 user = await User.objects.get(db, User.email == "john@example.com")
+# SELECT * FROM users WHERE email = 'john@example.com' LIMIT 2;
 ```
 
 ## 3. Update
 
 Modify a record by its primary key using `update()`.
 
-```python
+```python title="update.py"
 # Update by primary key
 user = await User.objects.update(db, pk=1, name="John Updated")
+# UPDATE users SET name = 'John Updated' WHERE id = 1 RETURNING *;
 ```
 
 ## 4. Delete
 
 Remove a record by its primary key using `delete_by_pk()`.
 
-```python
+```python title="delete.py"
 # Delete by primary key
 count = await User.objects.delete_by_pk(db, pk=1)
+# DELETE FROM users WHERE id = 1;
 ```
 
 ## 5. Query Construction
@@ -51,9 +56,10 @@ count = await User.objects.delete_by_pk(db, pk=1)
 - `filter(*conditions)`: Include records matching the conditions.
 - `exclude(*conditions)`: Include records *not* matching the conditions.
 
-```python
+```python title="filter_exclude.py"
 # Select users NOT named "John"
 users = await User.objects.exclude(User.name == "John").fetch(db)
+# SELECT * FROM users WHERE name != 'John';
 ```
 
 ### Ordering and Limits
@@ -64,9 +70,10 @@ users = await User.objects.exclude(User.name == "John").fetch(db)
 - `latest(field)`: Retrieve the most recent record.
 - `earliest(field)`: Retrieve the oldest record.
 
-```python
+```python title="ordering.py"
 # Retrieve the most recently created user
 latest_user = await User.objects.latest(db)
+# SELECT * FROM users ORDER BY created_at DESC LIMIT 1;
 ```
 
 ### Column Selection
@@ -74,9 +81,10 @@ latest_user = await User.objects.latest(db)
 - `only(*fields)`: Load only specific columns.
 - `defer(*fields)`: Defer loading of specific columns.
 
-```python
+```python title="selection.py"
 # Load only name and email
 users = await User.objects.only("name", "email").fetch(db)
+# SELECT name, email FROM users;
 ```
 
 ### Raw Values
@@ -84,12 +92,14 @@ users = await User.objects.only("name", "email").fetch(db)
 - `values(*fields)`: Return a list of dictionaries.
 - `values_list(*fields, flat=False)`: Return a list of tuples (or a flat list if `flat=True`).
 
-```python
+```python title="values.py"
 # Retrieve a list of user names
 names = await User.objects.values_list(db, "name", flat=True)
+# SELECT name FROM users;
 
 # Retrieve dictionaries with specific fields
 users_data = await User.objects.values(db, "id", "name")
+# SELECT id, name FROM users;
 ```
 
 ### Creation Shortcuts
@@ -97,7 +107,7 @@ users_data = await User.objects.values(db, "id", "name")
 - `get_or_create(defaults, **kwargs)`: Retrieve an object or create it if missing.
 - `update_or_create(defaults, **kwargs)`: Update an object or create it if missing.
 
-```python
+```python title="shortcuts.py"
 user, created = await User.objects.get_or_create(
     db,
     email="john@example.com",
@@ -110,13 +120,15 @@ user, created = await User.objects.get_or_create(
 - `exists(*conditions)`: Check for matching records.
 - `count(*conditions)`: Count matching records.
 
-```python
+```python title="aggregation.py"
 # Check existence
 if await User.objects.exists(db, User.email == "john@example.com"):
     print("User exists!")
+# SELECT EXISTS (SELECT 1 FROM users WHERE email = 'john@example.com');
 
 # Count active users
 active_count = await User.objects.count(db, User.is_active == True)
+# SELECT count(*) FROM users WHERE is_active = true;
 ```
 
 ## 6. Relationships
@@ -129,12 +141,15 @@ To prevent N+1 queries, use the following methods:
 !!! tip
     While `select_related` can be used for one-to-many relationships, it may result in row duplication and decreased performance. For collections or reverse relations, `prefetch_related` is generally recommended.
 
-```python
+```python title="relationships.py"
 # Eager load with JOIN
 articles = await Article.objects.select_related("author").fetch(db)
+# SELECT articles.*, authors.* FROM articles JOIN authors ON articles.author_id = authors.id;
 
 # Eager load with separate query
 articles = await Article.objects.prefetch_related("tags").fetch(db)
+# SELECT * FROM articles;
+# SELECT * FROM tags WHERE id IN (...);
 ```
 
 ## 7. Complex Expressions (Beta)
@@ -146,17 +161,18 @@ articles = await Article.objects.prefetch_related("tags").fetch(db)
 
 Encapsulate and combine query conditions using bitwise operators (`&`, `|`, `~`).
 
-!!! note
-    While manual resolution via `.resolve(Model)` is currently required, automatic resolution within `filter()` and `exclude()` is planned for a future release.
+!!! tip
+    `Q` objects are automatically resolved when passed to `filter()` or `exclude()`.
 
-```python
+```python title="q_objects.py"
 from flash_db.expressions import Q
 
-# Combine conditions (manual resolution currently required)
+# Combine conditions using bitwise operators
 condition = (Q(name="John") | Q(name="Jane")) & ~Q(status="retired")
-resolved = condition.resolve(User)
 
-users = await User.objects.filter(resolved).fetch(db)
+# Q objects are automatically resolved when passed to filter/exclude
+users = await User.objects.filter(condition).fetch(db)
+# SELECT * FROM users WHERE (name = 'John' OR name = 'Jane') AND status != 'retired';
 ```
 
 ### F Expressions
@@ -164,12 +180,13 @@ users = await User.objects.filter(resolved).fetch(db)
 Reference model fields within queries.
 
 !!! note "Current Limitation"
-    `F` expressions currently require manual resolution before being passed to update methods. Automatic resolution within `update()` is planned.
+    `F` expressions currently require manual resolution before being passed to update methods. Automatic resolution within `update()` is planned for a future release.
 
-```python
+```python title="f_expressions.py"
 from flash_db.expressions import F
 
 # Increment stock by 1 (Manual Resolution)
 expr = (F("stock") + 1).resolve(Product)
 await Product.objects.filter(id=1).update(db, stock=expr)
+# UPDATE products SET stock = stock + 1 WHERE id = 1;
 ```
