@@ -190,9 +190,6 @@ class ModelManager(Generic[T]):
 
         Returns:
             The newly created and refreshed model instance.
-
-        Raises:
-            RuntimeError: If a database error occurs.
         """
         instance: T = self._model(**fields)
         db.add(instance)
@@ -271,7 +268,6 @@ class ModelManager(Generic[T]):
 
         Raises:
             ValueError: If any object is missing an 'id'.
-            RuntimeError: If a database error occurs.
         """
         if not objs or not fields:
             return 0
