@@ -87,6 +87,31 @@ class TestQuerySet:
         data = await Article.objects.values(db_session, "title")
         assert any(row["title"] == "Dict" for row in data)
 
+    async def test_values_branches_coverage(self, db_session):
+        """
+        Cover missing branches in values() method:
+        no fields, order_by, limit, offset.
+        """
+        await Article.objects.create(db_session, title="A", content="Data1")
+        await Article.objects.create(db_session, title="B", content="Data2")
+
+        # 1. Test values() without fields
+        data_all = await Article.objects.all().values(db_session)
+        assert len(data_all) >= 2
+        assert "title" in data_all[0]
+        assert "content" in data_all[0]
+
+        # 2. Test values() with order_by, limit, offset
+        data_filtered = (
+            await Article.objects.all()
+            .order_by(Article.title)
+            .limit(1)
+            .offset(1)
+            .values(db_session, "title")
+        )
+        assert len(data_filtered) == 1
+        assert data_filtered[0]["title"] == "B"
+
     async def test_values_list_returns_tuples_or_flat_list(self, db_session):
         """Should return data as tuples, or a flat list if flat=True."""
         await Article.objects.create(db_session, title="List")

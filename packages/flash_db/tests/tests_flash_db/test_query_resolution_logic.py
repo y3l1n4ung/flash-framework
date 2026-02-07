@@ -68,8 +68,5 @@ class TestQueryResolutionLogic:
 
     async def test_manager_filter_proxies_kwargs(self):
         """Ensure ModelManager correctly passes keyword filters."""
-        from unittest.mock import patch
-
-        with patch("flash_db.queryset.QuerySet.filter") as m:
-            Product.objects.filter(x=1)
-            m.assert_called_with(x=1)
+        qs = Product.objects.filter(name="Test")
+        assert "products.name = " in str(qs._stmt)

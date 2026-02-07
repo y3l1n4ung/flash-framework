@@ -1,6 +1,7 @@
 from unittest.mock import patch
 
 import pytest
+from flash_db.exceptions import DoesNotExistError, MultipleObjectsReturnedError
 
 from .models import Article
 
@@ -20,15 +21,17 @@ class TestModelManager:
         assert fetched.title == "Manager Test"
 
     async def test_get_raises_error_when_no_match_found(self, db_session):
-        """Should raise ValueError when query returns no results."""
-        with pytest.raises(ValueError, match="matching query does not exist"):
+        """Should raise DoesNotExistError when query returns no results."""
+        with pytest.raises(DoesNotExistError, match="matching query does not exist"):
             await Article.objects.get(db_session, Article.title == "Non-existent")
 
     async def test_get_raises_error_when_multiple_matches_found(self, db_session):
-        """Should raise ValueError when query returns more than one result."""
+        """Should raise MultipleObjectsReturnedError when query returns > 1 result."""
         await Article.objects.create(db_session, title="Duo", content="Same")
         await Article.objects.create(db_session, title="Duo 2", content="Same")
-        with pytest.raises(ValueError, match="returned more than one"):
+        with pytest.raises(
+            MultipleObjectsReturnedError, match="returned more than one"
+        ):
             await Article.objects.get(db_session, Article.content == "Same")
 
     async def test_get_by_pk_retrieves_correct_instance(self, db_session):

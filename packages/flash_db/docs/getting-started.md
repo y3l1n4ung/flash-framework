@@ -40,7 +40,7 @@ from flash_db import get_db
 @app.get("/health")
 async def health_check(db: AsyncSession = Depends(get_db)):
     """
-    Example endpoint verifying database connectivity.
+    Example endpoint using the database session dependency.
     """
     # The 'db' session is an SQLAlchemy AsyncSession ready for use.
     return {"status": "ok"}

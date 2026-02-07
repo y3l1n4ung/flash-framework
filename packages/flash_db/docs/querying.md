@@ -22,7 +22,7 @@ users = await User.objects.all().fetch(db)
 # Filter by criteria
 active_users = await User.objects.filter(User.is_active == True).fetch(db)
 
-# Retrieve a single record (raises ValueError if not found or multiple found)
+# Retrieve a single record (raises DoesNotExist or MultipleObjectsReturned)
 user = await User.objects.get(db, User.email == "john@example.com")
 ```
 
@@ -123,8 +123,11 @@ active_count = await User.objects.count(db, User.is_active == True)
 
 To prevent N+1 queries, use the following methods:
 
-- `select_related(*fields)`: Uses SQL `JOIN`. Ideal for many-to-one or one-to-one.
-- `prefetch_related(*fields)`: Uses separate `SELECT IN` queries. Ideal for many-to-many or reverse foreign keys.
+- `select_related(*fields)`: Uses SQL `JOIN`. Ideal for many-to-one or one-to-one relationships.
+- `prefetch_related(*fields)`: Uses separate `SELECT IN` queries. Ideal for many-to-many or reverse foreign keys (one-to-many).
+
+!!! tip
+    While `select_related` can be used for one-to-many relationships, it may result in row duplication and decreased performance. For collections or reverse relations, `prefetch_related` is generally recommended.
 
 ```python
 # Eager load with JOIN
@@ -142,6 +145,9 @@ articles = await Article.objects.prefetch_related("tags").fetch(db)
 ### Q Objects
 
 Encapsulate and combine query conditions using bitwise operators (`&`, `|`, `~`).
+
+!!! note
+    While manual resolution via `.resolve(Model)` is currently required, automatic resolution within `filter()` and `exclude()` is planned for a future release.
 
 ```python
 from flash_db.expressions import Q

@@ -1,23 +1,25 @@
 from __future__ import annotations
 
-import inspect
+import logging
 from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast
 from uuid import UUID
 
 from sqlalchemy import delete, select, update
 from sqlalchemy.exc import SQLAlchemyError
 
+from .exceptions import DoesNotExistError, MultipleObjectsReturnedError
 from .models import Model
 from .queryset import QuerySet
 
 if TYPE_CHECKING:
     from sqlalchemy import Table
-    from sqlalchemy.engine import Connection, Engine
     from sqlalchemy.ext.asyncio import AsyncSession
     from sqlalchemy.sql import ColumnElement
 
 T = TypeVar("T", bound=Model)
 PrimaryKey = int | str | UUID
+
+logger = logging.getLogger(__name__)
 
 
 class ModelManager(Generic[T]):
@@ -142,7 +144,8 @@ class ModelManager(Generic[T]):
             The single matching model instance.
 
         Raises:
-            ValueError: If zero or more than one record matches.
+            DoesNotExistError: If zero records match.
+            MultipleObjectsReturnedError: If more than one record matches.
         """
         stmt = select(self._model).where(*conditions).limit(2)
         result = await db.execute(stmt)
@@ -150,13 +153,13 @@ class ModelManager(Generic[T]):
 
         if not objs:
             msg = f"{self._model.__name__} matching query does not exist"
-            raise ValueError(msg)
+            raise DoesNotExistError(msg)
         if len(objs) > 1:
             msg = (
                 f"get() returned more than one {self._model.__name__} "
                 f"-- it returned {len(objs)}!"
             )
-            raise ValueError(msg)
+            raise MultipleObjectsReturnedError(msg)
 
         return objs[0]
 
@@ -204,13 +207,6 @@ class ModelManager(Generic[T]):
         else:
             return instance
 
-    async def _get_bind(self, db: AsyncSession) -> Connection | Engine:
-        """Robustly retrieve the database connection or engine bind."""
-        bind = db.get_bind()
-        if inspect.isawaitable(bind):
-            return cast("Connection | Engine", await bind)
-        return cast("Connection | Engine", bind)
-
     async def bulk_create(
         self,
         db: AsyncSession,
@@ -226,7 +222,9 @@ class ModelManager(Generic[T]):
             ignore_conflicts: If True, skip existing records (dialect-dependent).
 
         Returns:
-            List of created model instances (limited support for auto-generated IDs).
+            List of created model instances. Note that on dialects without
+            RETURNING support (e.g., MySQL), the returned instances will be
+            detached and lack DB-generated IDs or server-side defaults.
         """
         if not objs:
             return []
@@ -234,7 +232,7 @@ class ModelManager(Generic[T]):
         from sqlalchemy import insert
         from sqlalchemy.dialects import mysql, postgresql, sqlite
 
-        bind = await self._get_bind(db)
+        bind = db.get_bind()
         dialect_name = bind.dialect.name
 
         insert_map: dict[str, Any] = {
@@ -259,6 +257,11 @@ class ModelManager(Generic[T]):
                 await db.commit()
                 return list(result.scalars().all())
 
+            logger.warning(
+                "Dialect %s does not support INSERT RETURNING. "
+                "Returned instances will lack DB-generated IDs.",
+                dialect_name,
+            )
             await db.execute(stmt)
             await db.commit()
             return [self._model(**obj) for obj in objs]
@@ -280,9 +283,17 @@ class ModelManager(Generic[T]):
 
         Returns:
             The number of records updated.
+
+        Raises:
+            ValueError: If any object is missing an 'id'.
+            RuntimeError: If a database error occurs.
         """
         if not objs or not fields:
             return 0
+
+        if any(getattr(obj, "id", None) is None for obj in objs):
+            msg = "All objects must have an id for bulk_update"
+            raise ValueError(msg)
 
         from sqlalchemy import bindparam
 
@@ -316,7 +327,7 @@ class ModelManager(Generic[T]):
         try:
             conditions = [getattr(self._model, k) == v for k, v in kwargs.items()]
             instance = await self.get(db, *conditions)
-        except ValueError:
+        except DoesNotExistError:
             params = {**kwargs, **(defaults or {})}
             instance = await self.create(db, **params)
             return instance, True
@@ -335,7 +346,7 @@ class ModelManager(Generic[T]):
             instance = await self.get(db, *conditions)
             if defaults:
                 instance = await self.update(db, pk=instance.id, **defaults)
-        except ValueError:
+        except DoesNotExistError:
             params = {**kwargs, **(defaults or {})}
             instance = await self.create(db, **params)
             return instance, True
@@ -369,7 +380,7 @@ class ModelManager(Generic[T]):
 
         if instance is None:
             msg = f"{self._model.__name__} with id {pk} not found"
-            raise ValueError(msg)
+            raise DoesNotExistError(msg)
         return cast("T", instance)
 
     async def delete_by_pk(
@@ -398,6 +409,6 @@ class ModelManager(Generic[T]):
 
         if raise_if_missing and count == 0:
             msg = f"{self._model.__name__} with id {pk} not found"
-            raise ValueError(msg)
+            raise DoesNotExistError(msg)
 
         return count

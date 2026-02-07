@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from datetime import datetime  # noqa: TC003
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from sqlalchemy import DateTime, func
 from sqlalchemy.ext.asyncio import AsyncAttrs
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+from .exceptions import DoesNotExistError, MultipleObjectsReturnedError
 
 if TYPE_CHECKING:
     from .manager import ModelManager
@@ -31,11 +33,16 @@ class Model(AsyncAttrs, DeclarativeBase):
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     objects: ClassVar[ModelManager[Self]]  # type: ignore[invalid-type-arguments]
 
-    def __init_subclass__(cls, **kwargs):
+    # Model-specific exception aliases
+    DoesNotExist = DoesNotExistError
+    MultipleObjectsReturned = MultipleObjectsReturnedError
+
+    def __init_subclass__(cls, **kwargs: Any):
         super().__init_subclass__(**kwargs)
         from .manager import ModelManager
 
-        cls.objects = ModelManager(cls)
+        if not cls.__dict__.get("__abstract__"):
+            cls.objects = ModelManager(cls)
 
 
 class TimestampMixin:

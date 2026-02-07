@@ -188,6 +188,11 @@ class QuerySet(Generic[T]):
         Eagerly load related relationships using SQL JOINs.
         Best for 1-to-1 or Many-to-1 relationships.
 
+        !!! warning
+            Using `select_related` for one-to-many relationships (collections) can lead
+            to row duplication and decreased performance. Use `prefetch_related` instead
+            for these cases.
+
         Example:
             >>> articles = await Article.objects.select_related("author").fetch(db)
             # SELECT * FROM articles JOIN authors ON articles.author_id = authors.id;
@@ -245,6 +250,7 @@ class QuerySet(Generic[T]):
             cols = [getattr(self.model, f) for f in fields]
             stmt = select(*cols).select_from(self.model)
 
+            # SELECT * FROM articles ORDER BY created_at ASC LIMIT 1;
         if self._stmt._where_criteria:
             stmt = stmt.where(*self._stmt._where_criteria)
         if self._stmt._order_by_clauses:
@@ -309,6 +315,10 @@ class QuerySet(Generic[T]):
         """
         Return the last record by primary key descending.
 
+        !!! note
+            This method appends the primary key descending order to
+            any existing ordering.
+
         Example:
             >>> await Article.objects.last(db)
             # SELECT * FROM articles ORDER BY id DESC LIMIT 1;
@@ -319,6 +329,10 @@ class QuerySet(Generic[T]):
         """
         Return the latest object in the table based on the given field.
 
+        !!! note
+            This method appends the specified field's descending order to
+            any existing ordering.
+
         Example:
             >>> article = await Article.objects.latest(db)
             # SELECT * FROM articles ORDER BY created_at DESC LIMIT 1;
@@ -328,6 +342,10 @@ class QuerySet(Generic[T]):
     async def earliest(self, db: AsyncSession, field: str = "created_at") -> T | None:
         """
         Return the earliest object in the table based on the given field.
+
+        !!! note
+            This method appends the specified field's ascending order to
+            any existing ordering.
 
         Example:
             >>> article = await Article.objects.earliest(db)

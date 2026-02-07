@@ -8,7 +8,7 @@ Flash DB is a lightweight, asynchronous ORM built on SQLAlchemy Core. It provide
 - **Familiar API:** Uses `Model.objects` managers and lazy `QuerySet` evaluation similar to Django.
 - **SQLAlchemy Power:** Leveraging SQLAlchemy Core for robust SQL generation.
 - **Type Safety:** Comprehensive type hinting for static analysis.
-- **FastAPI Ready:** seamless integration with modern async ecosystems.
+- **FastAPI Ready:** Seamless integration with modern async ecosystems.
 
 ## Documentation
 

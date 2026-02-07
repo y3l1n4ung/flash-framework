@@ -102,8 +102,10 @@ async def get_user():
         try:
             user = await User.objects.get(db, User.name == "John Doe")
             print(f"Got user: {user.name}")
-        except ValueError:
-            print("User not found or multiple users found.")
+        except User.DoesNotExist:
+            print("User not found.")
+        except User.MultipleObjectsReturned:
+            print("Multiple users found.")
 
 ```
 

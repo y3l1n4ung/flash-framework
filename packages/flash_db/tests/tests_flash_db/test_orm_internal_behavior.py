@@ -10,18 +10,6 @@ pytestmark = pytest.mark.asyncio
 class TestORMInternalBehavior:
     """Specialized tests for internal ORM mechanics and dialect-specific logic."""
 
-    async def test_model_manager_resolves_awaitable_bind(self, db_session):
-        """Should handle database binds wrapped in awaitables."""
-        mock_bind = MagicMock()
-        mock_bind.dialect.name = "sqlite"
-
-        async def async_bind():
-            return mock_bind
-
-        with patch.object(db_session, "get_bind", return_value=async_bind()):
-            bind = await Product.objects._get_bind(db_session)
-            assert bind == mock_bind
-
     async def test_bulk_create_falls_back_on_missing_returning_support(
         self, db_session
     ):
@@ -93,19 +81,35 @@ class TestORMInternalBehavior:
             )
 
     async def test_manager_proxies_direct_execution_methods(self, db_session):
-        """Verify ModelManager proxy methods that execute immediately."""
+        """Verify ModelManager proxy methods correctly build and execute queries."""
         await Product.objects.create(db_session, name="ProxyTest", price=10)
 
+        # 1. Execution methods
         assert await Product.objects.first(db_session) is not None
-        assert await Product.objects.last(db_session) is not None
-        assert Product.objects.prefetch_related("id") is not None
-        assert Product.objects.distinct() is not None
-        assert Product.objects.order_by("name") is not None
-        assert Product.objects.limit(1) is not None
-        assert Product.objects.offset(0) is not None
-        assert await Product.objects.latest(db_session, field="id") is not None
-        assert await Product.objects.earliest(db_session, field="id") is not None
+
+        last = await Product.objects.last(db_session)
+        assert last is not None
+        assert last.name == "ProxyTest"
+
+        latest = await Product.objects.latest(db_session, field="id")
+        assert latest is not None
+        assert latest.name == "ProxyTest"
+
+        earliest = await Product.objects.earliest(db_session, field="id")
+        assert earliest is not None
+        assert earliest.name == "ProxyTest"
+
+        # 2. Query building methods (proxies to QuerySet)
+        # Verify that these methods return a QuerySet with the
+        # expected statement modifications
+        assert "DISTINCT" in str(Product.objects.distinct()._stmt)
+        assert "ORDER BY products.name" in str(Product.objects.order_by("name")._stmt)
+        assert "LIMIT :param_1" in str(Product.objects.limit(1)._stmt)
+        assert "OFFSET :param_1" in str(Product.objects.offset(0)._stmt)
+
+        # 3. Relationship methods
         assert Product.objects.select_related("id") is not None
+        assert Product.objects.prefetch_related("id") is not None
 
     async def test_manager_get_or_create_creation_path(self, db_session):
         """Verify get_or_create creation branch."""
@@ -122,20 +126,6 @@ class TestORMInternalBehavior:
         )
         assert created is True
         assert obj.price == 200
-
-    async def test_queryset_values_with_all_clauses(self, db_session):
-        """Verify values() correctly applies ordering, limits, and offsets."""
-        await Product.objects.create(db_session, name="V1", price=10)
-        await Product.objects.create(db_session, name="V2", price=20)
-
-        data = await (
-            Product.objects.order_by(Product.name.desc())
-            .limit(1)
-            .offset(0)
-            .values(db_session)
-        )
-        assert len(data) == 1
-        assert data[0]["name"] == "V2"
 
     async def test_queryset_exclude_with_kwargs(self, db_session):
         """Verify exclude() with keyword arguments hits expected branch."""
@@ -157,7 +147,6 @@ class TestORMInternalBehavior:
         qs = Product.objects.all()
         assert qs.filter() is qs
         assert qs.exclude() is qs
-        assert qs.distinct() is not None
 
     async def test_values_list_flat_error_on_multiple_fields(self, db_session):
         """Should raise ValueError when flat=True is used with multiple fields."""
@@ -175,3 +164,9 @@ class TestORMInternalBehavior:
             .values_list(db_session)
         )
         assert len(res) == 1
+
+    async def test_bulk_update_raises_on_missing_id(self, db_session):
+        """Should raise ValueError if any object in bulk_update is missing an id."""
+        objs = [Product(name="NoID")]  # No id set
+        with pytest.raises(ValueError, match="All objects must have an id"):
+            await Product.objects.bulk_update(db_session, objs, ["name"])

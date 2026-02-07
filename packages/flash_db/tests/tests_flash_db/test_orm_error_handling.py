@@ -1,6 +1,7 @@
 from unittest.mock import patch
 
 import pytest
+from flash_db.exceptions import DoesNotExistError, MultipleObjectsReturnedError
 from sqlalchemy.exc import SQLAlchemyError
 
 from .models import Product
@@ -23,14 +24,14 @@ class TestORMErrorHandling:
 
     async def test_manager_update_raises_error_for_missing_pk(self, db_session):
         """Should raise descriptive ValueError when update targets a missing PK."""
-        with pytest.raises(ValueError, match="Product with id 99999 not found"):
+        with pytest.raises(DoesNotExistError, match="Product with id 99999 not found"):
             await Product.objects.update(db_session, 99999, name="New")
 
     async def test_manager_delete_raises_error_on_missing_pk_if_requested(
         self, db_session
     ):
         """Should raise descriptive ValueError on missing PK delete if requested."""
-        with pytest.raises(ValueError, match="Product with id 99999 not found"):
+        with pytest.raises(DoesNotExistError, match="Product with id 99999 not found"):
             await Product.objects.delete_by_pk(db_session, 99999, raise_if_missing=True)
 
     async def test_manager_delete_rolls_back_on_sqlalchemy_failure(self, db_session):
@@ -92,17 +93,19 @@ class TestORMErrorHandling:
 
     async def test_manager_get_raises_on_empty_results(self, db_session):
         """Should raise ValueError when get() finds no records."""
-        with pytest.raises(ValueError, match="matching query does not exist"):
+        with pytest.raises(DoesNotExistError, match="matching query does not exist"):
             await Product.objects.get(db_session, Product.id == 999)
 
     async def test_manager_get_raises_on_multiple_results(self, db_session):
         """Should raise ValueError when get() finds multiple records."""
         await Product.objects.create(db_session, name="Dup", price=1)
         await Product.objects.create(db_session, name="Dup", price=2)
-        with pytest.raises(ValueError, match="returned more than one"):
+        with pytest.raises(
+            MultipleObjectsReturnedError, match="returned more than one"
+        ):
             await Product.objects.get(db_session, Product.name == "Dup")
 
     async def test_get_by_pk_raises_error_for_missing_record(self, db_session):
         """Should raise descriptive ValueError on missing record get_by_pk."""
-        with pytest.raises(ValueError, match="matching query does not exist"):
+        with pytest.raises(DoesNotExistError, match="matching query does not exist"):
             await Product.objects.get_by_pk(db_session, 999)

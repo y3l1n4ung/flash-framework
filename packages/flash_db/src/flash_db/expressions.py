@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Protocol, cast
 
-from sqlalchemy import and_, not_, or_
+from sqlalchemy import and_, func, not_, or_
 
 if TYPE_CHECKING:
     from sqlalchemy.sql import ColumnElement
@@ -34,9 +34,9 @@ def apply_lookup(col: Any, lookup: str, value: Any) -> Any:
     """Apply a lookup operator to a SQLAlchemy column."""
     operators = {
         "exact": lambda c, v: c == v,
-        "iexact": lambda c, v: c.ilike(v),
+        "iexact": lambda c, v: func.lower(c) == func.lower(v),
         "contains": lambda c, v: c.contains(v),
-        "icontains": lambda c, v: c.ilike(f"%{v}%"),
+        "icontains": lambda c, v: func.lower(c).contains(func.lower(v)),
         "gt": lambda c, v: c > v,
         "gte": lambda c, v: c >= v,
         "lt": lambda c, v: c < v,
@@ -121,14 +121,12 @@ class Q:
                     expressions.append(resolved)
             elif isinstance(child, tuple):
                 key, value = child
-                parts = key.split("__")
-                field_name = parts[0]
-                lookup = parts[1] if len(parts) > 1 else "exact"
+                key = cast("str", key)
+                col, lookup = parse_lookup(model, key)
+                field_name = key.split("__")[0]
 
                 if _annotations and field_name in _annotations:
                     col = _annotations[field_name]
-                else:
-                    col = getattr(model, field_name, None)
 
                 if col is None:
                     col = getattr(model, field_name)

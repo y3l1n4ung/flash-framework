@@ -54,13 +54,14 @@ def test_all_lookup_operators():
     assert str(apply_lookup(col, "exact", "v")) == "products.name = :name_1"
 
     iexact_res = apply_lookup(col, "iexact", "v")
-    assert str(iexact_res) == "lower(products.name) LIKE lower(:name_1)"
+    assert str(iexact_res) == "lower(products.name) = lower(:lower_1)"
 
     contains_res = apply_lookup(col, "contains", "v")
     assert str(contains_res) == "products.name LIKE '%' || :name_1 || '%'"
 
     icontains_res = apply_lookup(col, "icontains", "v")
-    assert str(icontains_res) == "lower(products.name) LIKE lower(:name_1)"
+    expected = "lower(products.name) LIKE '%' || lower(:lower_1) || '%'"
+    assert str(icontains_res) == expected
 
     assert str(apply_lookup(Product.price, "gt", 5)) == "products.price > :price_1"
     assert str(apply_lookup(Product.price, "gte", 5)) == "products.price >= :price_1"
