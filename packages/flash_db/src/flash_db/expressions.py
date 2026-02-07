@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Protocol, cast
+from typing import TYPE_CHECKING, Any, Protocol, cast, runtime_checkable
 
 from sqlalchemy import and_, func, not_, or_
 
@@ -10,6 +10,7 @@ if TYPE_CHECKING:
     from .models import Model
 
 
+@runtime_checkable
 class Resolvable(Protocol):
     """Protocol for objects resolvable into SQLAlchemy expressions."""
 

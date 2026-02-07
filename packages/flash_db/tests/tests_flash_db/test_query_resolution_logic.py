@@ -70,3 +70,69 @@ class TestQueryResolutionLogic:
         """Ensure ModelManager correctly passes keyword filters."""
         qs = Product.objects.filter(name="Test")
         assert "products.name = " in str(qs._stmt)
+
+    async def test_queryset_filter_auto_resolves_q_objects(self):
+        """Verify that filter() automatically resolves Q objects."""
+        qs = Product.objects.filter(Q(name="Auto"))
+        assert "products.name = " in str(qs._stmt)
+        # Use literal_binds to see the actual value in the string
+        compiled = str(qs._stmt.compile(compile_kwargs={"literal_binds": True}))
+        assert "'Auto'" in compiled
+
+    async def test_queryset_exclude_auto_resolves_q_objects(self):
+        """Verify that exclude() automatically resolves Q objects."""
+        qs = Product.objects.exclude(Q(name="Auto"))
+        assert "products.name != " in str(qs._stmt)
+        compiled = str(qs._stmt.compile(compile_kwargs={"literal_binds": True}))
+        assert "'Auto'" in compiled
+
+    async def test_queryset_mixed_filter_expressions(self):
+        """Verify that filter() handles mixed raw expressions and Q objects."""
+        qs = Product.objects.filter(Product.price > 10, Q(name="Mixed"))
+        sql = str(qs._stmt)
+        assert "products.price > " in sql
+        assert "products.name = " in sql
+
+    async def test_queryset_nested_q_auto_resolution(self):
+        """Verify that deeply nested Q objects are resolved correctly."""
+        q = Q(Q(name="A") | Q(name="B")) & Q(price__gt=100)
+        qs = Product.objects.filter(q)
+        sql = str(qs._stmt)
+        assert "products.name = " in sql
+        assert "OR" in sql
+        assert "AND" in sql
+        assert "products.price > " in sql
+
+    async def test_queryset_filter_multiple_q_objects(self):
+        """Verify that multiple Q objects as positional args are handled."""
+        qs = Product.objects.filter(Q(name="A"), Q(price=10))
+        sql = str(qs._stmt)
+        assert "products.name = " in sql
+        assert "products.price = " in sql
+        assert "AND" in sql
+
+    async def test_queryset_exclude_multiple_q_objects(self):
+        """Verify that multiple Q objects in exclude() are handled."""
+        qs = Product.objects.exclude(Q(name="A"), Q(price=10))
+        sql = str(qs._stmt)
+        assert "products.name != " in sql
+        assert "products.price != " in sql
+
+    async def test_queryset_filter_empty_q_object(self):
+        """Verify that empty Q objects do not affect the query."""
+        qs_baseline = Product.objects.all()
+        qs_with_empty = Product.objects.filter(Q())
+        assert str(qs_baseline._stmt) == str(qs_with_empty._stmt)
+
+    async def test_queryset_filter_mixed_all_types(self):
+        """Verify filter handles SQL expression, Q object, and kwargs together."""
+        qs = Product.objects.filter(
+            Product.price > 10,  # Raw SQLAlchemy
+            Q(name="Mixed"),  # Q object (resolvable)
+            stock=5,  # Keyword argument
+        )
+        sql = str(qs._stmt)
+        assert "products.price > " in sql
+        assert "products.name = " in sql
+        assert "products.stock = " in sql
+        assert sql.count("AND") >= 2

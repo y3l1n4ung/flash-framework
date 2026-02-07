@@ -16,6 +16,8 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
     from sqlalchemy.sql import ColumnElement
 
+    from .expressions import Resolvable
+
 T = TypeVar("T", bound=Model)
 PrimaryKey = int | str | UUID
 
@@ -43,13 +45,13 @@ class ModelManager(Generic[T]):
 
     def filter(
         self,
-        *conditions: ColumnElement[bool],
+        *conditions: ColumnElement[bool] | Resolvable,
         **kwargs: object,
     ) -> QuerySet[T]:
         """Return a QuerySet filtered by the provided conditions.
 
         Args:
-            *conditions: Positional SQLAlchemy expressions.
+            *conditions: Positional SQLAlchemy expressions or Q objects.
             **kwargs: Simple equality keyword lookups.
 
         Returns:
@@ -58,12 +60,12 @@ class ModelManager(Generic[T]):
         return self._get_queryset().filter(*conditions, **kwargs)
 
     def exclude(
-        self, *conditions: ColumnElement[bool], **kwargs: object
+        self, *conditions: ColumnElement[bool] | Resolvable, **kwargs: object
     ) -> QuerySet[T]:
         """Return a QuerySet excluding records matching provided conditions.
 
         Args:
-            *conditions: Positional conditions to negate.
+            *conditions: Positional conditions or Q objects to negate.
             **kwargs: Keyword lookups to negate.
 
         Returns:
