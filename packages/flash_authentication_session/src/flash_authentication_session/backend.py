@@ -8,7 +8,7 @@ from flash_authentication.models import User
 from flash_authentication.schemas import (
     AuthenticationResult,
 )
-from sqlalchemy import Select, delete, false, or_, select
+from sqlalchemy import false, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from flash_authentication_session.models import UserSession
@@ -46,25 +46,22 @@ class SessionAuthenticationBackend(AuthenticationBackend):
                 message="Internal Error",
                 errors=["Missing 'token' or 'db' dependency"],
             )
-        stmt: Select[tuple[UserSession, User]] = (
-            select(UserSession, User)
-            .join(User, UserSession.user_id == User.id)
-            .where(
-                UserSession.session_key == session_token,
-            )
+
+        user_session = (
+            await UserSession.objects.select_related("user")
+            .filter(UserSession.session_key == session_token)
+            .first(db)
         )
-        result = await db.execute(stmt)
-        row = result.first()
-        if not row:
+
+        if not user_session:
             return AuthenticationResult(
                 success=False,
                 user=AnonymousUser(),
                 message="Invalid Session",
                 errors=["Session key does not exist in database"],
             )
-        user_session: UserSession
-        user: User
-        user_session, user = row
+
+        user = user_session.user
 
         if not user.is_active:
             return AuthenticationResult(
@@ -109,19 +106,16 @@ class SessionAuthenticationBackend(AuthenticationBackend):
             )
         user = None
         if password and (username or email):
-            stmt = (
-                select(User)
-                .where(
-                    or_(
-                        User.username == username if username else false(),
-                        User.email == email if email else false(),
-                    )
+            user = await User.objects.filter(
+                or_(
+                    User.username == username if username else false(),
+                    User.email == email if email else false(),
                 )
-                .limit(1)
-            )
-            result = await db.scalar(stmt)
-            if result and result.check_password(password):
-                user = result
+            ).first(db)
+
+            if user and not user.check_password(password):
+                user = None
+
         if not user:
             return AuthenticationResult(
                 success=False,
@@ -142,15 +136,14 @@ class SessionAuthenticationBackend(AuthenticationBackend):
         ip_address, user_agent = self._get_client_info(request)
 
         try:
-            user_session = UserSession(
+            user_session = await UserSession.objects.create(
+                db,
                 user_id=user.id,
                 ip_address=ip_address,
                 user_agent=user_agent,
                 expires_at=expires_at,
             )
-            db.add(user_session)
             await db.commit()
-            await db.refresh(user_session)
 
             request.session[SESSION_COOKIE_NAME] = user_session.session_key
             return AuthenticationResult(
@@ -180,8 +173,9 @@ class SessionAuthenticationBackend(AuthenticationBackend):
         if not session_key:
             return False
         try:
-            stmt = delete(UserSession).where(UserSession.session_key == session_key)
-            await db.execute(stmt)
+            await UserSession.objects.filter(
+                UserSession.session_key == session_key
+            ).delete(db)
             await db.commit()
             request.session.clear()
 

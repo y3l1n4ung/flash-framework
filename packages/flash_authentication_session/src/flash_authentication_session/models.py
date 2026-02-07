@@ -1,10 +1,10 @@
 import secrets
 from datetime import datetime, timezone
 
-from flash_authentication.models import USER_TABLE_NAME
+from flash_authentication.models import USER_TABLE_NAME, User
 from flash_db.models import Model
 from sqlalchemy import DateTime, ForeignKey, String, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 
 class UserSession(Model):
@@ -26,6 +26,8 @@ class UserSession(Model):
         server_default=func.now(),
     )
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    user: Mapped[User] = relationship("User", lazy="raise")
 
     @property
     def is_expired(self) -> bool:
