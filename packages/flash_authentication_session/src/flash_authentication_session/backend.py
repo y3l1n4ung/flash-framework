@@ -108,8 +108,8 @@ class SessionAuthenticationBackend(AuthenticationBackend):
         if password and (username or email):
             user = await User.objects.filter(
                 or_(
-                    User.username == username if username else false(),
-                    User.email == email if email else false(),
+                    (User.username == username) if username else false(),
+                    (User.email == email) if email else false(),
                 )
             ).first(db)
 
