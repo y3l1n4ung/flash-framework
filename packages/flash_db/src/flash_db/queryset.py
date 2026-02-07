@@ -6,6 +6,7 @@ from sqlalchemy import delete, func, select, update
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import joinedload, selectinload
 
+from .expressions import Resolvable
 from .models import Model
 
 if TYPE_CHECKING:
@@ -42,7 +43,9 @@ class QuerySet(Generic[T]):
         """
         return QuerySet(self.model, stmt if stmt is not None else self._stmt)
 
-    def filter(self, *conditions: ColumnElement[bool], **kwargs: object) -> QuerySet[T]:
+    def filter(
+        self, *conditions: ColumnElement[bool] | Resolvable, **kwargs: object
+    ) -> QuerySet[T]:
         """
         Add WHERE criteria to the query.
 
@@ -68,9 +71,14 @@ class QuerySet(Generic[T]):
 
         stmt = self._stmt
 
-        # Handle positional arguments (raw SQLAlchemy expressions)
+        # Handle positional arguments (raw SQLAlchemy expressions or Q objects)
         for cond in conditions:
-            stmt = stmt.where(cond)
+            if isinstance(cond, Resolvable):
+                resolved = cond.resolve(self.model)
+                if resolved is not None:
+                    stmt = stmt.where(resolved)
+            else:
+                stmt = stmt.where(cond)
 
         # Handle keyword arguments (simple equality)
         for key, value in kwargs.items():
@@ -80,7 +88,7 @@ class QuerySet(Generic[T]):
         return self._clone(stmt)
 
     def exclude(
-        self, *conditions: ColumnElement[bool], **kwargs: object
+        self, *conditions: ColumnElement[bool] | Resolvable, **kwargs: object
     ) -> QuerySet[T]:
         """
         Add NOT WHERE criteria to the query.
@@ -103,7 +111,12 @@ class QuerySet(Generic[T]):
 
         # Handle positional arguments
         for cond in conditions:
-            stmt = stmt.where(not_(cond))
+            if isinstance(cond, Resolvable):
+                resolved = cond.resolve(self.model)
+                if resolved is not None:
+                    stmt = stmt.where(not_(resolved))
+            else:
+                stmt = stmt.where(not_(cond))
 
         # Handle keyword arguments
         for key, value in kwargs.items():
@@ -369,7 +382,9 @@ class QuerySet(Generic[T]):
         """
         return await self.count(db) > 0
 
-    async def update(self, db: AsyncSession, **values: Any) -> int:
+    async def update(
+        self, db: AsyncSession, **values: ColumnElement[Any] | Resolvable | object
+    ) -> int:
         """
         Perform a bulk update on all records matched by the query.
 
@@ -384,7 +399,13 @@ class QuerySet(Generic[T]):
             msg = "Refusing to update without filters"
             raise ValueError(msg)
 
-        stmt = update(self.model).where(*where_clause).values(**values)
+        # Resolve any F expressions or other resolvables in the values
+        resolved_values = {
+            k: v.resolve(self.model) if isinstance(v, Resolvable) else v
+            for k, v in values.items()
+        }
+
+        stmt = update(self.model).where(*where_clause).values(resolved_values)
         try:
             result = await db.execute(stmt)
             await db.commit()

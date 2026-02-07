@@ -1,6 +1,6 @@
 # Flash DB
 
-Flash DB is a lightweight, asynchronous ORM (Object-Relational Mapper) for Python, built on top of the powerful SQLAlchemy Core and designed to feel familiar for developers coming from Django. It provides a simple, yet powerful, API for interacting with your database in modern asynchronous Python applications.
+Flash DB is a lightweight async Django ORM alternative built on top of SQLAlchemy. While it is part of the **Flash Web Framework**, it can be used **standalone** with frameworks like **FastAPI**.
 
 ## Features
 
@@ -22,7 +22,7 @@ pip install flash_db
 
 First, initialize the database connection. For a FastAPI application, you should use the `lifespan` context manager.
 
-```python
+```python title="main.py"
 # main.py
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
@@ -43,7 +43,7 @@ app = FastAPI(lifespan=lifespan)
 
 Create your models by inheriting from `flash_db.Model`.
 
-```python
+```python title="models.py"
 # models.py
 from sqlalchemy.orm import Mapped, mapped_column
 from flash_db import Model, TimestampMixin
@@ -59,7 +59,7 @@ class User(Model, TimestampMixin):
 
 Use the `objects.create()` method on the model manager.
 
-```python
+```python title="usage.py"
 # usage.py
 from flash_db import get_db
 from .models import User
@@ -76,7 +76,7 @@ Use the `objects` manager to query the database.
 
 **Get all records:**
 
-```python
+```python title="query.py"
 async def list_users():
     async for db in get_db():
         users = await User.objects.all().fetch(db)
@@ -86,7 +86,7 @@ async def list_users():
 
 **Filter records:**
 
-```python
+```python title="filter.py"
 async def find_user():
     async for db in get_db():
         user = await User.objects.filter(User.email == "john.doe@example.com").first(db)
@@ -96,7 +96,7 @@ async def find_user():
 
 **Get a single record:**
 
-```python
+```python title="get.py"
 async def get_user():
     async for db in get_db():
         try:
@@ -113,7 +113,7 @@ async def get_user():
 
 Update records using the `update` method.
 
-```python
+```python title="update.py"
 async def update_user_email():
     async for db in get_db():
         await User.objects.filter(User.name == "John Doe").update(db, email="new.email@example.com")
@@ -123,7 +123,7 @@ async def update_user_email():
 
 Delete records using the `delete` method.
 
-```python
+```python title="delete.py"
 async def delete_user():
     async for db in get_db():
         await User.objects.filter(User.name == "John Doe").delete(db)

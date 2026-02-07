@@ -1,5 +1,7 @@
 # Getting Started
 
+Flash DB is a lightweight async Django ORM alternative built on top of SQLAlchemy. While it is part of the **Flash Web Framework**, it can be used **standalone** with frameworks like **FastAPI**.
+
 ## Installation
 
 Install `flash_db` using pip:
@@ -32,7 +34,7 @@ app = FastAPI(lifespan=lifespan)
 
 Inject the database session into route handlers using the `get_db` dependency.
 
-```python
+```python title="routes.py"
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from flash_db import get_db

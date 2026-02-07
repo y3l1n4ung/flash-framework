@@ -1,15 +1,17 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Protocol, cast
+from typing import TYPE_CHECKING, Any, Protocol, cast, runtime_checkable
 
 from sqlalchemy import and_, func, not_, or_
 
 if TYPE_CHECKING:
+    from sqlalchemy.orm import InstrumentedAttribute
     from sqlalchemy.sql import ColumnElement
 
     from .models import Model
 
 
+@runtime_checkable
 class Resolvable(Protocol):
     """Protocol for objects resolvable into SQLAlchemy expressions."""
 
@@ -241,8 +243,10 @@ class Min(Aggregate):
 class F:
     """Encapsulates a reference to a model field with arithmetic support."""
 
-    def __init__(self, name: str):
-        self.name = name
+    name: str
+
+    def __init__(self, name: str | InstrumentedAttribute[Any]):
+        self.name = name if isinstance(name, str) else name.key
         self._ops: list[tuple[str, Any]] = []
 
     def __add__(self, other: Any) -> F:
