@@ -40,10 +40,10 @@ class SessionAuthenticationMiddleware:
 
         try:
             token = ""
+            # Get token from Starlette Session (Signed Cookie)
             if "session" in request.scope:
                 token = request.session.get(SESSION_COOKIE_NAME, "")
-            if not token:
-                token = request.cookies.get(SESSION_COOKIE_NAME, "")
+
             async with self.session_maker() as db:
                 result = await self.backend.authenticate(db, token)
 
@@ -53,7 +53,7 @@ class SessionAuthenticationMiddleware:
                         db.expunge(user)
                     request.state.user = user
                     request.state.auth = result.extra.get("session")
-                elif result.message:
+                elif result.message and token:
                     logger.debug(
                         "Authentication failed for token ending in ...%s: %s",
                         token[-4:],

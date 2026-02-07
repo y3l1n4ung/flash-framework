@@ -1,11 +1,11 @@
 import logging
 import unittest.mock
 from datetime import datetime, timedelta, timezone
-from typing import Any, AsyncGenerator
 
 import pytest
 import pytest_asyncio
 from fastapi import FastAPI, Request
+from fastapi.testclient import TestClient
 from flash_authentication.models import User
 from flash_authentication.schemas import AnonymousUser, AuthenticationResult
 from flash_authentication_session.backend import SESSION_COOKIE_NAME
@@ -13,64 +13,67 @@ from flash_authentication_session.middleware import SessionAuthenticationMiddlew
 from flash_authentication_session.models import UserSession
 from flash_db import db as db_module
 from flash_db.models import Model
-from httpx import ASGITransport, AsyncClient, Response
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.middleware.sessions import SessionMiddleware
+
+pytestmark = pytest.mark.asyncio
 
 
 @pytest_asyncio.fixture
 async def middleware_app(db_session: AsyncSession) -> FastAPI:  # noqa: ARG001
-    """
-    Creates a FastAPI app specifically for testing the SessionAuthenticationMiddleware.
-    Depends on db_session to ensure the database is initialized.
-    """
+    """FastAPI app integrated with Session and Authentication middlewares."""
     app = FastAPI()
-
-    # Get the session factory initialized by init_test_db (via db_session fixture)
     factory = db_module._require_session_factory()
 
-    # Add the middleware
     app.add_middleware(
         SessionAuthenticationMiddleware,  # ty:ignore[invalid-argument-type]
         session_maker=factory,
     )
 
+    app.add_middleware(
+        SessionMiddleware,  # ty:ignore[invalid-argument-type]
+        secret_key="test-secret",
+        session_cookie=SESSION_COOKIE_NAME,
+        max_age=3600,
+    )
+
     @app.get("/me")
-    def me(request: Request) -> dict:
+    def me(request: Request):
         user = request.state.user
         return {
             "username": getattr(user, "username", None),
             "user_id": getattr(user, "id", None),
         }
 
+    @app.post("/force_session/{key}")
+    def force_session(request: Request, key: str):
+        request.session[SESSION_COOKIE_NAME] = key
+        return {"status": "set"}
+
     return app
 
 
-@pytest_asyncio.fixture
-async def middleware_client(
-    middleware_app: FastAPI,
-) -> AsyncGenerator[AsyncClient, None]:
-    """Client for the middleware test app."""
-    transport = ASGITransport(app=middleware_app)
-    async with AsyncClient(transport=transport, base_url="http://test") as c:
-        yield c
+@pytest.fixture
+def client(middleware_app: FastAPI) -> TestClient:
+    """TestClient for E2E tests."""
+    return TestClient(middleware_app)
 
 
-@pytest.mark.asyncio
-class TestSessionMiddleware:
-    async def test_request_without_cookie(self, middleware_client: AsyncClient) -> None:
-        """Test that requests without a cookie result in AnonymousUser."""
-        response: Response = await middleware_client.get("/me")
+class TestSessionMiddlewareE2E:
+    """End-to-end tests for the session authentication middleware."""
 
+    async def test_request_without_session(self, client: TestClient):
+        """Should result in AnonymousUser when no session is present."""
+        response = client.get("/me")
         assert response.status_code == 200
         data = response.json()
-        assert not data["user_id"]
-        assert not data["username"]
+        assert data["user_id"] is None
+        assert data["username"] == AnonymousUser().username
 
     async def test_request_with_valid_session(
-        self, middleware_client: AsyncClient, test_user: User, db_session: AsyncSession
-    ) -> None:
-        """Test that a valid session cookie authenticates the user."""
-        # 1. Create a session in DB
+        self, client: TestClient, test_user: User, db_session: AsyncSession
+    ):
+        """Should authenticate the user when a valid session is in scope."""
         session = UserSession(
             user_id=test_user.id,
             ip_address="127.0.0.1",
@@ -80,11 +83,8 @@ class TestSessionMiddleware:
         await db_session.commit()
         await db_session.refresh(session)
 
-        # 2. Set cookie on client
-        middleware_client.cookies.set(SESSION_COOKIE_NAME, session.session_key)
-
-        # 3. Request
-        response: Response = await middleware_client.get("/me")
+        client.post(f"/force_session/{session.session_key}")
+        response = client.get("/me")
 
         assert response.status_code == 200
         data = response.json()
@@ -92,128 +92,28 @@ class TestSessionMiddleware:
         assert data["user_id"] == test_user.id
 
     async def test_request_with_invalid_token(
-        self, middleware_client: AsyncClient, caplog: pytest.LogCaptureFixture
-    ) -> None:
-        """Test that an invalid token results in AnonymousUser
-        and logs debug message."""
-        # Explicitly enable debug logging for the middleware package to ensure capture
+        self, client: TestClient, caplog: pytest.LogCaptureFixture
+    ):
+        """Should result in AnonymousUser when session token is invalid."""
         logger = logging.getLogger("flash_authentication_session.middleware")
         logger.setLevel(logging.DEBUG)
+
+        client.post("/force_session/invalid_123")
 
         with caplog.at_level(
             logging.DEBUG, logger="flash_authentication_session.middleware"
         ):
-            middleware_client.cookies.set(SESSION_COOKIE_NAME, "invalid_token_123")
-
-            response: Response = await middleware_client.get("/me")
+            response = client.get("/me")
 
             assert response.status_code == 200
             data = response.json()
             assert data["username"] == AnonymousUser().username
-
-            # Verify that the failure path was hit (Lines 47-51 coverage)
-            assert "Authentication failed for token ending in" in caplog.text
-            assert "_123" in caplog.text
-
-    async def test_authentication_failure_logging_mocked(
-        self, middleware_client: AsyncClient, caplog: pytest.LogCaptureFixture
-    ) -> None:
-        """
-        Test that the middleware logs a debug message when authentication fails
-        with a message, ensuring lines 47-51 are covered strictly.
-        """
-        # Explicitly enable debug logging
-        logger = logging.getLogger("flash_authentication_session.middleware")
-        logger.setLevel(logging.DEBUG)
-
-        # Define an async side effect to properly simulate await backend.authenticate()
-        async def mock_authenticate(*args, **kwargs):  # noqa: ARG001
-            return AuthenticationResult(
-                success=False,
-                user=AnonymousUser(),
-                message="Forced Mock Failure",
-                errors=[],
-            )
-
-        with (
-            unittest.mock.patch(
-                "flash_authentication_session.middleware.SessionAuthenticationBackend.authenticate"
-            ) as mock_auth,
-            caplog.at_level(
-                logging.DEBUG, logger="flash_authentication_session.middleware"
-            ),
-        ):
-            # Use side_effect with the async function
-            mock_auth.side_effect = mock_authenticate
-
-            middleware_client.cookies.set(SESSION_COOKIE_NAME, "mock_token_9999")
-
-            response: Response = await middleware_client.get("/me")
-
-            assert response.status_code == 200
-            # Ensure the specific branch logic (logging) was executed
-            assert (
-                "Authentication failed for token ending in ...9999: Forced Mock Failure"
-                in caplog.text
-            )
-
-    async def test_authentication_success_expunge_model(self) -> None:
-        """
-        Test that if authentication succeeds and user is a Model,
-        db.expunge(user) is called.
-        """
-        # Mock dependencies
-        mock_db = unittest.mock.AsyncMock(spec=AsyncSession)
-        mock_factory = unittest.mock.MagicMock()
-        mock_factory.return_value.__aenter__.return_value = mock_db
-        mock_factory.return_value.__aexit__.return_value = None
-
-        # Mock User as a Model instance
-        mock_user = unittest.mock.MagicMock(spec=Model)
-
-        # Mock Backend Result
-        auth_result = AuthenticationResult(
-            success=True,
-            user=mock_user,
-            message="Success",
-            extra={"session": "session_obj"},
-        )
-
-        # Mock App
-        async def mock_app(scope: Any, receive: Any, send: Any) -> None:
-            pass
-
-        # Instantiate Middleware directly
-        middleware = SessionAuthenticationMiddleware(
-            mock_app, session_maker=mock_factory
-        )
-
-        # Patch authenticate
-        with unittest.mock.patch.object(
-            middleware.backend, "authenticate", return_value=auth_result
-        ):
-            # Construct scope with cookie
-            scope = {
-                "type": "http",
-                "headers": [(b"cookie", f"{SESSION_COOKIE_NAME}=token".encode())],
-            }
-
-            async def receive() -> Any:
-                pass
-
-            async def send(msg: Any) -> None:
-                pass
-
-            await middleware(scope, receive, send)
-
-            # Assertions
-            mock_db.expunge.assert_called_once_with(mock_user)
+            assert "Authentication failed for token ending in ..._123" in caplog.text
 
     async def test_request_with_expired_session(
-        self, middleware_client: AsyncClient, test_user: User, db_session: AsyncSession
-    ) -> None:
-        """Test that an expired session results in AnonymousUser."""
-        # 1. Create expired session
+        self, client: TestClient, test_user: User, db_session: AsyncSession
+    ):
+        """Should result in AnonymousUser when the session has expired."""
         session = UserSession(
             user_id=test_user.id,
             expires_at=datetime.now(timezone.utc) - timedelta(hours=1),
@@ -221,80 +121,80 @@ class TestSessionMiddleware:
         db_session.add(session)
         await db_session.commit()
 
-        # 2. Set cookie
-        middleware_client.cookies.set(SESSION_COOKIE_NAME, session.session_key)
-
-        # 3. Request
-        response: Response = await middleware_client.get("/me")
+        client.post(f"/force_session/{session.session_key}")
+        response = client.get("/me")
 
         assert response.status_code == 200
-        data = response.json()
-
-        assert data["username"] == AnonymousUser().username
+        assert response.json()["username"] == AnonymousUser().username
 
     async def test_db_error_handling(
-        self, middleware_client: AsyncClient, caplog: pytest.LogCaptureFixture
-    ) -> None:
-        """Test that DB errors during auth are caught, logged, and result in
-        AnonymousUser."""
+        self, client: TestClient, caplog: pytest.LogCaptureFixture
+    ):
+        """Should catch and log database errors during authentication."""
         with (
             unittest.mock.patch(
-                "flash_authentication_session.middleware.SessionAuthenticationBackend.authenticate"
-            ) as mock_auth,
+                "flash_authentication_session.middleware.SessionAuthenticationBackend.authenticate",
+                side_effect=Exception("DB Fail"),
+            ),
             caplog.at_level(
                 logging.ERROR, logger="flash_authentication_session.middleware"
             ),
         ):
-            mock_auth.side_effect = Exception("DB Connection Failed")
+            client.post("/force_session/any_token")
+            response = client.get("/me")
 
-            # Set a cookie so it attempts auth
-            middleware_client.cookies.set(SESSION_COOKIE_NAME, "any_token")
-
-            response: Response = await middleware_client.get("/me")
-
-            # Should still return 200 OK (Anonymous), not 500 Internal Error
             assert response.status_code == 200
             assert response.json()["username"] == AnonymousUser().username
-
-            # Verify the exception was actually caught and logged
             assert (
                 "Authentication middleware encountered an unexpected error"
                 in caplog.text
             )
 
-    async def test_lifespan_scope_ignored(self, db_session: AsyncSession) -> None:  # noqa: ARG002
-        """
-        Test that non-HTTP/WebSocket scopes (like lifespan) are passed through
-        without authentication logic.
-        """
-        # Mock the app (next middleware/app in chain)
+    async def test_authentication_success_expunge_model(self):
+        """Should expunge the user from DB session on successful authentication."""
+        mock_db = unittest.mock.AsyncMock(spec=AsyncSession)
+        mock_factory = unittest.mock.MagicMock()
+        mock_factory.return_value.__aenter__.return_value = mock_db
+        mock_factory.return_value.__aexit__.return_value = None
+
+        mock_user = unittest.mock.MagicMock(spec=Model)
+        auth_result = AuthenticationResult(
+            success=True,
+            user=mock_user,
+            message="Success",
+            extra={"session": "session_obj"},
+        )
+
+        middleware = SessionAuthenticationMiddleware(
+            unittest.mock.AsyncMock(), session_maker=mock_factory
+        )
+
+        with unittest.mock.patch.object(
+            middleware.backend, "authenticate", return_value=auth_result
+        ):
+            scope = {
+                "type": "http",
+                "session": {SESSION_COOKIE_NAME: "token"},
+            }
+            receive = unittest.mock.AsyncMock()
+            send = unittest.mock.AsyncMock()
+            await middleware(scope, receive, send)
+            mock_db.expunge.assert_called_once_with(mock_user)
+
+    async def test_lifespan_scope_ignored(self, db_session: AsyncSession):  # noqa: ARG002
+        """Should pass through non-HTTP/WebSocket scopes without authentication."""
         app_called = False
 
-        async def mock_app(scope: Any, receive: Any, send: Any) -> None:  # noqa: ARG001
+        async def mock_app(scope, receive, send):  # noqa: ARG001
             nonlocal app_called
             app_called = True
 
-        # Get session factory (Requires db_session fixture to ensure initialization)
         factory = db_module._require_session_factory()
-
-        # Instantiate middleware directly to bypass framework behaviors
         middleware = SessionAuthenticationMiddleware(mock_app, session_maker=factory)
 
-        # Create lifespan scope
         scope = {"type": "lifespan"}
-
-        async def receive() -> Any:
-            pass
-
-        async def send(msg: Any) -> None:
-            pass
-
-        # Call middleware directly
+        receive = unittest.mock.AsyncMock()
+        send = unittest.mock.AsyncMock()
         await middleware(scope, receive, send)
-
-        # Assert app was called (passed through)
         assert app_called
-
-        # Assert state was NOT touched (middleware sets request.state.user if it runs)
-        # request.state relies on scope["state"]
         assert "state" not in scope
