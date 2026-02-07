@@ -1,5 +1,7 @@
 # Getting Started
 
+Flash DB is a lightweight async Django ORM alternative built on top of SQLAlchemy. While it is part of the **Flash Web Framework**, it can be used **standalone** with frameworks like **FastAPI**.
+
 ## Installation
 
 Install `flash_db` using pip:

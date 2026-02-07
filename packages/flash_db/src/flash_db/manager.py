@@ -8,6 +8,7 @@ from sqlalchemy import delete, select, update
 from sqlalchemy.exc import SQLAlchemyError
 
 from .exceptions import DoesNotExistError, MultipleObjectsReturnedError
+from .expressions import Resolvable
 from .models import Model
 from .queryset import QuerySet
 
@@ -15,8 +16,6 @@ if TYPE_CHECKING:
     from sqlalchemy import Table
     from sqlalchemy.ext.asyncio import AsyncSession
     from sqlalchemy.sql import ColumnElement
-
-    from .expressions import Resolvable
 
 T = TypeVar("T", bound=Model)
 PrimaryKey = int | str | UUID
@@ -355,14 +354,26 @@ class ModelManager(Generic[T]):
         else:
             return instance, False
 
-    async def update(self, db: AsyncSession, pk: Any, **fields: Any) -> T:
+    async def update(
+        self,
+        db: AsyncSession,
+        pk: PrimaryKey,
+        **fields: ColumnElement[Any] | Resolvable | object,
+    ) -> T:
         """Update a single record by primary key."""
         try:
             pk_col = self._model.id
+
+            # Resolve any F expressions or other resolvables in the fields
+            resolved_fields = {
+                k: v.resolve(self._model) if isinstance(v, Resolvable) else v
+                for k, v in fields.items()
+            }
+
             stmt = (
                 update(self._model)
                 .where(pk_col == pk)
-                .values(**fields)
+                .values(resolved_fields)
                 .returning(self._model)
             )
 

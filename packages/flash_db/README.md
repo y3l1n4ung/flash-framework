@@ -1,6 +1,6 @@
 # Flash DB
 
-Flash DB is a lightweight, asynchronous ORM (Object-Relational Mapper) for Python, built on top of the powerful SQLAlchemy Core and designed to feel familiar for developers coming from Django. It provides a simple, yet powerful, API for interacting with your database in modern asynchronous Python applications.
+Flash DB is a lightweight async Django ORM alternative built on top of SQLAlchemy. While it is part of the **Flash Web Framework**, it can be used **standalone** with frameworks like **FastAPI**.
 
 ## Features
 

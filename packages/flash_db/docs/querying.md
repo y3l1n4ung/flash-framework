@@ -165,7 +165,7 @@ Encapsulate and combine query conditions using bitwise operators (`&`, `|`, `~`)
     `Q` objects are automatically resolved when passed to `filter()` or `exclude()`.
 
 ```python title="q_objects.py"
-from flash_db.expressions import Q
+from flash_db import Q
 
 # Combine conditions using bitwise operators
 condition = (Q(name="John") | Q(name="Jane")) & ~Q(status="retired")
@@ -179,14 +179,16 @@ users = await User.objects.filter(condition).fetch(db)
 
 Reference model fields within queries.
 
-!!! note "Current Limitation"
-    `F` expressions currently require manual resolution before being passed to update methods. Automatic resolution within `update()` is planned for a future release.
+!!! tip
+    `F` expressions are automatically resolved when passed to `update()` or used as values within `Q` objects.
 
 ```python title="f_expressions.py"
-from flash_db.expressions import F
+from flash_db import F
 
-# Increment stock by 1 (Manual Resolution)
-expr = (F("stock") + 1).resolve(Product)
-await Product.objects.filter(id=1).update(db, stock=expr)
+# Increment stock by 1
+await Product.objects.filter(id=1).update(db, stock=F("stock") + 1)
 # UPDATE products SET stock = stock + 1 WHERE id = 1;
+
+# You can also use model attributes directly
+await Product.objects.filter(id=1).update(db, stock=F(Product.stock) + 1)
 ```

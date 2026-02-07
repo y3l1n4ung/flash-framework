@@ -126,13 +126,28 @@ class TestQueryResolutionLogic:
 
     async def test_queryset_filter_mixed_all_types(self):
         """Verify filter handles SQL expression, Q object, and kwargs together."""
+
         qs = Product.objects.filter(
             Product.price > 10,  # Raw SQLAlchemy
             Q(name="Mixed"),  # Q object (resolvable)
             stock=5,  # Keyword argument
         )
+
         sql = str(qs._stmt)
+
         assert "products.price > " in sql
+
         assert "products.name = " in sql
+
         assert "products.stock = " in sql
+
         assert sql.count("AND") >= 2
+
+    async def test_queryset_filter_q_with_f_expression(self):
+        """Verify filter handles Q object containing an F expression."""
+
+        qs = Product.objects.filter(Q(stock__gt=F("price")))
+
+        sql = str(qs._stmt)
+
+        assert "products.stock > products.price" in sql
