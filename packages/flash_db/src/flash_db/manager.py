@@ -338,7 +338,12 @@ class ModelManager(Generic[T]):
         pk: PrimaryKey,
         **fields: ColumnElement[Any] | Resolvable | object,
     ) -> T:
-        """Update a single record by primary key."""
+        """Update a single record by primary key.
+
+        !!! warning
+            This method uses `RETURNING` which may not be supported by all
+            database dialects (e.g., MySQL).
+        """
 
         pk_col = self._model.id
 
