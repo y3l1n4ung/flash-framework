@@ -4,11 +4,12 @@ This guide details how to perform database operations using the `flash_db` API.
 
 ## 1. Create
 
-Use `objects.create()` to persist a new record.
+Use `objects.create()` to persist a new record. Note that you must call `db.commit()` to persist the changes.
 
 ```python title="create.py"
 # Create and refresh a new model instance
 user = await User.objects.create(db, name="John Doe", email="john@example.com")
+await db.commit()
 ```
 
 ## 2. Read
@@ -31,21 +32,23 @@ user = await User.objects.get(db, User.email == "john@example.com")
 
 ## 3. Update
 
-Modify a record by its primary key using `update()`.
+Modify a record by its primary key using `update()`. Remember to commit.
 
 ```python title="update.py"
 # Update by primary key
 user = await User.objects.update(db, pk=1, name="John Updated")
+await db.commit()
 # UPDATE users SET name = 'John Updated' WHERE id = 1 RETURNING *;
 ```
 
 ## 4. Delete
 
-Remove a record by its primary key using `delete_by_pk()`.
+Remove a record by its primary key using `delete_by_pk()`. Remember to commit.
 
 ```python title="delete.py"
 # Delete by primary key
 count = await User.objects.delete_by_pk(db, pk=1)
+await db.commit()
 # DELETE FROM users WHERE id = 1;
 ```
 
@@ -113,6 +116,7 @@ user, created = await User.objects.get_or_create(
     email="john@example.com",
     defaults={"name": "John Doe"}
 )
+await db.commit()
 ```
 
 ### Existence and Aggregation
@@ -152,10 +156,34 @@ articles = await Article.objects.prefetch_related("tags").fetch(db)
 # SELECT * FROM tags WHERE id IN (...);
 ```
 
-## 7. Complex Expressions (Beta)
+## 7. Transactions
 
-!!! warning "Beta Feature"
-    `Q` objects and `F` expressions are in **Beta**. The API and behavior are subject to change.
+The `atomic` utility manages database transactions as a context manager or decorator, with nested savepoint support.
+
+### Context Manager
+
+```python title="atomic_cm.py"
+from flash_db import atomic
+
+async with atomic(db):
+    # Both operations succeed or both fail
+    await User.objects.create(db, name="Task 1")
+    await User.objects.create(db, name="Task 2")
+```
+
+### Decorator
+
+```python title="atomic_decorator.py"
+from flash_db import atomic
+
+@atomic(db)
+async def process_data(db):
+    # This entire function runs inside a transaction
+    user = await User.objects.create(db, name="Task 1")
+    await user.do_something()
+```
+
+## 8. Complex Expressions
 
 ### Q Objects
 
@@ -177,18 +205,17 @@ users = await User.objects.filter(condition).fetch(db)
 
 ### F Expressions
 
-Reference model fields within queries.
-
-!!! tip
-    `F` expressions are automatically resolved when passed to `update()` or used as values within `Q` objects.
+Reference model fields within queries. `F` expressions are automatically resolved in `update()` and `Q` objects.
 
 ```python title="f_expressions.py"
 from flash_db import F
 
 # Increment stock by 1
 await Product.objects.filter(id=1).update(db, stock=F("stock") + 1)
+await db.commit()
 # UPDATE products SET stock = stock + 1 WHERE id = 1;
 
 # You can also use model attributes directly
 await Product.objects.filter(id=1).update(db, stock=F(Product.stock) + 1)
+await db.commit()
 ```

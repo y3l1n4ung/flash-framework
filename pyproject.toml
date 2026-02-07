@@ -11,9 +11,10 @@ workspace = { members = ["packages/*","apps/*"] }
 asyncio_mode = "auto"
 
 [tool.coverage.run]
-omit = ["tests/*", "*/tests/*",]
 
-exclude = [
+omit = [
+    "tests/*",
+    "*/tests/*",
     ".bzr",
     ".direnv",
     ".eggs",

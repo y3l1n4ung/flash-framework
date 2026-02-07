@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Generic, Sequence, Type, TypeVar
 
 from sqlalchemy import delete, func, select, update
-from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import joinedload, selectinload
 
 from .expressions import Resolvable
@@ -406,14 +405,8 @@ class QuerySet(Generic[T]):
         }
 
         stmt = update(self.model).where(*where_clause).values(resolved_values)
-        try:
-            result = await db.execute(stmt)
-            await db.commit()
-            return getattr(result, "rowcount", 0)
-        except SQLAlchemyError as e:
-            await db.rollback()
-            msg = f"Database error during bulk update: {e}"
-            raise RuntimeError(msg) from e
+        result = await db.execute(stmt)
+        return getattr(result, "rowcount", 0)
 
     async def delete(self, db: AsyncSession) -> int:
         """
@@ -429,11 +422,5 @@ class QuerySet(Generic[T]):
             raise ValueError(msg)
 
         stmt = delete(self.model).where(*where_clause)
-        try:
-            result = await db.execute(stmt)
-            await db.commit()
-            return getattr(result, "rowcount", 0)
-        except SQLAlchemyError as e:
-            await db.rollback()
-            msg = f"Database error during bulk delete: {e}"
-            raise RuntimeError(msg) from e
+        result = await db.execute(stmt)
+        return getattr(result, "rowcount", 0)

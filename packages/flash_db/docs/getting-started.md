@@ -30,6 +30,24 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 ```
 
+## Transactions & Persistence
+
+By default, **Flash DB does not auto-commit** changes. After calling methods like `create()`, `update()`, or `delete()`, you must explicitly commit your changes or use the `atomic` block.
+
+```python title="transactions.py"
+from flash_db import atomic
+
+# Option 1: Explicit Commit
+await User.objects.create(db, name="Manual")
+await db.commit()
+
+# Option 2: Atomic Block 
+# Automatically commits on success, rolls back on error.
+async with atomic(db):
+    await User.objects.create(db, name="Auto")
+    await User.objects.create(db, name="Magic")
+```
+
 ## Session Management
 
 Inject the database session into route handlers using the `get_db` dependency.
