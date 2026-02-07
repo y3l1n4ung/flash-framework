@@ -90,3 +90,12 @@ class Profile(Model, TimestampMixin):
     internal_notes: Mapped[Optional[str]] = mapped_column(Text)
     metadata_json: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     mystery_blob: Mapped[Any] = mapped_column(UnsupportedSQLType, nullable=True)
+
+
+class Product(Model):
+    """A model with numeric fields for testing aggregates."""
+
+    __tablename__ = "products"
+    name: Mapped[str] = mapped_column(String(100))
+    price: Mapped[float] = mapped_column(Numeric(10, 2))
+    stock: Mapped[int] = mapped_column(default=0)

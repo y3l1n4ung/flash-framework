@@ -102,8 +102,10 @@ async def get_user():
         try:
             user = await User.objects.get(db, User.name == "John Doe")
             print(f"Got user: {user.name}")
-        except ValueError:
-            print("User not found or multiple users found.")
+        except User.DoesNotExist:
+            print("User not found.")
+        except User.MultipleObjectsReturned:
+            print("Multiple users found.")
 
 ```
 
@@ -141,6 +143,6 @@ Our goal for `flash_db` is to build a lightweight, yet powerful, async ORM that 
 - [x] **`get_or_create()` / `update_or_create()`:** Streamline create/update patterns.
 - [ ] **Model Validation Hooks:** `clean()` methods for data validation.
 - [x] **Advanced Querying:** `exclude()`, `distinct()`, `only()`, `defer()`, and more.
-- [ ] **Complex Lookups:** `Q` Objects, `F` Expressions, and Prefetching.
-- [ ] **Performance:** `bulk_create`, `bulk_update`.
+- [x] **Complex Lookups:** `Q` Objects and `F` Expressions (Beta), Prefetching.
+- [x] **Performance:** `bulk_create`, `bulk_update` (Beta).
 - [ ] **Signals:** `pre_save`, `post_save`, `pre_delete`, `post_delete`.

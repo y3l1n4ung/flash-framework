@@ -1,139 +1,101 @@
-# Querying with FastAPI
+# Querying with Flash DB
 
-This guide shows how to perform CRUD (Create, Read, Update, Delete) operations with `flash_db` in a FastAPI application.
+This guide details how to perform database operations using the `flash_db` API.
 
-!!! tip
-    All examples assume you have a `User` model and corresponding Pydantic schemas defined.
+## 1. Create
 
-## Schemas for Validation
+Use `objects.create()` to persist a new record.
 
-It's good practice to use Pydantic schemas for request and response validation.
-
-```python title="schemas.py"
-from pydantic import BaseModel, EmailStr
-
-class UserCreate(BaseModel):
-    name: str
-    email: EmailStr
-
-class UserRead(BaseModel):
-    id: int
-    name: str
-    email: EmailStr
-
-    class Config:
-        orm_mode = True
+```python
+# Create and refresh a new model instance
+user = await User.objects.create(db, name="John Doe", email="john@example.com")
 ```
 
-## CRUD Operations
+## 2. Read
 
-Here are examples of how to implement CRUD endpoints in your FastAPI application.
+Retrieve records using `all()`, `filter()`, or `get()`.
 
-### Create
+```python
+# Fetch all records
+users = await User.objects.all().fetch(db)
 
-Use `objects.create()` to add a new record.
+# Filter by criteria
+active_users = await User.objects.filter(User.is_active == True).fetch(db)
 
-```python title="main.py"
-@app.post("/users/", response_model=UserRead, status_code=201)
-async def create_user(user: UserCreate, db: AsyncSession = Depends(get_db)):
-    db_user = await User.objects.create(db, **user.dict())
-    return db_user
+# Retrieve a single record (raises DoesNotExist or MultipleObjectsReturned)
+user = await User.objects.get(db, User.email == "john@example.com")
 ```
 
-### Read
+## 3. Update
 
-Fetch multiple records with `all()` and `filter()`. Fetch a single record with `get()`.
+Modify a record by its primary key using `update()`.
 
-```python title="main.py"
-@app.get("/users/", response_model=list[UserRead])
-async def read_users(db: AsyncSession = Depends(get_db)):
-    return await User.objects.all().fetch(db)
-
-@app.get("/users/{user_id}", response_model=UserRead)
-async def read_user(user_id: int, db: AsyncSession = Depends(get_db)):
-    try:
-        return await User.objects.get(db, User.id == user_id)
-    except ValueError:
-        raise HTTPException(404, "User not found")
+```python
+# Update by primary key
+user = await User.objects.update(db, pk=1, name="John Updated")
 ```
 
-### Update
+## 4. Delete
 
-Use `update()` to modify a record by its primary key.
+Remove a record by its primary key using `delete_by_pk()`.
 
-```python title="main.py"
-@app.put("/users/{user_id}", response_model=UserRead)
-async def update_user(user_id: int, user: UserCreate, db: AsyncSession = Depends(get_db)):
-    try:
-        return await User.objects.update(db, pk=user_id, **user.dict())
-    except ValueError:
-        raise HTTPException(404, "User not found")
+```python
+# Delete by primary key
+count = await User.objects.delete_by_pk(db, pk=1)
 ```
 
-### Delete
-
-Use `delete_by_pk()` to remove a record by its primary key.
-
-```python title="main.py"
-@app.delete("/users/{user_id}", status_code=204)
-async def delete_user(user_id: int, db: AsyncSession = Depends(get_db)):
-    deleted_count = await User.objects.delete_by_pk(db, pk=user_id)
-    if not deleted_count:
-        raise HTTPException(404, "User not found")
-```
-
-## Advanced Querying
+## 5. Query Construction
 
 ### Filter and Exclude
 
-- `filter(*conditions)`: Records matching conditions.
-- `exclude(*conditions)`: Records *not* matching conditions.
+- `filter(*conditions)`: Include records matching the conditions.
+- `exclude(*conditions)`: Include records *not* matching the conditions.
 
 ```python
-# All users except those named "John"
+# Select users NOT named "John"
 users = await User.objects.exclude(User.name == "John").fetch(db)
 ```
 
 ### Ordering and Limits
 
-- `order_by(*criterion)`: Order results.
-- `limit(count)`: Limit number of results.
-- `offset(count)`: Skip a number of results.
-- `latest(field)`: Get the most recent record.
-- `earliest(field)`: Get the earliest record.
+- `order_by(*criterion)`: Sort results.
+- `limit(count)`: Restrict the number of results.
+- `offset(count)`: Skip the specified number of results.
+- `latest(field)`: Retrieve the most recent record.
+- `earliest(field)`: Retrieve the oldest record.
 
 ```python
-# Get the most recently created user
+# Retrieve the most recently created user
 latest_user = await User.objects.latest(db)
 ```
 
-### Selective Column Loading
+### Column Selection
 
-- `only(*fields)`: Load only specified columns.
-- `defer(*fields)`: Exclude specified columns from initial load.
+- `only(*fields)`: Load only specific columns.
+- `defer(*fields)`: Defer loading of specific columns.
 
 ```python
-# Load only name and email to save memory
+# Load only name and email
 users = await User.objects.only("name", "email").fetch(db)
 ```
 
-### Retrieving Dictionaries or Tuples
+### Raw Values
 
 - `values(*fields)`: Return a list of dictionaries.
-- `values_list(*fields, flat=False)`: Return a list of tuples (or flat list if `flat=True`).
+- `values_list(*fields, flat=False)`: Return a list of tuples (or a flat list if `flat=True`).
 
 ```python
-# Get a list of user names
+# Retrieve a list of user names
 names = await User.objects.values_list(db, "name", flat=True)
 
-# Get dictionaries with specific fields
+# Retrieve dictionaries with specific fields
 users_data = await User.objects.values(db, "id", "name")
 ```
 
 ### Creation Shortcuts
 
-- `get_or_create(defaults, **kwargs)`: Fetch an object or create it if it doesn't exist.
-- `update_or_create(defaults, **kwargs)`: Update an object or create it if it doesn't exist.
+- `get_or_create(defaults, **kwargs)`: Retrieve an object or create it if missing.
+- `update_or_create(defaults, **kwargs)`: Update an object or create it if missing.
 
 ```python
 user, created = await User.objects.get_or_create(
@@ -143,13 +105,13 @@ user, created = await User.objects.get_or_create(
 )
 ```
 
-### Existence and Counting
+### Existence and Aggregation
 
-- `exists(*conditions)`: Check if any records match.
+- `exists(*conditions)`: Check for matching records.
 - `count(*conditions)`: Count matching records.
 
 ```python
-# Check if a user with this email exists
+# Check existence
 if await User.objects.exists(db, User.email == "john@example.com"):
     print("User exists!")
 
@@ -157,29 +119,57 @@ if await User.objects.exists(db, User.email == "john@example.com"):
 active_count = await User.objects.count(db, User.is_active == True)
 ```
 
-### Latest and Earliest
+## 6. Relationships
 
-- `latest(field)`: Get the most recent record.
-- `earliest(field)`: Get the earliest record.
+To prevent N+1 queries, use the following methods:
 
-```python
-# Get the most recently joined user
-latest_user = await User.objects.latest(db, field="created_at")
-```
+- `select_related(*fields)`: Uses SQL `JOIN`. Ideal for many-to-one or one-to-one relationships.
+- `prefetch_related(*fields)`: Uses separate `SELECT IN` queries. Ideal for many-to-many or reverse foreign keys (one-to-many).
 
-## Chaining Queries
-
-QuerySet methods can be chained together. The query is only executed when you call an "execution method" like `fetch()`, `first()`, `latest()`, etc.
+!!! tip
+    While `select_related` can be used for one-to-many relationships, it may result in row duplication and decreased performance. For collections or reverse relations, `prefetch_related` is generally recommended.
 
 ```python
-# Get up to 10 active users, ordered by join date, only loading names
-users = await (
-    User.objects.filter(User.is_active == True)
-    .exclude(User.is_staff == True)
-    .order_by(User.created_at.desc())
-    .only("name")
-    .limit(10)
-    .fetch(db)
-)
+# Eager load with JOIN
+articles = await Article.objects.select_related("author").fetch(db)
+
+# Eager load with separate query
+articles = await Article.objects.prefetch_related("tags").fetch(db)
 ```
 
+## 7. Complex Expressions (Beta)
+
+!!! warning "Beta Feature"
+    `Q` objects and `F` expressions are in **Beta**. The API and behavior are subject to change.
+
+### Q Objects
+
+Encapsulate and combine query conditions using bitwise operators (`&`, `|`, `~`).
+
+!!! note
+    While manual resolution via `.resolve(Model)` is currently required, automatic resolution within `filter()` and `exclude()` is planned for a future release.
+
+```python
+from flash_db.expressions import Q
+
+# Combine conditions (manual resolution currently required)
+condition = (Q(name="John") | Q(name="Jane")) & ~Q(status="retired")
+resolved = condition.resolve(User)
+
+users = await User.objects.filter(resolved).fetch(db)
+```
+
+### F Expressions
+
+Reference model fields within queries.
+
+!!! note "Current Limitation"
+    `F` expressions currently require manual resolution before being passed to update methods. Automatic resolution within `update()` is planned.
+
+```python
+from flash_db.expressions import F
+
+# Increment stock by 1 (Manual Resolution)
+expr = (F("stock") + 1).resolve(Product)
+await Product.objects.filter(id=1).update(db, stock=expr)
+```

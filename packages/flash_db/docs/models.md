@@ -1,10 +1,10 @@
 # Defining Models
 
-Define database models by inheriting from the `flash_db.Model` base class.
+Define database schemas by creating Python classes that inherit from `flash_db.Model`.
 
-## Basic Model
+## Basic Usage
 
-Create a model by defining a class that inherits from `Model`.
+Models map directly to database tables. Use standard SQLAlchemy `Mapped` types for field definitions.
 
 ```python title="models.py"
 from sqlalchemy.orm import Mapped, mapped_column
@@ -17,33 +17,34 @@ class User(Model):
     email: Mapped[str] = mapped_column(unique=True)
 ```
 
-## Common Field Mixins
+## Mixins
 
-Flash DB provides mixins for common fields like timestamps and soft deletes.
+Mixins provide reusable field sets for common patterns.
 
-### `TimestampMixin`
+### Timestamps
 
-This mixin adds `created_at` and `updated_at` fields to your model.
+The `TimestampMixin` automatically manages `created_at` and `updated_at` fields.
 
-```python title="models.py"
+```python
 from flash_db import Model, TimestampMixin
 
 class Post(Model, TimestampMixin):
     __tablename__ = "posts"
-
+    
     title: Mapped[str]
-    content: Mapped[str]
+    # created_at and updated_at are added automatically
 ```
 
-### `SoftDeleteMixin`
+### Soft Deletion
 
-This mixin adds a `deleted_at` field, useful for implementing soft deletes.
+The `SoftDeleteMixin` adds a `deleted_at` field to support non-destructive deletion workflows.
 
-```python title="models.py"
+```python
 from flash_db import Model, SoftDeleteMixin
 
 class Comment(Model, SoftDeleteMixin):
     __tablename__ = "comments"
-
+    
     text: Mapped[str]
+    # deleted_at is added automatically
 ```
