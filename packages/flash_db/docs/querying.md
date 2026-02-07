@@ -177,7 +177,7 @@ async with atomic(db):
 from flash_db import atomic
 
 @atomic(db)
-async def process_data(db):
+async def process_data():
     # This entire function runs inside a transaction
     user = await User.objects.create(db, name="Task 1")
     await user.do_something()
