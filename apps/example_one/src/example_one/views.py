@@ -354,6 +354,7 @@ class ArticleCreateView(PermissionMixin, TemplateView):
             author_id=author_id,
             published=cleaned["published"],
         )
+        await db.commit()
 
         # Redirect to article detail
         return RedirectResponse(
@@ -423,6 +424,7 @@ class ArticleEditView(DetailView[Article]):
             content=cleaned["content"],
             published=cleaned["published"],
         )
+        await db.commit()
 
         return RedirectResponse(
             url=f"/articles/{cleaned['slug']}",
@@ -765,6 +767,8 @@ class AdminModerationView(PermissionMixin, TemplateView):
                     Article.published.is_(True)
                 ).update(db, published=False)
                 messages["success"] = f"Unpublished {updated} articles."
+
+            await db.commit()
             logger.info(
                 "Admin action: bulk moderation",
                 extra={"actor_id": actor.id, "action": action},
