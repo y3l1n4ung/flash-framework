@@ -155,9 +155,12 @@ class TestQuerySet:
         """Should handle Q objects that resolve to None."""
         from flash_db.expressions import Q
 
+        await Article.objects.create(db_session, title="Exists")
+        await db_session.commit()
+
         qs = Article.objects.filter(Q())
         # Should return everything if Q() is empty
-        assert await qs.count(db_session) == 0
+        assert await qs.count(db_session) == 1
 
     async def test_queryset_filter_invalid_field(self):
         """Should raise ValueError for non-existent fields in keyword lookups."""

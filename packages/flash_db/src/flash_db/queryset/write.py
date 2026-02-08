@@ -15,10 +15,11 @@ if TYPE_CHECKING:
 
 class QuerySetWrite(QuerySetExecution[T]):
     """
-    Bulk operations that modify data in the database.
+    Handles bulk updates and deletions.
 
-    This layer handles bulk UPDATE and DELETE statements efficiently by
-    operating directly on the database using the QuerySet's existing filters.
+    This layer allows you to update or delete many records at once directly
+    in the database. It includes safety checks to prevent accidental changes
+    to the entire table.
     """
 
     async def update(self, db: AsyncSession, **values: Any) -> int:
@@ -56,7 +57,7 @@ class QuerySetWrite(QuerySetExecution[T]):
         """
         from flash_db.expressions import Resolvable
 
-        where_clause = self._stmt._where_criteria
+        where_clause = self._where_criteria
         # Safety check: update() without filter() is extremely dangerous in
         # production environments.
         if not where_clause:
@@ -99,7 +100,7 @@ class QuerySetWrite(QuerySetExecution[T]):
             >>> # Delete specific records
             >>> await Article.objects.filter(status="spam").delete(db)
         """
-        where_clause = self._stmt._where_criteria
+        where_clause = self._where_criteria
         # Safety check: delete() without filters could wipe an entire table.
         if not where_clause:
             msg = "Refusing to delete without filters"

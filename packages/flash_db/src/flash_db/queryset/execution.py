@@ -13,17 +13,18 @@ from .construction import QuerySetConstruction, T
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
-    from sqlalchemy.sql import ColumnElement
+    from sqlalchemy.sql import ColumnElement, Select
 
     from flash_db.expressions import Resolvable
 
 
 class QuerySetExecution(QuerySetConstruction[T]):
     """
-    Terminal methods that execute the query and return results.
+    Runs the query and returns the results.
 
-    This layer contains async methods that trigger database execution,
-    returning results either as model instances, scalars, or raw data structures.
+    This layer handles the actual database communication. It executes the
+    SQL statement and converts the results into model instances or raw data
+    like dictionaries and lists.
     """
 
     async def fetch(self, db: AsyncSession) -> Sequence[T]:
@@ -85,9 +86,10 @@ class QuerySetExecution(QuerySetConstruction[T]):
         rows = result.unique().all()
         objects: list[T] = []
         for row in rows:
-            # Positional access (row[0]) retrieves the Model instance in a SELECT.
-            instance = cast("T", row[0])
             mapping = row._mapping
+            # mapping[self.model] correctly extracts the ORM instance
+            # from composite rows.
+            instance = cast("T", mapping[cast("Any", self.model)])
 
             for key in self._annotations:
                 # Inject the calculated SQL values as transient attributes.
@@ -116,9 +118,9 @@ class QuerySetExecution(QuerySetConstruction[T]):
         if not row:
             return None
 
-        # Model instance is the first element in composite result rows.
-        instance = cast("T", row[0])
+        # Model instance is correctly mapped via row._mapping in composite result rows.
         mapping = row._mapping
+        instance = cast("T", mapping[cast("Any", self.model)])
         for key in self._annotations:
             setattr(instance, key, mapping[key])
         return instance
@@ -153,6 +155,27 @@ class QuerySetExecution(QuerySetConstruction[T]):
         """
         return await self.order_by(getattr(self.model, field).asc()).first(db)
 
+    def _build_projection_stmt(self, *fields: str) -> Select:
+        """
+        DRY helper using Select.with_only_columns to avoid private attribute access.
+        """
+        if not fields:
+            # Fallback to all columns if no specific fields are requested.
+            cols = list(self.model.__table__.columns)
+        else:
+            cols = []
+            for f in fields:
+                # We prioritize _annotations mapping. This allows users to retrieve
+                # calculated fields (e.g., from .annotate()) by their alias name.
+                if f in self._annotations:
+                    cols.append(self._annotations[f])
+                else:
+                    cols.append(getattr(self.model, f))
+
+        # with_only_columns is the standard SQLAlchemy way to re-project a query
+        # while preserving filters, joins, grouping, and ordering.
+        return self._stmt.with_only_columns(*cols, maintain_column_froms=True)
+
     async def values(self, db: AsyncSession, *fields: str) -> list[dict[str, Any]]:
         """
         Return results as a list of dictionaries.
@@ -182,39 +205,7 @@ class QuerySetExecution(QuerySetConstruction[T]):
             >>> # Get all fields
             >>> all_data = await Article.objects.values(db)
         """
-        # We instantiate a fresh Select statement targeting only requested columns.
-        # This prevents the ORM from loading entire objects into the session identity
-        # map, significantly reducing memory overhead for large result sets.
-        if not fields:
-            # Fallback to all columns if no specific fields are requested.
-            stmt = select(*self.model.__table__.columns)
-        else:
-            cols: list[ColumnElement[Any]] = []
-            for f in fields:
-                # We prioritize _annotations mapping. This allows users to retrieve
-                # calculated fields (e.g., from .annotate()) by their alias name.
-                if f in self._annotations:
-                    cols.append(self._annotations[f])
-                else:
-                    cols.append(getattr(self.model, f))
-            stmt = select(*cols).select_from(self.model)
-
-        # The QuerySet's base statement (_stmt) holds the state of filters/ordering.
-        # Since we've started a new Select statement to change the result shape,
-        # we must manually re-bind all existing query criteria to the new statement.
-        if self._stmt._where_criteria:
-            stmt = stmt.where(*self._stmt._where_criteria)
-        if self._stmt._having_criteria:
-            stmt = stmt.having(*self._stmt._having_criteria)
-        if self._stmt._group_by_clauses:
-            stmt = stmt.group_by(*self._stmt._group_by_clauses)
-        if self._stmt._order_by_clauses:
-            stmt = stmt.order_by(*self._stmt._order_by_clauses)
-        if self._stmt._limit_clause is not None:
-            stmt = stmt.limit(self._stmt._limit_clause)
-        if self._stmt._offset_clause is not None:
-            stmt = stmt.offset(self._stmt._offset_clause)
-
+        stmt = self._build_projection_stmt(*fields)
         result = await db.execute(stmt)
 
         # RowMapping objects provide a dictionary-like interface to the results.
@@ -256,35 +247,14 @@ class QuerySetExecution(QuerySetConstruction[T]):
             >>> data = await Article.objects.values_list(db, "id", "title")
             >>> # [(1, 'Hello'), (2, 'World')]
         """
-        if not fields:
-            stmt = select(*self.model.__table__.columns)
-        else:
-            cols: list[ColumnElement[Any]] = []
-            for f in fields:
-                if f in self._annotations:
-                    cols.append(self._annotations[f])
-                else:
-                    cols.append(getattr(self.model, f))
-            stmt = select(*cols).select_from(self.model)
+        if flat and len(fields) != 1:
+            msg = "flat=True can only be used with a single field"
+            raise ValueError(msg)
 
-        if self._stmt._where_criteria:
-            stmt = stmt.where(*self._stmt._where_criteria)
-        if self._stmt._having_criteria:
-            stmt = stmt.having(*self._stmt._having_criteria)
-        if self._stmt._group_by_clauses:
-            stmt = stmt.group_by(*self._stmt._group_by_clauses)
-        if self._stmt._order_by_clauses:
-            stmt = stmt.order_by(*self._stmt._order_by_clauses)
-        if self._stmt._limit_clause is not None:
-            stmt = stmt.limit(self._stmt._limit_clause)
-        if self._stmt._offset_clause is not None:
-            stmt = stmt.offset(self._stmt._offset_clause)
-
+        stmt = self._build_projection_stmt(*fields)
         result = await db.execute(stmt)
+
         if flat:
-            if len(fields) != 1:
-                msg = "flat=True can only be used with a single field"
-                raise ValueError(msg)
             # scalars() returns the first column of each row directly.
             return list(result.scalars().all())
 
@@ -304,81 +274,64 @@ class QuerySetExecution(QuerySetConstruction[T]):
 
     async def exists(self, db: AsyncSession) -> bool:
         """Check if any records exist matching the query."""
-        from sqlalchemy import exists
+        from sqlalchemy import exists as sa_exists
 
-        stmt = select(exists(self._stmt.subquery()))
+        # Optimized existence check using SQL EXISTS.
+        stmt = select(sa_exists(self._stmt.limit(1).subquery()))
         return await db.scalar(stmt) or False
 
     async def aggregate(
         self, db: AsyncSession, **kwargs: ColumnElement[Any] | Resolvable
     ) -> dict[str, Any]:
         """
-        Return summary values calculated over the entire QuerySet.
+        Runs the summary query.
 
-        Unlike `annotate`, which adds fields to each row, `aggregate` collapses
-        the result set into a single dictionary of summary statistics.
-
-        Args:
-            db: The asynchronous SQLAlchemy session.
-            **kwargs: Mapping of names to aggregate expressions (Sum, Avg, etc.).
-
-        Returns:
-            A dictionary containing the calculated summary values.
-
-        Notes:
-            - Filters applied to the QuerySet via `filter()` or `exclude()` are
-              respected during aggregation.
-            - If no rows match the query, returns a dictionary with None values.
-
-        Examples:
-            >>> # Get the average price of all products
-            >>> await Product.objects.aggregate(db, avg_price=Avg("price"))
-            {'avg_price': 15.5}
-            >>>
-            >>> # Aggregate with filters
-            >>> await Article.objects.filter(
-            ...     category="Tech"
-            ... ).aggregate(db, total=Sum("views"))
+        If the query has groups (like from annotate), it uses a subquery
+        to get the total across all groups.
         """
         if not kwargs:
             return {}
 
         from flash_db.expressions import Aggregate, Resolvable
 
-        agg_cols: list[ColumnElement[Any]] = []
-        for key, expr in kwargs.items():
-            if isinstance(expr, Resolvable):
-                # Resolvables transform high-level aggregate classes (e.g. Sum, Count)
-                # into SQLAlchemy function calls. We label them immediately to ensure
-                # they can be retrieved by key from the result mapping.
-                resolved = expr.resolve(self.model, _annotations=self._annotations)
-                if resolved is not None:
-                    agg_cols.append(resolved.label(key))
-            else:
-                # Direct support for SQLAlchemy ColumnElement expressions.
-                agg_cols.append(cast("ColumnElement[Any]", expr).label(key))
+        # If the query is already grouped, has HAVING, DISTINCT, or LIMIT/OFFSET,
+        # we must aggregate over a subquery to get a single summary result.
+        if (
+            self._group_by_clauses
+            or self._having_criteria
+            or self._distinct
+            or self._limit_clause is not None
+            or self._offset_clause is not None
+        ):
+            subq = self._stmt.subquery()
+            agg_cols = []
+            for key, expr in kwargs.items():
+                if isinstance(expr, Aggregate):
+                    # Aggregate over the subquery columns by field name
+                    col = getattr(subq.c, expr.field)
+                    agg_cols.append(getattr(func, expr._func_name)(col).label(key))
+                else:
+                    # Fallback for raw SQLAlchemy expressions
+                    agg_cols.append(cast("ColumnElement[Any]", expr).label(key))
+            stmt = select(*agg_cols)
+        else:
+            # Simple case: just change the selected columns
+            agg_cols = []
+            for key, expr in kwargs.items():
+                if isinstance(expr, Resolvable):
+                    resolved = expr.resolve(self.model, _annotations=self._annotations)
+                    if resolved is not None:
+                        agg_cols.append(resolved.label(key))
+                else:
+                    agg_cols.append(cast("ColumnElement[Any]", expr).label(key))
 
-        # We construct a new SELECT statement targeting ONLY the aggregate columns.
-        # This ignores the primary model's columns to ensure the database returns
-        # a single summary row instead of model instances.
-        stmt = select(*agg_cols).select_from(self.model)
+            stmt = self._stmt.with_only_columns(*agg_cols, maintain_column_froms=True)
 
-        # To maintain the context of the QuerySet, we must re-apply all existing
-        # filters. This ensures that aggregate(db, total=Sum('price')) on a
-        # filtered QuerySet targets only the expected subset of data.
-        if self._stmt._where_criteria:
-            stmt = stmt.where(*self._stmt._where_criteria)
-        if self._stmt._having_criteria:
-            stmt = stmt.having(*self._stmt._having_criteria)
-
-        for expr in kwargs.values():
-            if isinstance(expr, Aggregate):
-                for join_attr in expr.get_joins(self.model):
-                    stmt = stmt.outerjoin(join_attr)
+            for expr in kwargs.values():
+                if isinstance(expr, Aggregate):
+                    for join_attr in expr.get_joins(self.model):
+                        stmt = stmt.outerjoin(join_attr)
 
         result = await db.execute(stmt)
-
-        # .mappings() returns RowMapping objects that allow dictionary-like
-        # access via the labels we defined earlier (e.g., mapping["total"]).
         mapping = result.mappings().first()
         return dict(mapping) if mapping else dict.fromkeys(kwargs, None)

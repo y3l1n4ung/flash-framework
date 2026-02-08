@@ -32,14 +32,16 @@ class Resolvable(Protocol):
         ...
 
 
-def parse_lookup(model: type[Model], key: str) -> tuple[ColumnElement[Any] | None, str]:
-    """Parse a Django-style lookup key into (column, operator)."""
+def parse_lookup(
+    model: type[Model], key: str
+) -> tuple[ColumnElement[Any] | None, str, str]:
+    """Parse a Django-style lookup key into (column, operator, field_name)."""
     parts = key.split("__")
     field_name = parts[0]
     lookup = parts[1] if len(parts) > 1 else "exact"
 
     col = getattr(model, field_name, None)
-    return col, lookup
+    return col, lookup, field_name
 
 
 def apply_lookup(col: Any, lookup: str, value: Any) -> ColumnElement[bool]:
@@ -62,7 +64,8 @@ def apply_lookup(col: Any, lookup: str, value: Any) -> ColumnElement[bool]:
     }
 
     if lookup not in operators:
-        msg = f"Unknown lookup: {lookup}"
+        supported = ", ".join(operators.keys())
+        msg = f"Unsupported lookup '{lookup}'. Supported: {supported}"
         raise ValueError(msg)
 
     return operators[lookup](col, value)
@@ -136,14 +139,17 @@ class Q(Resolvable):
             elif isinstance(child, tuple):
                 key, value = child
                 key = cast("str", key)
-                col, lookup = parse_lookup(model, key)
-                field_name = key.split("__")[0]
+                col, lookup, field_name = parse_lookup(model, key)
 
                 if _annotations and field_name in _annotations:
                     col = _annotations[field_name]
 
                 if col is None:
-                    col = getattr(model, field_name)
+                    msg = (
+                        f"Field or annotation '{field_name}' not found on model "
+                        f"{model.__name__}"
+                    )
+                    raise AttributeError(msg)
 
                 if hasattr(value, "resolve"):
                     resolved_value = cast("Resolvable", value).resolve(
@@ -152,8 +158,7 @@ class Q(Resolvable):
                 else:
                     resolved_value = value
 
-                if col is not None:
-                    expressions.append(apply_lookup(col, lookup, resolved_value))
+                expressions.append(apply_lookup(col, lookup, resolved_value))
             else:
                 expressions.append(child)
 
@@ -167,6 +172,8 @@ class Q(Resolvable):
 class Aggregate(Resolvable):
     """Base class for SQL aggregate functions (Count, Sum, etc.)."""
 
+    _func_name: str
+
     def __init__(self, field: str):
         self.field = field
 
@@ -176,8 +183,6 @@ class Aggregate(Resolvable):
         _annotations: Mapping[str, ColumnElement[Any]] | None = None,
     ) -> ColumnElement[Any]:
         """Resolve the aggregate into a SQLAlchemy function expression."""
-        from sqlalchemy import func
-
         col: ColumnElement[Any] | None = None
         if _annotations and self.field in _annotations:
             col = _annotations[self.field]
@@ -192,10 +197,7 @@ class Aggregate(Resolvable):
             )
             raise AttributeError(msg)
 
-        return self._apply_func(func, col)
-
-    def _apply_func(self, func: Any, col: ColumnElement[Any]) -> ColumnElement[Any]:
-        raise NotImplementedError
+        return getattr(func, self._func_name)(col)
 
     def get_joins(self, model: type[Model]) -> list[InstrumentedAttribute[Any]]:
         """Identify relationship attributes that must be joined for this aggregate."""
@@ -214,12 +216,13 @@ class Aggregate(Resolvable):
 class Count(Aggregate):
     """SQL COUNT aggregate function."""
 
+    _func_name = "count"
+
     def resolve(
         self,
         model: type[Model],
         _annotations: Mapping[str, ColumnElement[Any]] | None = None,
     ) -> ColumnElement[Any]:
-        from sqlalchemy import func
         from sqlalchemy.orm import RelationshipProperty
 
         # Check annotations first
@@ -250,29 +253,25 @@ class Count(Aggregate):
 class Sum(Aggregate):
     """SQL SUM aggregate function."""
 
-    def _apply_func(self, func: Any, col: ColumnElement[Any]) -> ColumnElement[Any]:
-        return func.sum(col)
+    _func_name = "sum"
 
 
 class Avg(Aggregate):
     """SQL AVG aggregate function."""
 
-    def _apply_func(self, func: Any, col: ColumnElement[Any]) -> ColumnElement[Any]:
-        return func.avg(col)
+    _func_name = "avg"
 
 
 class Max(Aggregate):
     """SQL MAX aggregate function."""
 
-    def _apply_func(self, func: Any, col: ColumnElement[Any]) -> ColumnElement[Any]:
-        return func.max(col)
+    _func_name = "max"
 
 
 class Min(Aggregate):
     """SQL MIN aggregate function."""
 
-    def _apply_func(self, func: Any, col: ColumnElement[Any]) -> ColumnElement[Any]:
-        return func.min(col)
+    _func_name = "min"
 
 
 class F(Resolvable):
@@ -324,6 +323,10 @@ class F(Resolvable):
         for op, other in self._ops:
             if hasattr(other, "resolve"):
                 other = cast("Resolvable", other).resolve(model, _annotations)
+
+            if other is None:
+                msg = f"Operand resolved to None in F('{self.name}') expression"
+                raise ValueError(msg)
 
             if op == "+":
                 res = res + other

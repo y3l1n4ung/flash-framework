@@ -3,6 +3,9 @@ from __future__ import annotations
 from typing import (
     TYPE_CHECKING,
     Any,
+    Mapping,
+    Self,
+    Type,
     cast,
 )
 
@@ -11,19 +14,43 @@ from sqlalchemy.orm import joinedload, selectinload
 from .resolver import QuerySetResolver, T
 
 if TYPE_CHECKING:
-    from sqlalchemy.sql import ColumnElement
+    from sqlalchemy.orm import InstrumentedAttribute
+    from sqlalchemy.sql import ColumnElement, Select
 
 
 class QuerySetConstruction(QuerySetResolver[T]):
     """
-    Fluent API for building and composing QuerySet transformations.
+    Provides the API for building queries step by step.
 
-    This layer implements the chaining methods (like filter, order_by, limit) that
-    return a new QuerySet instance, allowing for the step-by-step construction of
-    database queries.
+    This class contains methods like filter, exclude, and order_by. Each method
+    returns a new QuerySet with the changes applied, allowing you to chain
+    them together easily.
     """
 
-    def distinct(self, *criterion: Any) -> Any:
+    def __init__(
+        self,
+        model: Type[T],
+        stmt: Select,
+        _annotations: Mapping[str, ColumnElement[Any]] | None = None,
+        _joined_relationships: set[InstrumentedAttribute[Any]] | None = None,
+    ):
+        super().__init__(model, stmt, _annotations=_annotations)
+
+        self._joined_relationships: set[InstrumentedAttribute[Any]] = (
+            _joined_relationships or set()
+        )
+
+    def _clone(self, stmt: Select | None = None) -> Self:
+        """Return a new instance of the current class with updated statement."""
+
+        return self.__class__(
+            self.model,
+            stmt if stmt is not None else self._stmt,
+            _annotations=dict(self._annotations),
+            _joined_relationships=set(self._joined_relationships),
+        )
+
+    def distinct(self, *criterion: Any) -> Self:
         """
         Add DISTINCT criteria to the query.
 
@@ -31,9 +58,10 @@ class QuerySetConstruction(QuerySetResolver[T]):
             >>> articles = await Article.objects.distinct().fetch(db)
             # SELECT DISTINCT * FROM articles;
         """
+
         return self._clone(self._stmt.distinct(*criterion))
 
-    def order_by(self, *criterion: Any) -> Any:
+    def order_by(self, *criterion: Any) -> Self:
         """
         Add ORDER BY criteria to the query.
 
@@ -44,9 +72,10 @@ class QuerySetConstruction(QuerySetResolver[T]):
             >>> Article.objects.order_by(Article.id.desc())
             # SELECT * FROM articles ORDER BY id DESC;
         """
+
         return self._clone(self._stmt.order_by(*criterion))
 
-    def limit(self, count: int) -> Any:
+    def limit(self, count: int) -> Self:
         """
         Limit the number of records returned.
 
@@ -54,9 +83,10 @@ class QuerySetConstruction(QuerySetResolver[T]):
             >>> articles = await Article.objects.limit(10).fetch(db)
             # SELECT * FROM articles LIMIT 10;
         """
+
         return self._clone(self._stmt.limit(count))
 
-    def offset(self, count: int) -> Any:
+    def offset(self, count: int) -> Self:
         """
         Apply an offset to the result set.
 
@@ -64,9 +94,10 @@ class QuerySetConstruction(QuerySetResolver[T]):
             >>> articles = await Article.objects.offset(10).fetch(db)
             # SELECT * FROM articles OFFSET 10;
         """
+
         return self._clone(self._stmt.offset(count))
 
-    def only(self, *fields: str) -> Any:
+    def only(self, *fields: str) -> Self:
         """
         Load only the specified fields.
 
@@ -74,13 +105,15 @@ class QuerySetConstruction(QuerySetResolver[T]):
             >>> Article.objects.only("title", "id")
             # SELECT id, title FROM articles;
         """
+
         from sqlalchemy.orm import load_only
 
         # Reduce bandwidth by selecting only required columns.
         cols = [getattr(self.model, f) for f in fields]
+
         return self._clone(self._stmt.options(load_only(*cols)))
 
-    def defer(self, *fields: str) -> Any:
+    def defer(self, *fields: str) -> Self:
         """
         Defer loading of the specified fields.
 
@@ -88,15 +121,18 @@ class QuerySetConstruction(QuerySetResolver[T]):
             >>> articles = await Article.objects.defer("content").fetch(db)
             # SELECT id, title, ... FROM articles; (content excluded)
         """
+
         from sqlalchemy.orm import defer
 
         stmt = self._stmt
+
         for field in fields:
             # Exclude large columns from the initial load to speed up query.
             stmt = stmt.options(defer(getattr(self.model, field)))
+
         return self._clone(stmt)
 
-    def select_related(self, *fields: str) -> Any:
+    def select_related(self, *fields: str) -> Self:
         """
         Eagerly load related relationships using SQL JOINs.
 
@@ -120,13 +156,16 @@ class QuerySetConstruction(QuerySetResolver[T]):
             >>> articles = await Article.objects.select_related("author").fetch(db)
             >>> print(articles[0].author.name)  # No additional query triggered
         """
+
         stmt = self._stmt
+
         for field in fields:
             # Use JOIN to fetch related data in a single round-trip.
             stmt = stmt.options(joinedload(getattr(self.model, field)))
+
         return self._clone(stmt)
 
-    def prefetch_related(self, *fields: str) -> Any:
+    def prefetch_related(self, *fields: str) -> Self:
         """
         Eagerly load related relationships using separate queries.
 
@@ -150,14 +189,17 @@ class QuerySetConstruction(QuerySetResolver[T]):
             >>> articles = await Article.objects.prefetch_related("tags").fetch(db)
             >>> print(articles[0].tags[0].name)  # No additional query triggered
         """
+
         stmt = self._stmt
+
         for field in fields:
             # Load relationships where JOINs would cause excessive row
             # multiplication.
             stmt = stmt.options(selectinload(getattr(self.model, field)))
+
         return self._clone(stmt)
 
-    def filter(self, *conditions: Any, **kwargs: object) -> Any:
+    def filter(self, *conditions: Any, **kwargs: object) -> Self:
         """
         Add WHERE or HAVING criteria to the query.
 
@@ -189,6 +231,7 @@ class QuerySetConstruction(QuerySetResolver[T]):
             >>> # Filtering on annotations (routes to HAVING)
             >>> Product.objects.annotate(n=Count('revs')).filter(n__gt=5)
         """
+
         if not conditions and not kwargs:
             return self
 
@@ -199,6 +242,7 @@ class QuerySetConstruction(QuerySetResolver[T]):
             # _resolve_condition identifies if the expression contains aggregates.
             # This is critical because SQL prohibits aggregates in WHERE clauses.
             expr, is_agg = self._resolve_condition(cond)
+
             if expr is not None:
                 # _attach_condition routes to .where() or .having() based on is_agg.
                 stmt = self._attach_condition(stmt, expr, is_agg=is_agg)
@@ -208,12 +252,13 @@ class QuerySetConstruction(QuerySetResolver[T]):
             # _resolve_lookup parses Django-style strings like
             # 'author__name__icontains'.
             expr, is_agg = self._resolve_lookup(key, value)
+
             if expr is not None:
                 stmt = self._attach_condition(stmt, expr, is_agg=is_agg)
 
         return self._clone(stmt)
 
-    def exclude(self, *conditions: Any, **kwargs: object) -> Any:
+    def exclude(self, *conditions: Any, **kwargs: object) -> Self:
         """
         Add negative WHERE or HAVING criteria to the query.
 
@@ -238,6 +283,7 @@ class QuerySetConstruction(QuerySetResolver[T]):
             >>> # Exclude by annotation (routes to HAVING)
             >>> Article.objects.annotate(n=Count('comments')).exclude(n__lt=1)
         """
+
         if not conditions and not kwargs:
             return self
 
@@ -248,6 +294,7 @@ class QuerySetConstruction(QuerySetResolver[T]):
         # Negate and apply positional conditions.
         for cond in conditions:
             expr, is_agg = self._resolve_condition(cond)
+
             if expr is not None:
                 # We wrap the resolved expression in not_() to invert the logic
                 # at the SQL level before routing to WHERE or HAVING.
@@ -256,12 +303,13 @@ class QuerySetConstruction(QuerySetResolver[T]):
         # Negate and apply keyword lookups.
         for key, value in kwargs.items():
             expr, is_agg = self._resolve_lookup(key, value)
+
             if expr is not None:
                 stmt = self._attach_condition(stmt, not_(expr), is_agg=is_agg)
 
         return self._clone(stmt)
 
-    def annotate(self, **kwargs: Any) -> Any:
+    def annotate(self, **kwargs: Any) -> Self:
         """
         Add calculated fields (aggregates or expressions) to each row in the QuerySet.
 
@@ -288,13 +336,19 @@ class QuerySetConstruction(QuerySetResolver[T]):
             >>> # Use arithmetic in annotations
             >>> Product.objects.annotate(discounted_price=F("price") * 0.9)
         """
+
         if not kwargs:
             return self
 
         from flash_db.expressions import Aggregate, Resolvable
 
         stmt = self._stmt
+
         new_annotations = dict(self._annotations)
+
+        new_joined_rels = set(self._joined_relationships)
+
+        has_aggregate = False
 
         for key, expr in kwargs.items():
             if isinstance(expr, Resolvable):
@@ -302,42 +356,52 @@ class QuerySetConstruction(QuerySetResolver[T]):
                 # constructs. We pass current annotations to allow expressions
                 # to reference previously defined labels within the same query.
                 resolved = expr.resolve(self.model, _annotations=new_annotations)
+
                 if resolved is not None:
                     # Labels are essential for result extraction. fetch() uses these
                     # keys to map raw database values back to the Model instance.
                     label = resolved.label(key)
+
                     stmt = stmt.add_columns(label)
+
                     new_annotations[key] = label
+
+                # Detect if the expression is an aggregate to decide on GROUP BY.
+                if isinstance(expr, Aggregate) or self._contains_aggregate(expr):
+                    has_aggregate = True
 
                 # relationship-based aggregates (e.g., Count("comments")) require
                 # a JOIN to the related table. We use LEFT OUTER JOIN to ensure the
                 # base model is returned even if the related set is empty.
                 if isinstance(expr, Aggregate):
                     for join_attr in expr.get_joins(self.model):
-                        # Inspecting internal join state prevents redundant SQL and
-                        # "duplicate alias" errors if multiple annotations share
-                        # the same relationship path.
-                        if join_attr not in [
-                            j[0]
-                            for j in stmt._setup_joins  # pyright: ignore
-                        ]:
+                        if join_attr not in new_joined_rels:
                             stmt = stmt.outerjoin(join_attr)
+
+                            new_joined_rels.add(join_attr)
+
             else:
                 # Direct support for raw SQLAlchemy constructs (e.g., func.now())
                 # for users who need to bypass the Flash expression system.
                 label = cast("ColumnElement[Any]", expr).label(key)
+
                 stmt = stmt.add_columns(label)
+
                 new_annotations[key] = label
+
+                if self._contains_aggregate(expr):
+                    has_aggregate = True
 
         # SQL standard requires non-aggregated columns to be present in the
         # GROUP BY clause when aggregate functions are used. Grouping by the
         # primary key is the most efficient way to collapse the result set
         # back to unique model instances while satisfying SQL validity.
-        #
-        # SQL Example:
-        #     SELECT users.*, count(posts.id) FROM users
-        #     JOIN posts ON ... GROUP BY users.id;
-        if not stmt._group_by_clauses:
+        if has_aggregate and not stmt._group_by_clauses:
             stmt = stmt.group_by(*self.model.__table__.primary_key)
 
-        return self.__class__(self.model, stmt, _annotations=new_annotations)
+        return self.__class__(
+            self.model,
+            stmt,
+            _annotations=new_annotations,
+            _joined_relationships=new_joined_rels,
+        )

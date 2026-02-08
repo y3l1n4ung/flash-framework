@@ -13,11 +13,11 @@ if TYPE_CHECKING:
 
 class QuerySetResolver(QuerySetBase[T]):
     """
-    Internal logic for SQL condition and lookup resolution.
+    Handles turning field names and conditions into SQL.
 
-    This layer handles the translation of high-level query constructs (like Q
-    objects and Django-style field lookups) into SQLAlchemy expressions, while
-    automatically routing conditions to either WHERE or HAVING clauses.
+    This layer parses Django-style lookups (like 'price__gt') and converts them
+    into SQLAlchemy expressions. It also decides if a filter should go into
+    the WHERE clause or the HAVING clause for aggregates.
     """
 
     def _resolve_condition(
@@ -62,16 +62,12 @@ class QuerySetResolver(QuerySetBase[T]):
         """
         from flash_db.expressions import Resolvable, apply_lookup, parse_lookup
 
-        field_name = key.split("__")[0]
+        col, lookup, field_name = parse_lookup(self.model, key)
         is_annotated = field_name in self._annotations
 
         if is_annotated:
             # Annotations (calculated fields) MUST be filtered via HAVING.
             col = self._annotations[field_name]
-            _, lookup = parse_lookup(self.model, key)
-        else:
-            # Standard columns are filtered via WHERE.
-            col, lookup = parse_lookup(self.model, key)
 
         if col is None:
             msg = (
@@ -89,12 +85,15 @@ class QuerySetResolver(QuerySetBase[T]):
         expr = apply_lookup(col, lookup, resolved_value)
 
         # is_agg determines if we use .where() or .having().
-        # An annotated field always triggers HAVING.
-        is_agg = (
-            is_annotated
-            or self._contains_aggregate(value)
-            or self._contains_aggregate(expr)
-        )
+        # Previously, we routed ALL annotated fields to HAVING. However,
+        # SQL (especially SQLite) forbids HAVING on non-aggregate queries.
+        #
+        # We now only route to HAVING if:
+        # 1. The value being compared is an aggregate (e.g., price__gt=Avg('price'))
+        # 2. The expression itself is an aggregate (e.g., comments__count__gt=5)
+        #
+        # Simple annotations like F("price") * F("stock") remain in WHERE.
+        is_agg = self._contains_aggregate(value) or self._contains_aggregate(expr)
         return expr, is_agg
 
     def _attach_condition(
@@ -139,6 +138,7 @@ class QuerySetResolver(QuerySetBase[T]):
             return True
 
         # Check raw SQLAlchemy functions (e.g. func.count()).
+        # We use an allowlist to avoid misclassifying non-aggregate functions.
         if isinstance(obj, FunctionElement):
             return obj.name.lower() in ("count", "sum", "avg", "max", "min")
 

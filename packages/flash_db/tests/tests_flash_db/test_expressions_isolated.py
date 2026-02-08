@@ -86,7 +86,7 @@ def test_all_lookup_operators():
     assert str(apply_lookup(col, "isnull", is_not_null)) == "products.name IS NOT NULL"
 
     # Unknown lookup should raise ValueError
-    with pytest.raises(ValueError, match="Unknown lookup: unknown"):
+    with pytest.raises(ValueError, match="Unsupported lookup 'unknown'"):
         apply_lookup(col, "unknown", "v")
 
 
@@ -94,13 +94,15 @@ def test_parse_lookup():
     """Test parsing of Django-style lookup keys."""
     from flash_db.expressions import parse_lookup
 
-    col, lookup = parse_lookup(Product, "name")
+    col, lookup, field_name = parse_lookup(Product, "name")
     assert col == Product.name  # pyright: ignore[reportGeneralTypeIssues]
     assert lookup == "exact"
+    assert field_name == "name"
 
-    col, lookup = parse_lookup(Product, "price__gt")
+    col, lookup, field_name = parse_lookup(Product, "price__gt")
     assert col == Product.price  # pyright: ignore[reportGeneralTypeIssues]
     assert lookup == "gt"
+    assert field_name == "price"
 
 
 def test_q_object_errors():
@@ -121,7 +123,8 @@ def test_aggregate_base_class():
 
     # Use a field that exists on the Product model
     agg = Aggregate("price")
-    with pytest.raises(NotImplementedError):
+    # Base class has no _func_name
+    with pytest.raises(AttributeError):
         agg.resolve(Product)
     assert agg.get_joins(Product) == []
 

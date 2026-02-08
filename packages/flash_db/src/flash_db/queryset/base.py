@@ -5,6 +5,7 @@ from typing import (
     Any,
     Generic,
     Mapping,
+    Self,
     Type,
     TypeVar,
 )
@@ -19,11 +20,11 @@ T = TypeVar("T", bound="Model")
 
 class QuerySetBase(Generic[T]):
     """
-    Fundamental state and identity for a QuerySet.
+    Base class that holds the core state of a query.
 
-    This base class manages the core attributes shared across all QuerySet layers:
-    the target model, the SQLAlchemy Select statement, and calculated field
-    annotations.
+    It stores the model, the SQLAlchemy Select statement, and any calculated
+    fields (annotations). Every change to the query creates a new copy
+    to keep the original safe and unchanged.
     """
 
     def __init__(
@@ -36,7 +37,7 @@ class QuerySetBase(Generic[T]):
         self._stmt: Select = stmt
         self._annotations: Mapping[str, ColumnElement[Any]] = _annotations or {}
 
-    def _clone(self, stmt: Select | None = None) -> Any:
+    def _clone(self, stmt: Select | None = None) -> Self:
         """
         Return a new instance of the current class with updated statement.
 
@@ -49,3 +50,38 @@ class QuerySetBase(Generic[T]):
             stmt if stmt is not None else self._stmt,
             _annotations=dict(self._annotations),
         )
+
+    @property
+    def _where_criteria(self) -> Any:
+        """Helper to access statement where criteria safely."""
+        return self._stmt._where_criteria
+
+    @property
+    def _having_criteria(self) -> Any:
+        """Helper to access statement having criteria safely."""
+        return self._stmt._having_criteria
+
+    @property
+    def _group_by_clauses(self) -> Any:
+        """Helper to access statement group by clauses safely."""
+        return self._stmt._group_by_clauses
+
+    @property
+    def _order_by_clauses(self) -> Any:
+        """Helper to access statement order by clauses safely."""
+        return self._stmt._order_by_clauses
+
+    @property
+    def _limit_clause(self) -> Any:
+        """Helper to access statement limit clause safely."""
+        return self._stmt._limit_clause
+
+    @property
+    def _offset_clause(self) -> Any:
+        """Helper to access statement offset clause safely."""
+        return self._stmt._offset_clause
+
+    @property
+    def _distinct(self) -> Any:
+        """Helper to access statement distinct attribute safely."""
+        return self._stmt._distinct
