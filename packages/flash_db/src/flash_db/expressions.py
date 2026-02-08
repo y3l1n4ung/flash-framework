@@ -61,11 +61,11 @@ def apply_lookup(col: Any, lookup: str, value: Any) -> ColumnElement[bool]:
         "isnull": lambda c, v: c.is_(None) if v else c.isnot(None),
     }
 
-    op = operators.get(lookup)
-    if not op:
-        return col == value
+    if lookup not in operators:
+        msg = f"Unknown lookup: {lookup}"
+        raise ValueError(msg)
 
-    return op(col, value)
+    return operators[lookup](col, value)
 
 
 class Q(Resolvable):
@@ -174,8 +174,27 @@ class Aggregate(Resolvable):
         self,
         model: type[Model],
         _annotations: Mapping[str, ColumnElement[Any]] | None = None,
-    ) -> ColumnElement[Any] | None:
+    ) -> ColumnElement[Any]:
         """Resolve the aggregate into a SQLAlchemy function expression."""
+        from sqlalchemy import func
+
+        col: ColumnElement[Any] | None = None
+        if _annotations and self.field in _annotations:
+            col = _annotations[self.field]
+
+        if col is None:
+            col = getattr(model, self.field, None)
+
+        if col is None:
+            msg = (
+                f"Field or annotation '{self.field}' not found on model "
+                f"{model.__name__}"
+            )
+            raise AttributeError(msg)
+
+        return self._apply_func(func, col)
+
+    def _apply_func(self, func: Any, col: ColumnElement[Any]) -> ColumnElement[Any]:
         raise NotImplementedError
 
     def get_joins(self, model: type[Model]) -> list[InstrumentedAttribute[Any]]:
@@ -211,7 +230,14 @@ class Count(Aggregate):
         if col is not None:
             return func.count(col)
 
-        attr = getattr(model, self.field)
+        attr = getattr(model, self.field, None)
+        if attr is None:
+            msg = (
+                f"Field or annotation '{self.field}' not found on model "
+                f"{model.__name__}"
+            )
+            raise AttributeError(msg)
+
         if hasattr(attr, "property") and isinstance(
             attr.property, RelationshipProperty
         ):
@@ -224,80 +250,28 @@ class Count(Aggregate):
 class Sum(Aggregate):
     """SQL SUM aggregate function."""
 
-    def resolve(
-        self,
-        model: type[Model],
-        _annotations: Mapping[str, ColumnElement[Any]] | None = None,
-    ) -> ColumnElement[Any]:
-        from sqlalchemy import func
-
-        col: ColumnElement[Any] | None = None
-        if _annotations and self.field in _annotations:
-            col = _annotations[self.field]
-
-        if col is None:
-            col = cast("ColumnElement[Any]", getattr(model, self.field))
-
+    def _apply_func(self, func: Any, col: ColumnElement[Any]) -> ColumnElement[Any]:
         return func.sum(col)
 
 
 class Avg(Aggregate):
     """SQL AVG aggregate function."""
 
-    def resolve(
-        self,
-        model: type[Model],
-        _annotations: Mapping[str, ColumnElement[Any]] | None = None,
-    ) -> ColumnElement[Any]:
-        from sqlalchemy import func
-
-        col: ColumnElement[Any] | None = None
-        if _annotations and self.field in _annotations:
-            col = _annotations[self.field]
-
-        if col is None:
-            col = cast("ColumnElement[Any]", getattr(model, self.field))
-
+    def _apply_func(self, func: Any, col: ColumnElement[Any]) -> ColumnElement[Any]:
         return func.avg(col)
 
 
 class Max(Aggregate):
     """SQL MAX aggregate function."""
 
-    def resolve(
-        self,
-        model: type[Model],
-        _annotations: Mapping[str, ColumnElement[Any]] | None = None,
-    ) -> ColumnElement[Any]:
-        from sqlalchemy import func
-
-        col: ColumnElement[Any] | None = None
-        if _annotations and self.field in _annotations:
-            col = _annotations[self.field]
-
-        if col is None:
-            col = cast("ColumnElement[Any]", getattr(model, self.field))
-
+    def _apply_func(self, func: Any, col: ColumnElement[Any]) -> ColumnElement[Any]:
         return func.max(col)
 
 
 class Min(Aggregate):
     """SQL MIN aggregate function."""
 
-    def resolve(
-        self,
-        model: type[Model],
-        _annotations: Mapping[str, ColumnElement[Any]] | None = None,
-    ) -> ColumnElement[Any]:
-        from sqlalchemy import func
-
-        col: ColumnElement[Any] | None = None
-        if _annotations and self.field in _annotations:
-            col = _annotations[self.field]
-
-        if col is None:
-            col = cast("ColumnElement[Any]", getattr(model, self.field))
-
+    def _apply_func(self, func: Any, col: ColumnElement[Any]) -> ColumnElement[Any]:
         return func.min(col)
 
 
@@ -335,7 +309,18 @@ class F(Resolvable):
         model: type[Model],
         _annotations: Mapping[str, ColumnElement[Any]] | None = None,
     ) -> ColumnElement[Any] | None:
-        res = getattr(model, self.name)
+        # Check annotations first
+        if _annotations and self.name in _annotations:
+            res = _annotations[self.name]
+        else:
+            res = getattr(model, self.name, None)
+
+        if res is None:
+            msg = (
+                f"Field or annotation '{self.name}' not found on model {model.__name__}"
+            )
+            raise AttributeError(msg)
+
         for op, other in self._ops:
             if hasattr(other, "resolve"):
                 other = cast("Resolvable", other).resolve(model, _annotations)

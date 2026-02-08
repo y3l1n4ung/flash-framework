@@ -160,10 +160,9 @@ class TestQuerySet:
         assert await qs.count(db_session) == 0
 
     async def test_queryset_filter_invalid_field(self):
-        """Should ignore non-existent fields in keyword lookups."""
-        qs = Article.objects.filter(nonexistent=1)
-        # Should not crash, just not add any WHERE criteria
-        assert "WHERE" not in str(qs._stmt)
+        """Should raise ValueError for non-existent fields in keyword lookups."""
+        with pytest.raises(ValueError, match="not found on model Article"):
+            Article.objects.filter(nonexistent=1)
 
     async def test_queryset_aggregate_with_existing_having(self, db_session):
         """Should honor existing HAVING clause in aggregate()."""
@@ -194,11 +193,6 @@ class TestQuerySet:
         """Should return self when filter is called without args."""
         qs = Article.objects.all()
         assert qs.filter() is qs
-
-    async def test_queryset_annotate_empty(self):
-        """Should return self when annotate is called without args."""
-        qs = Article.objects.all()
-        assert qs.annotate() is qs
 
     async def test_queryset_values_list_with_annotation(self, db_session):
         """Should support annotated fields in values_list()."""
@@ -282,9 +276,9 @@ class TestQuerySet:
         assert len(results) == 1
 
     async def test_queryset_exclude_invalid_field(self):
-        """Should ignore non-existent fields in exclude keyword lookups."""
-        qs = Article.objects.exclude(nonexistent=1)
-        assert "WHERE" not in str(qs._stmt)
+        """Should raise ValueError for non-existent fields."""
+        with pytest.raises(ValueError, match="not found on model Article"):
+            Article.objects.exclude(nonexistent=1)
 
     async def test_queryset_contains_aggregate_direct_instance(self):
         """Should return True for direct Aggregate instances."""

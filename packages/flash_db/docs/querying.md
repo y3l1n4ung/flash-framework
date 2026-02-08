@@ -229,6 +229,9 @@ stats = await Article.objects.aggregate(
 - `Avg(field)`: Averages a numeric field.
 - `Min(field)`: Finds the minimum value.
 - `Max(field)`: Finds the maximum value.
+- `Q(**kwargs)`: Encapsulates query conditions for complex lookups.
+- `F(field)`: References a model field for database-side operations.
+
 
 ## 9. Complex Expressions
 

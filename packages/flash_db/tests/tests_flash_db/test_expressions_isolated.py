@@ -85,8 +85,9 @@ def test_all_lookup_operators():
     is_not_null = False
     assert str(apply_lookup(col, "isnull", is_not_null)) == "products.name IS NOT NULL"
 
-    # Default branch
-    assert str(apply_lookup(col, "unknown", "v")) == "products.name = :name_1"
+    # Unknown lookup should raise ValueError
+    with pytest.raises(ValueError, match="Unknown lookup: unknown"):
+        apply_lookup(col, "unknown", "v")
 
 
 def test_parse_lookup():
@@ -118,7 +119,8 @@ def test_aggregate_base_class():
     """Test base Aggregate class behavior."""
     from flash_db.expressions import Aggregate
 
-    agg = Aggregate("field")
+    # Use a field that exists on the Product model
+    agg = Aggregate("price")
     with pytest.raises(NotImplementedError):
         agg.resolve(Product)
     assert agg.get_joins(Product) == []
@@ -213,6 +215,34 @@ def test_aggregate_resolution():
     max_agg = Max("price")
     assert str(min_agg.resolve(Product)) == "min(products.price)"
     assert str(max_agg.resolve(Product)) == "max(products.price)"
+
+
+def test_aggregate_resolve_errors():
+    """Test error handling when aggregate field is missing."""
+    from flash_db.expressions import Sum
+
+    with pytest.raises(AttributeError, match="not found on model Product"):
+        Sum("nonexistent").resolve(Product)
+
+    with pytest.raises(AttributeError, match="not found on model Product"):
+        Count("nonexistent").resolve(Product)
+
+
+def test_f_expression_resolve_errors():
+    """Test error handling for F expressions with missing fields."""
+    with pytest.raises(AttributeError, match="not found on model Product"):
+        F("nonexistent").resolve(Product)
+
+
+def test_f_expression_resolve_with_annotations():
+    """Test that F expressions resolve from annotations."""
+    from sqlalchemy import Column, Integer
+
+    ann_col = Column("derived", Integer)
+    ann = {"derived": ann_col}
+    f = F("derived")
+    resolved = f.resolve(Product, _annotations=ann)
+    assert resolved is ann_col
 
 
 def test_aggregate_resolve_from_annotations():

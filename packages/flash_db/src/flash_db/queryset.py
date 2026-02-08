@@ -60,8 +60,6 @@ class QuerySet(Generic[T]):
             _annotations=dict(self._annotations),
         )
 
-    # --- Chainable methods (Simple) ---
-
     def distinct(self, *criterion: Any) -> QuerySet[T]:
         """
         Add DISTINCT criteria to the query.
@@ -187,9 +185,10 @@ class QuerySet(Generic[T]):
         objects: list[T] = []
         for row in rows:
             instance = cast("T", row[0])
-            for i, key in enumerate(self._annotations.keys(), start=1):
+            mapping = row._mapping
+            for key in self._annotations:
                 # Attach calculated SQL values to the model instance.
-                setattr(instance, key, row[i])
+                setattr(instance, key, mapping[key])
             objects.append(instance)
         return objects
 
@@ -212,8 +211,9 @@ class QuerySet(Generic[T]):
             return None
 
         instance = cast("T", row[0])
-        for i, key in enumerate(self._annotations.keys(), start=1):
-            setattr(instance, key, row[i])
+        mapping = row._mapping
+        for key in self._annotations:
+            setattr(instance, key, mapping[key])
         return instance
 
     async def last(self, db: AsyncSession) -> T | None:
@@ -342,10 +342,11 @@ class QuerySet(Generic[T]):
         return await db.scalar(count_stmt) or 0
 
     async def exists(self, db: AsyncSession) -> bool:
-        """
-        Check if any records exist matching the query.
-        """
-        return await self.count(db) > 0
+        """Check if any records exist matching the query."""
+        from sqlalchemy import exists
+
+        stmt = select(exists(self._stmt.subquery()))
+        return await db.scalar(stmt) or False
 
     async def update(
         self, db: AsyncSession, **values: ColumnElement[Any] | Resolvable | object
@@ -364,7 +365,9 @@ class QuerySet(Generic[T]):
             raise ValueError(msg)
 
         resolved_values = {
-            k: v.resolve(self.model) if isinstance(v, Resolvable) else v
+            k: v.resolve(self.model, _annotations=self._annotations)
+            if isinstance(v, Resolvable)
+            else v
             for k, v in values.items()
         }
 
@@ -497,7 +500,12 @@ class QuerySet(Generic[T]):
                 # relationship aggregates automatically trigger OUTER JOINs.
                 if isinstance(expr, Aggregate):
                     for join_attr in expr.get_joins(self.model):
-                        stmt = stmt.outerjoin(join_attr)
+                        # Avoid duplicate joins
+                        if join_attr not in [
+                            j[0]
+                            for j in stmt._setup_joins  # pyright: ignore
+                        ]:
+                            stmt = stmt.outerjoin(join_attr)
             else:
                 # Support raw SQLAlchemy expressions.
                 label = cast("ColumnElement[Any]", expr).label(key)
@@ -505,7 +513,8 @@ class QuerySet(Generic[T]):
                 new_annotations[key] = label
 
         # Requires grouping by primary key to calculate values per row.
-        stmt = stmt.group_by(*self.model.__table__.primary_key)
+        if not stmt._group_by_clauses:
+            stmt = stmt.group_by(*self.model.__table__.primary_key)
 
         return QuerySet(self.model, stmt, _annotations=new_annotations)
 
@@ -587,7 +596,12 @@ class QuerySet(Generic[T]):
             col, lookup = parse_lookup(self.model, key)
 
         if col is None:
-            return None, False
+            # Raise error for invalid field instead of silently ignoring
+            msg = (
+                f"Field or annotation '{field_name}' not found on model "
+                f"{self.model.__name__}"
+            )
+            raise ValueError(msg)
 
         resolved_value = (
             value.resolve(self.model, _annotations=self._annotations)
@@ -627,9 +641,13 @@ class QuerySet(Generic[T]):
         if isinstance(obj, (BindParameter, str, int, float, bool)) or obj is None:
             return False
 
-        # flash_db aggregates and raw SA functions are terminal true.
-        if isinstance(obj, (Aggregate, FunctionElement)):
+        # flash_db explicitly defined aggregate classes.
+        if isinstance(obj, Aggregate):
             return True
+
+        # Check raw SQLAlchemy function elements.
+        if isinstance(obj, FunctionElement):
+            return obj.name.lower() in ("count", "sum", "avg", "max", "min")
 
         # Scan every branch of a Q object tree.
         if isinstance(obj, Q):
@@ -652,6 +670,9 @@ class QuerySet(Generic[T]):
         # Traverse generic SQLAlchemy expression trees.
         get_children = getattr(obj, "get_children", None)
         if callable(get_children):
-            return any(self._contains_aggregate(c) for c in get_children())  # pyright: ignore[reportGeneralTypeIssues]
+            return any(
+                self._contains_aggregate(c)
+                for c in get_children()  # pyright: ignore[reportGeneralTypeIssues]
+            )
 
         return False
