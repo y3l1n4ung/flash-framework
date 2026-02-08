@@ -243,3 +243,18 @@ class TestAggregation:
         res = await qs.aggregate(db_session, grand_total=Sum("total_val"))
 
         assert res["grand_total"] == 80
+
+    async def test_annotate_prevents_redundant_joins(self, db_session):
+        """Verify that multiple annotations on the same path only JOIN once."""
+        qs = Article.objects.annotate(n1=Count("reviews"), n2=Count("reviews"))
+        assert len(qs._joined_relationships) == 1
+        await qs.fetch(db_session)
+
+    async def test_annotate_prevents_duplicate_group_by(self, db_session):
+        """Verify that repeated annotate calls only add GROUP BY once."""
+        qs = Product.objects.annotate(n1=Count("id"))
+        initial_count = len(qs._group_by_clauses)
+
+        qs2 = qs.annotate(n2=Count("id"))
+        assert len(qs2._group_by_clauses) == initial_count
+        await qs2.fetch(db_session)

@@ -23,15 +23,18 @@ async def test_queryset_provides_safe_access_to_statement_criteria():
         .order_by(Product.name)
         .limit(10)
         .offset(5)
+        .distinct()
     )
     qs = QuerySetBase(Product, stmt)
 
+    # Ensure all property helpers are exercised for coverage
     assert qs._where_criteria is not None
     assert qs._having_criteria is not None
     assert qs._group_by_clauses is not None
     assert qs._order_by_clauses is not None
     assert qs._limit_clause is not None
     assert qs._offset_clause is not None
+    assert qs._distinct is not None
 
 
 async def test_queryset_clone_preserves_internal_state_and_annotations():
@@ -44,6 +47,12 @@ async def test_queryset_clone_preserves_internal_state_and_annotations():
     stmt1 = select(Product)
     qs1 = QuerySetBase(Product, stmt1, _annotations=cast("Any", {"test": "val"}))
 
+    # Exercise _clone without arguments
+    qs_simple = qs1._clone()
+    assert qs_simple._stmt is stmt1
+    assert qs_simple._annotations == {"test": "val"}
+
+    # Exercise _clone with new statement
     stmt2 = select(Product).limit(1)
     qs2 = qs1._clone(stmt=stmt2)
 
@@ -140,13 +149,19 @@ async def test_queryset_aggregate_correctly_sums_unique_rows_in_distinct_queries
         ],
     )
 
+    # To trigger subquery in aggregate, we need either grouping or having.
+    # .distinct() currently sets the flag but doesn't force a subquery unless
+    # combined with other factors in the current implementation of execution.py.
+
+    # Let's use a query where distinct really reduces rows in subquery.
     res = await (
         Product.objects.only("name")
         .distinct()
-        .annotate(price_sum=Sum("price"))
+        .annotate(price_sum=Sum("price"))  # This will group by name
         .filter(price_sum__gt=0)
         .aggregate(db_session, total=Sum("price_sum"))
     )
+    # subquery has 1 row: (Same, 20)
     assert res["total"] == 20
 
 
@@ -250,3 +265,10 @@ async def test_queryset_projects_all_columns_by_default_in_projection_stmt():
     exec_qs = QuerySetExecution(Product, select(Product))
     stmt = exec_qs._build_projection_stmt()
     assert len(stmt.selected_columns) == len(Product.__table__.columns)
+
+
+async def test_queryset_raises_value_error_on_unsupported_nested_lookups(db_session):
+    """Verify that nested lookups (multiple __) are explicitly rejected."""
+    # This triggers parse_lookup indirectly via filter
+    with pytest.raises(ValueError, match="Nested lookups across relationships"):
+        await Product.objects.filter(author__name__icontains="test").fetch(db_session)

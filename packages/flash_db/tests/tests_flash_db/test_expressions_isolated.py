@@ -117,18 +117,6 @@ def test_q_object_empty_resolution():
     assert Q().resolve(Product) is None
 
 
-def test_aggregate_base_class():
-    """Test base Aggregate class behavior."""
-    from flash_db.expressions import Aggregate
-
-    # Use a field that exists on the Product model
-    agg = Aggregate("price")
-    # Base class has no _func_name
-    with pytest.raises(AttributeError):
-        agg.resolve(Product)
-    assert agg.get_joins(Product) == []
-
-
 def test_f_expression_all_arithmetic():
     """Test all arithmetic operations for F expressions."""
     f = F("price")

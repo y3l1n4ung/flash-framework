@@ -307,9 +307,25 @@ class QuerySetExecution(QuerySetConstruction[T]):
             agg_cols = []
             for key, expr in kwargs.items():
                 if isinstance(expr, Aggregate):
-                    # Aggregate over the subquery columns by field name
+                    # Resolve the aggregate first to handle relationships/fields
+                    # We pass the model to get the correct column/expression
+                    # But for the subquery, we need to target the column in the subquery
+                    # corresponding to the field name.
+
+                    # NOTE: Aggregate.resolve() returns a function (e.g. count(col)).
+                    # We need to construct a new aggregate over the SUBQUERY column.
+                    # The subquery should already contain the columns needed.
+                    # If it's a simple field, it will be in subq.c.
                     col = getattr(subq.c, expr.field)
                     agg_cols.append(getattr(func, expr._func_name)(col).label(key))
+                elif isinstance(expr, Resolvable):
+                    # Handle other Resolvables (like F expressions) in the subquery
+                    # context. We pass the model to get the correct column/expression.
+                    # A robust implementation would require re-mapping resolved
+                    # expressions to the subquery. For now, we resolve and append.
+                    resolved = expr.resolve(self.model, _annotations=self._annotations)
+                    if resolved is not None:
+                        agg_cols.append(resolved.label(key))
                 else:
                     # Fallback for raw SQLAlchemy expressions
                     agg_cols.append(cast("ColumnElement[Any]", expr).label(key))

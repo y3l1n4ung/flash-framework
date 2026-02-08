@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from abc import ABC
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -25,18 +26,31 @@ class Resolvable(Protocol):
 
     def resolve(
         self,
-        model: type[Model],
-        _annotations: Mapping[str, ColumnElement[Any]] | None = None,
-    ) -> ColumnElement[Any] | None:
+        model: type["Model"],
+        _annotations: Mapping[str, "ColumnElement[Any]"] | None = None,
+    ) -> "ColumnElement[Any] | None":
         """Resolve the object into a SQLAlchemy expression."""
         ...
 
 
 def parse_lookup(
-    model: type[Model], key: str
-) -> tuple[ColumnElement[Any] | None, str, str]:
-    """Parse a Django-style lookup key into (column, operator, field_name)."""
+    model: type["Model"], key: str
+) -> tuple["ColumnElement[Any] | None", str, str]:
+    """
+    Parse a lookup key into (column, operator, field_name).
+
+    Supported format: 'field' or 'field__lookup' (e.g., 'price' or 'price__gt').
+    Nested lookups across relationships (e.g., 'author__name') are not
+    currently supported and will raise a ValueError.
+    """
     parts = key.split("__")
+    if len(parts) > 2:
+        msg = (
+            f"Unsupported lookup '{key}'. Nested lookups across relationships "
+            f"are not currently supported."
+        )
+        raise ValueError(msg)
+
     field_name = parts[0]
     lookup = parts[1] if len(parts) > 1 else "exact"
 
@@ -44,9 +58,9 @@ def parse_lookup(
     return col, lookup, field_name
 
 
-def apply_lookup(col: Any, lookup: str, value: Any) -> ColumnElement[bool]:
+def apply_lookup(col: Any, lookup: str, value: Any) -> "ColumnElement[bool]":
     """Apply a lookup operator to a SQLAlchemy column."""
-    operators: dict[str, Callable[[Any, Any], ColumnElement[bool]]] = {
+    operators: dict[str, Callable[[Any, Any], "ColumnElement[bool]"]] = {
         "exact": lambda c, v: c == v,
         "iexact": lambda c, v: func.lower(c) == func.lower(v),
         "contains": lambda c, v: c.contains(v),
@@ -82,32 +96,32 @@ class Q(Resolvable):
 
     def __init__(
         self,
-        *args: Q | ColumnElement[bool],
+        *args: "Q | ColumnElement[bool]",
         _connector: str = AND,
         _negated: bool = False,
         **kwargs: object,
     ):
         """Initialize a Q object with positional and keyword conditions."""
-        self.children: list[Q | ColumnElement[bool] | tuple[str, object]] = list(
+        self.children: list["Q | ColumnElement[bool] | tuple[str, object]"] = list(
             args
         ) + list(kwargs.items())
         self.connector = _connector
         self.negated = _negated
 
-    def __and__(self, other: Q) -> Q:
+    def __and__(self, other: "Q") -> "Q":
         return self._combine(other, self.AND)
 
-    def __or__(self, other: Q) -> Q:
+    def __or__(self, other: "Q") -> "Q":
         return self._combine(other, self.OR)
 
-    def __invert__(self) -> Q:
+    def __invert__(self) -> "Q":
         obj = Q()
         obj.children = self.children[:]
         obj.connector = self.connector
         obj.negated = not self.negated
         return obj
 
-    def _combine(self, other: Q, connector: str) -> Q:
+    def _combine(self, other: "Q", connector: str) -> "Q":
         if not isinstance(other, Q):
             msg = f"Cannot combine Q object with {type(other).__name__}"
             raise TypeError(msg)
@@ -118,9 +132,9 @@ class Q(Resolvable):
 
     def resolve(
         self,
-        model: type[Model],
-        _annotations: Mapping[str, ColumnElement[Any]] | None = None,
-    ) -> ColumnElement[Any] | None:
+        model: type["Model"],
+        _annotations: Mapping[str, "ColumnElement[Any]"] | None = None,
+    ) -> "ColumnElement[Any] | None":
         """Resolve the Q object into a SQLAlchemy expression.
 
         Args:
@@ -130,7 +144,7 @@ class Q(Resolvable):
         Returns:
             A SQLAlchemy boolean expression.
         """
-        expressions: list[ColumnElement[bool]] = []
+        expressions: list["ColumnElement[bool]"] = []
         for child in self.children:
             if isinstance(child, Q):
                 resolved = child.resolve(model, _annotations)
@@ -160,7 +174,7 @@ class Q(Resolvable):
 
                 expressions.append(apply_lookup(col, lookup, resolved_value))
             else:
-                expressions.append(child)
+                expressions.append(cast("ColumnElement[bool]", child))
 
         if not expressions:
             return None
@@ -169,7 +183,7 @@ class Q(Resolvable):
         return not_(clause) if self.negated else clause
 
 
-class Aggregate(Resolvable):
+class Aggregate(ABC, Resolvable):
     """Base class for SQL aggregate functions (Count, Sum, etc.)."""
 
     _func_name: str
@@ -179,11 +193,11 @@ class Aggregate(Resolvable):
 
     def resolve(
         self,
-        model: type[Model],
-        _annotations: Mapping[str, ColumnElement[Any]] | None = None,
-    ) -> ColumnElement[Any]:
+        model: type["Model"],
+        _annotations: Mapping[str, "ColumnElement[Any]"] | None = None,
+    ) -> "ColumnElement[Any]":
         """Resolve the aggregate into a SQLAlchemy function expression."""
-        col: ColumnElement[Any] | None = None
+        col: "ColumnElement[Any] | None" = None
         if _annotations and self.field in _annotations:
             col = _annotations[self.field]
 
@@ -199,7 +213,7 @@ class Aggregate(Resolvable):
 
         return getattr(func, self._func_name)(col)
 
-    def get_joins(self, model: type[Model]) -> list[InstrumentedAttribute[Any]]:
+    def get_joins(self, model: type["Model"]) -> list["InstrumentedAttribute[Any]"]:
         """Identify relationship attributes that must be joined for this aggregate."""
         from sqlalchemy.orm import RelationshipProperty
 
@@ -220,13 +234,13 @@ class Count(Aggregate):
 
     def resolve(
         self,
-        model: type[Model],
-        _annotations: Mapping[str, ColumnElement[Any]] | None = None,
-    ) -> ColumnElement[Any]:
+        model: type["Model"],
+        _annotations: Mapping[str, "ColumnElement[Any]"] | None = None,
+    ) -> "ColumnElement[Any]":
         from sqlalchemy.orm import RelationshipProperty
 
         # Check annotations first
-        col: ColumnElement[Any] | None = None
+        col: "ColumnElement[Any] | None" = None
         if _annotations and self.field in _annotations:
             col = _annotations[self.field]
 
@@ -283,31 +297,31 @@ class F(Resolvable):
         self.name = name if isinstance(name, str) else name.key
         self._ops: list[tuple[str, Any]] = []
 
-    def __add__(self, other: Any) -> F:
+    def __add__(self, other: Any) -> "F":
         new_f = F(self.name)
         new_f._ops = [*self._ops, ("+", other)]
         return new_f
 
-    def __sub__(self, other: Any) -> F:
+    def __sub__(self, other: Any) -> "F":
         new_f = F(self.name)
         new_f._ops = [*self._ops, ("-", other)]
         return new_f
 
-    def __mul__(self, other: Any) -> F:
+    def __mul__(self, other: Any) -> "F":
         new_f = F(self.name)
         new_f._ops = [*self._ops, ("*", other)]
         return new_f
 
-    def __truediv__(self, other: Any) -> F:
+    def __truediv__(self, other: Any) -> "F":
         new_f = F(self.name)
         new_f._ops = [*self._ops, ("/", other)]
         return new_f
 
     def resolve(
         self,
-        model: type[Model],
-        _annotations: Mapping[str, ColumnElement[Any]] | None = None,
-    ) -> ColumnElement[Any] | None:
+        model: type["Model"],
+        _annotations: Mapping[str, "ColumnElement[Any]"] | None = None,
+    ) -> "ColumnElement[Any] | None":
         # Check annotations first
         if _annotations and self.name in _annotations:
             res = _annotations[self.name]

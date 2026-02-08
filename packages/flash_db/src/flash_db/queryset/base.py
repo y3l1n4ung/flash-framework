@@ -54,34 +54,34 @@ class QuerySetBase(Generic[T]):
     @property
     def _where_criteria(self) -> Any:
         """Helper to access statement where criteria safely."""
-        return self._stmt._where_criteria
+        return self._stmt._where_criteria  # SQLAlchemy internal; pinned <3.0
 
     @property
     def _having_criteria(self) -> Any:
         """Helper to access statement having criteria safely."""
-        return self._stmt._having_criteria
+        return self._stmt._having_criteria  # SQLAlchemy internal; pinned <3.0
 
     @property
     def _group_by_clauses(self) -> Any:
         """Helper to access statement group by clauses safely."""
-        return self._stmt._group_by_clauses
+        return self._stmt._group_by_clauses  # SQLAlchemy internal; pinned <3.0
 
     @property
     def _order_by_clauses(self) -> Any:
         """Helper to access statement order by clauses safely."""
-        return self._stmt._order_by_clauses
+        return self._stmt._order_by_clauses  # SQLAlchemy internal; pinned <3.0
 
     @property
     def _limit_clause(self) -> Any:
         """Helper to access statement limit clause safely."""
-        return self._stmt._limit_clause
+        return self._stmt._limit_clause  # SQLAlchemy internal; pinned <3.0
 
     @property
     def _offset_clause(self) -> Any:
         """Helper to access statement offset clause safely."""
-        return self._stmt._offset_clause
+        return self._stmt._offset_clause  # SQLAlchemy internal; pinned <3.0
 
     @property
     def _distinct(self) -> Any:
         """Helper to access statement distinct attribute safely."""
-        return self._stmt._distinct
+        return self._stmt._distinct  # SQLAlchemy internal; pinned <3.0

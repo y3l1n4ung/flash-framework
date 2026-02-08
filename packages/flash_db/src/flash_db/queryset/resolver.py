@@ -140,7 +140,23 @@ class QuerySetResolver(QuerySetBase[T]):
         # Check raw SQLAlchemy functions (e.g. func.count()).
         # We use an allowlist to avoid misclassifying non-aggregate functions.
         if isinstance(obj, FunctionElement):
-            return obj.name.lower() in ("count", "sum", "avg", "max", "min")
+            return obj.name.lower() in (
+                "count",
+                "sum",
+                "avg",
+                "max",
+                "min",
+                "group_concat",
+                "array_agg",
+                "string_agg",
+                "json_agg",
+                "jsonb_agg",
+                "every",
+                "any",
+                "some",
+                "bool_and",
+                "bool_or",
+            )
 
         # Recursive check for logical groupings.
         if isinstance(obj, Q):
