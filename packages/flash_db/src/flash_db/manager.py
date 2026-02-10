@@ -103,6 +103,16 @@ class ModelManager(Generic[T]):
         """Return a QuerySet with prefetch_related queries configured."""
         return self._get_queryset().prefetch_related(*fields)
 
+    def annotate(self, **kwargs: ColumnElement[Any] | Resolvable) -> QuerySet[T]:
+        """Return a QuerySet with annotations applied."""
+        return self._get_queryset().annotate(**kwargs)
+
+    async def aggregate(
+        self, db: AsyncSession, **kwargs: ColumnElement[Any] | Resolvable
+    ) -> dict[str, Any]:
+        """Return a dictionary of aggregate values for the QuerySet."""
+        return await self._get_queryset().aggregate(db, **kwargs)
+
     async def first(self, db: AsyncSession) -> T | None:
         """Execute query and return the first matching instance or None."""
         return await self._get_queryset().first(db)
@@ -204,17 +214,35 @@ class ModelManager(Generic[T]):
         *,
         ignore_conflicts: bool = False,
     ) -> list[T]:
-        """Create multiple records in a single batch.
+        """
+        Create multiple records in a single database batch.
+
+        This method is significantly more efficient than individual `create()`
+        calls for large datasets. It uses dialect-specific SQL (e.g.,
+        `ON CONFLICT DO NOTHING` for PostgreSQL/SQLite) to handle batch
+        inserts and potential conflicts.
 
         Args:
-            db: The database session.
-            objs: List of dictionaries with column values.
-            ignore_conflicts: If True, skip existing records (dialect-dependent).
+            db: The asynchronous SQLAlchemy session.
+            objs: A list of dictionaries, where each dictionary represents
+                a model record to be inserted.
+            ignore_conflicts: If True, skips records that violate unique
+                constraints. Supported on PostgreSQL, SQLite, and MySQL.
 
         Returns:
-            List of created model instances. Note that on dialects without
-            RETURNING support (e.g., MySQL), the returned instances will be
-            detached and lack DB-generated IDs or server-side defaults.
+            A list of the created model instances.
+
+        Notes:
+            - On dialects without `RETURNING` support (e.g., MySQL), the
+              returned instances will be detached and will NOT have
+              database-generated IDs or server-side defaults.
+            - This method performs a single database round-trip where possible.
+
+        Example:
+            >>> await Article.objects.bulk_create(db, [
+            ...     {"title": "Batch 1", "content": "..."},
+            ...     {"title": "Batch 2", "content": "..."},
+            ... ])
         """
         if not objs:
             return []
@@ -225,6 +253,8 @@ class ModelManager(Generic[T]):
         bind = db.get_bind()
         dialect_name = bind.dialect.name
 
+        # Map generic insert to dialect-specific implementations to support
+        # advanced features like conflict handling.
         insert_map: dict[str, Any] = {
             "postgresql": postgresql.insert,
             "sqlite": sqlite.insert,
@@ -235,11 +265,13 @@ class ModelManager(Generic[T]):
         stmt = insert_func(self._model).values(objs)
 
         if ignore_conflicts:
+            # Conflict handling logic varies significantly between SQL dialects.
             if dialect_name in ("postgresql", "sqlite"):
                 stmt = stmt.on_conflict_do_nothing()
             elif dialect_name == "mysql":
                 stmt = stmt.prefix_with("IGNORE")
 
+        # Optimization: Use RETURNING to fetch generated IDs in the same query.
         if getattr(bind.dialect, "insert_returning", False):
             stmt = stmt.returning(self._model)
             result = await db.execute(stmt)
@@ -251,38 +283,59 @@ class ModelManager(Generic[T]):
             dialect_name,
         )
         await db.execute(stmt)
+        # Fallback: Construct detached instances from input data.
         return [self._model(**obj) for obj in objs]
 
     async def bulk_update(
         self, db: AsyncSession, objs: list[T], fields: list[str]
     ) -> int:
-        """Update multiple records in a single batch using ID matching.
+        """
+        Update multiple records in a single database batch.
+
+        This method uses a single SQL UPDATE statement with bind parameters
+        to update specific fields across multiple records, matched by their
+        primary key (ID).
 
         Args:
-            db: The database session.
-            objs: List of model instances with updated values.
-            fields: The names of the columns to update.
+            db: The asynchronous SQLAlchemy session.
+            objs: A list of model instances containing the updated values.
+            fields: A list of field names that should be updated.
 
         Returns:
-            The number of records updated.
+            The number of records successfully updated.
 
         Raises:
-            ValueError: If any object is missing an 'id'.
+            ValueError: If any object in `objs` does not have a valid 'id'.
+
+        Notes:
+            - This method is much more efficient than calling `update()` in
+              a loop.
+            - It uses SQLAlchemy's `bindparam` to map list data to a single
+              statement execution.
+
+        Example:
+            >>> products = await Product.objects.filter(category="sale").fetch(db)
+            >>> for p in products:
+            ...     p.price -= 10
+            >>> await Product.objects.bulk_update(db, products, ["price"])
         """
         if not objs or not fields:
             return 0
 
+        # Primary keys are required to route updates to the correct rows.
         if any(getattr(obj, "id", None) is None for obj in objs):
             msg = "All objects must have an id for bulk_update"
             raise ValueError(msg)
 
         from sqlalchemy import bindparam
 
+        # Transform model instances into a list of parameter dictionaries.
         update_data = [
             {"b_id": obj.id, **{f: getattr(obj, f) for f in fields}} for obj in objs
         ]
 
         table = cast("Table", self._model.__table__)
+        # Construct a statement where values are sourced from the bind parameters.
         stmt = (
             update(table)
             .where(table.c.id == bindparam("b_id"))

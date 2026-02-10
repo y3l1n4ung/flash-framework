@@ -85,21 +85,24 @@ def test_all_lookup_operators():
     is_not_null = False
     assert str(apply_lookup(col, "isnull", is_not_null)) == "products.name IS NOT NULL"
 
-    # Default branch
-    assert str(apply_lookup(col, "unknown", "v")) == "products.name = :name_1"
+    # Unknown lookup should raise ValueError
+    with pytest.raises(ValueError, match="Unsupported lookup 'unknown'"):
+        apply_lookup(col, "unknown", "v")
 
 
 def test_parse_lookup():
     """Test parsing of Django-style lookup keys."""
     from flash_db.expressions import parse_lookup
 
-    col, lookup = parse_lookup(Product, "name")
-    assert col == Product.name
+    col, lookup, field_name = parse_lookup(Product, "name")
+    assert col == Product.name  # pyright: ignore[reportGeneralTypeIssues]
     assert lookup == "exact"
+    assert field_name == "name"
 
-    col, lookup = parse_lookup(Product, "price__gt")
-    assert col == Product.price
+    col, lookup, field_name = parse_lookup(Product, "price__gt")
+    assert col == Product.price  # pyright: ignore[reportGeneralTypeIssues]
     assert lookup == "gt"
+    assert field_name == "price"
 
 
 def test_q_object_errors():
@@ -112,16 +115,6 @@ def test_q_object_errors():
 def test_q_object_empty_resolution():
     """Test resolution of empty Q objects."""
     assert Q().resolve(Product) is None
-
-
-def test_aggregate_base_class():
-    """Test base Aggregate class behavior."""
-    from flash_db.expressions import Aggregate
-
-    agg = Aggregate("field")
-    with pytest.raises(NotImplementedError):
-        agg.resolve(Product)
-    assert agg.get_joins(Product) == []
 
 
 def test_f_expression_all_arithmetic():
@@ -213,3 +206,61 @@ def test_aggregate_resolution():
     max_agg = Max("price")
     assert str(min_agg.resolve(Product)) == "min(products.price)"
     assert str(max_agg.resolve(Product)) == "max(products.price)"
+
+
+def test_aggregate_resolve_errors():
+    """Test error handling when aggregate field is missing."""
+    from flash_db.expressions import Sum
+
+    with pytest.raises(AttributeError, match="not found on model Product"):
+        Sum("nonexistent").resolve(Product)
+
+    with pytest.raises(AttributeError, match="not found on model Product"):
+        Count("nonexistent").resolve(Product)
+
+
+def test_f_expression_resolve_errors():
+    """Test error handling for F expressions with missing fields."""
+    with pytest.raises(AttributeError, match="not found on model Product"):
+        F("nonexistent").resolve(Product)
+
+
+def test_f_expression_resolve_with_annotations():
+    """Test that F expressions resolve from annotations."""
+    from sqlalchemy import Column, Integer
+
+    ann_col = Column("derived", Integer)
+    ann = {"derived": ann_col}
+    f = F("derived")
+    resolved = f.resolve(Product, _annotations=ann)
+    assert resolved is ann_col
+
+
+def test_aggregate_resolve_from_annotations():
+    """Test that aggregates can resolve from existing annotations."""
+    from sqlalchemy import func
+
+    # Mock an annotation (e.g. a calculated field)
+    ann = {"val_ann": func.lower(Product.name)}
+
+    # Verify each aggregate type correctly identifies and wraps the annotation
+    assert (
+        str(Count("val_ann").resolve(Product, _annotations=ann))
+        == "count(lower(products.name))"
+    )
+    assert (
+        str(Sum("val_ann").resolve(Product, _annotations=ann))
+        == "sum(lower(products.name))"
+    )
+    assert (
+        str(Avg("val_ann").resolve(Product, _annotations=ann))
+        == "avg(lower(products.name))"
+    )
+    assert (
+        str(Max("val_ann").resolve(Product, _annotations=ann))
+        == "max(lower(products.name))"
+    )
+    assert (
+        str(Min("val_ann").resolve(Product, _annotations=ann))
+        == "min(lower(products.name))"
+    )

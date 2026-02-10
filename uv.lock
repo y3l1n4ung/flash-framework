@@ -467,7 +467,7 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0.45" }]
+requires-dist = [{ name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0.45,<3.0" }]
 
 [package.metadata.requires-dev]
 dev = [

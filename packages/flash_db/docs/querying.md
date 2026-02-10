@@ -183,7 +183,57 @@ async def process_data():
     await user.do_something()
 ```
 
-## 8. Complex Expressions
+## 8. Aggregation and Annotation
+
+Perform complex calculations and summaries using `annotate` and `aggregate`.
+
+### Annotate
+
+Adds calculated fields to each object in the QuerySet. These fields are often aggregates like counts or sums.
+
+```python title="annotate.py"
+from flash_db import Count
+
+# Annotate each author with their article count
+authors = await Author.objects.annotate(
+    article_count=Count("articles")
+).fetch(db)
+
+# You can access the annotated field on the result objects
+for author in authors:
+    print(author.name, author.article_count)
+# SELECT authors.*, count(articles.id) AS article_count ... GROUP BY authors.id;
+```
+
+### Aggregate
+
+Calculates summary values for the entire QuerySet. Returns a dictionary of values.
+
+```python title="aggregate.py"
+from flash_db import Sum, Avg
+
+# Calculate total and average views for all articles
+stats = await Article.objects.aggregate(
+    db,
+    total_views=Sum("views"),
+    avg_views=Avg("views")
+)
+# {'total_views': 1500, 'avg_views': 50.5}
+# SELECT sum(views) AS total_views, avg(views) AS avg_views FROM articles;
+```
+
+### Available Functions
+
+- `Count(field)`: Counts rows.
+- `Sum(field)`: Sums a numeric field.
+- `Avg(field)`: Averages a numeric field.
+- `Min(field)`: Finds the minimum value.
+- `Max(field)`: Finds the maximum value.
+- `Q(**kwargs)`: Encapsulates query conditions for complex lookups.
+- `F(field)`: References a model field for database-side operations.
+
+
+## 9. Complex Expressions
 
 ### Q Objects
 
